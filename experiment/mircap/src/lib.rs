@@ -9,6 +9,11 @@ pub mod image;
 pub mod loader;
 pub mod pretty;
 pub mod validate;
+pub mod capnp_serde;
+
+pub mod mircap_capnp {
+    include!(concat!(env!("OUT_DIR"), "/schema/mircap_capnp.rs"));
+}
 
 pub use error::{ErrorKind, ValidationError};
 pub use ids::{BlockId, FunctionId, InstructionId, SourceSpanId, SymbolId, TypeId, ValueId};

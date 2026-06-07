@@ -187,6 +187,14 @@ impl ModuleImage {
         loader::from_text(text)
     }
 
+    pub fn to_capnp_bytes(&self) -> Vec<u8> {
+        crate::capnp_serde::to_capnp_bytes(self)
+    }
+
+    pub fn from_capnp_bytes(bytes: &[u8]) -> Result<Self, capnp::Error> {
+        crate::capnp_serde::from_capnp_bytes(bytes)
+    }
+
     pub fn validate(&self) -> Result<ValidationReport, Vec<crate::ValidationError>> {
         Validate::validate(self)
     }

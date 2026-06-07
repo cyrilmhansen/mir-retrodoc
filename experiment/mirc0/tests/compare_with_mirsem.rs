@@ -59,7 +59,9 @@ fn run_mirsem(image: &ModuleImage, profile: ExecutionProfile) -> ExpectedOutcome
 }
 
 fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
-    let image = ModuleImage::from_text(text).expect("load image");
+    let original = ModuleImage::from_text(text).expect("load image");
+    let capnp_bytes = original.to_capnp_bytes();
+    let image = ModuleImage::from_capnp_bytes(&capnp_bytes).expect("decode capnp");
     let expected = run_mirsem(&image, profile.clone());
 
     // Generate C code

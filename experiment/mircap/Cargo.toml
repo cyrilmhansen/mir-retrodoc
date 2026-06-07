@@ -9,4 +9,8 @@ license = "UNLICENSED"
 path = "src/lib.rs"
 
 [dependencies]
+capnp = "0.19"
+
+[build-dependencies]
+capnpc = "0.19"
 

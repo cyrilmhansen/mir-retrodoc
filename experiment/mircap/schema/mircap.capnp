@@ -17,6 +17,7 @@ struct ModuleImage {
   operands @8 :List(Operand);
   sourceSpans @9 :List(SourceSpan);
   metadata @10 :List(Metadata);
+  results @11 :List(UInt32);
 }
 
 struct Header {
@@ -113,19 +114,31 @@ enum Opcode {
   eqI32 @6;
   neI32 @7;
   ltI32 @8;
-  branch @9;
-  branchIf @10;
-  call @11;
-  ret @12;
-  trap @13;
-  alloc @14;
-  loadI32 @15;
-  loadU32 @16;
-  storeI32 @17;
-  storeU32 @18;
-  addrAdd @19;
-  unsupportedI64 @20;
-  unsupportedIndirectCall @21;
+  addU32 @9;
+  subU32 @10;
+  mulU32 @11;
+  eqU32 @12;
+  neU32 @13;
+  ltU32 @14;
+  leU32 @15;
+  gtU32 @16;
+  geU32 @17;
+  branch @18;
+  branchIf @19;
+  call @20;
+  ret @21;
+  trap @22;
+  alloc @23;
+  loadI32 @24;
+  loadU32 @25;
+  storeI32 @26;
+  storeU32 @27;
+  loadU8 @28;
+  storeU8 @29;
+  addrAdd @30;
+  dataAddr @31;
+  unsupportedI64 @32;
+  unsupportedIndirectCall @33;
 }
 
 struct Operand {

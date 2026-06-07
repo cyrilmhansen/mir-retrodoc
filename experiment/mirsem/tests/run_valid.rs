@@ -107,6 +107,17 @@ fn runs_load_store_u8() {
 }
 
 #[test]
+fn runs_sieve_32_u32_capnp() {
+    let original = ModuleImage::from_text(include_str!("../../mircap/tests/fixtures/valid_sieve_32_u32.mircap.txt")).expect("load original");
+    let capnp_bytes = original.to_capnp_bytes();
+    let decoded = ModuleImage::from_capnp_bytes(&capnp_bytes).expect("decode capnp");
+    
+    let mut runner = Runner::new(decoded, ExecutionProfile::default()).expect("validated runner");
+    let result = runner.run_entry_by_name("main", &[]).expect("run main");
+    assert_eq!(result.values, vec![Value::U32(11)]);
+}
+
+#[test]
 fn trace_counts_are_separate_from_image() {
     let image = ModuleImage::from_text(include_str!("../../mircap/tests/fixtures/valid_direct_call.mircap.txt")).expect("load fixture");
     let mut runner = Runner::new(image, ExecutionProfile::default()).expect("validated runner");
