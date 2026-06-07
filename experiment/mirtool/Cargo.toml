@@ -1,0 +1,12 @@
+[package]
+name = "mirtool"
+version = "0.1.0"
+edition = "2021"
+authors = ["Google DeepMind Team"]
+description = "Developer CLI tool for the MIR-F0 experimental rewrite pipeline"
+
+[dependencies]
+mircap = { path = "../mircap" }
+mirsem = { path = "../mirsem" }
+mirc0 = { path = "../mirc0" }
+capnp = "0.19"

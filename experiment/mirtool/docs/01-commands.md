@@ -1,0 +1,54 @@
+# mirtool Commands Reference
+
+This document details the inputs, options, and stable outputs of all `mirtool` commands.
+
+## Options
+- `--format <text|binary>`: Override format detection (default: `.mircap.txt` -> text, `.mircap` -> binary).
+- `--entry <name>`: Define the function to call as the pipeline entry point (default: `main`).
+- `--trace`: Show interpreter execution metrics (instructions executed, maximum call depth, allocation profiles) after execution.
+- `--force`: Force overwrite of existing files during encoding.
+- `--keep-temp`: Keep transpiled `.c` and compiled binaries generated during differential testing.
+
+---
+
+## 1. `validate`
+Performs static structure and layout validation on a module image.
+* **Input**: text or binary file.
+* **Stable Outputs**:
+  - `OK`
+  - `ERROR: <kind>: <message>` (e.g. `ERROR: TypeMismatch: operands do not match function signature`)
+
+## 2. `encode`
+Converts textual `.mircap.txt` to a serialized Cap'n Proto `.mircap` binary.
+* **Input**: `.mircap.txt` text file.
+* **Safety**: If the output binary already exists, halts with an error unless `--force` is specified.
+
+## 3. `decode`
+Produces a readable debug layout of a binary module image.
+* **Input**: binary `.mircap` file.
+* **Warning**: Decode output is for debugging purposes and is not yet a canonical source format.
+
+## 4. `run`
+Executes the target entry function using the `mirsem` reference interpreter.
+* **Input**: text or binary file.
+* **Stable Outputs**:
+  - `Result: i32 <value>`
+  - `Result: u32 <value>`
+  - `Result: addr32 <value>`
+  - `Result: void`
+  - `Trap: <code> <name>` (e.g. `Trap: 13 OutOfBoundsLoad`)
+
+## 5. `compile-c`
+Transpiles a module image into portable C11 source code.
+* **Input**: text or binary file.
+
+## 6. `diff`
+Performs differential testing of the image:
+1. Runs the image using `mirsem` reference interpreter.
+2. Compiles the image to C using `mirc0`.
+3. Compiles the generated C using `cc -std=c11 -Wall -Wextra -Werror -O0`.
+4. Executes the binary and checks that exit status, stdout, and stderr match the reference interpreter's output and trap identity.
+* **Stable Outputs**:
+  - `PASS`
+  - `FAIL: <reason>`
+  - If `cc` is not installed on the host, prints a warning message and skips verification gracefully.
