@@ -1,0 +1,20 @@
+//! Experimental MIR-F0 immutable module image.
+//!
+//! `mircap` is not upstream MIR. It is a small MIR-inspired module-image
+//! prototype with stable IDs, explicit blocks, and conservative validation.
+
+pub mod error;
+pub mod ids;
+pub mod image;
+pub mod loader;
+pub mod pretty;
+pub mod validate;
+
+pub use error::{ErrorKind, ValidationError};
+pub use ids::{BlockId, FunctionId, InstructionId, SourceSpanId, SymbolId, TypeId, ValueId};
+pub use image::{
+    Block, DataSegment, Function, Header, Instruction, Module, ModuleImage, Operand, Opcode,
+    Symbol, SymbolKind, TypeDef, TypeKind,
+};
+pub use loader::LoadError;
+pub use validate::{Validate, ValidationReport};

@@ -1,0 +1,12 @@
+mircap mircap
+version 0
+module 1 duplicate_function_id
+type 1 i32
+symbol 1 main function
+symbol 2 other function
+function 1 1 - 1 1 0 1
+function 1 2 - 1 1 0 1
+func_block 1 1
+block 1 1 1 2
+insn 1 const_i32 r:0 i:42
+insn 2 ret v:0

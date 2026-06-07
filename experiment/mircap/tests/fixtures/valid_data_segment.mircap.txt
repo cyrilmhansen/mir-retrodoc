@@ -1,0 +1,13 @@
+mircap mircap
+version 0
+module 1 data_segment
+type 1 i32
+symbol 1 main function
+symbol 2 global0 data
+data 2 0 2a000000 4
+function 1 1 - 1 1 0 1
+func_block 1 1
+block 1 1 1 2
+insn 1 const_i32 r:0 i:42
+insn 2 ret v:0
+

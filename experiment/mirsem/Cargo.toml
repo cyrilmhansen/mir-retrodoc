@@ -1,0 +1,13 @@
+[package]
+name = "mirsem"
+version = "0.1.0"
+edition = "2021"
+description = "Strict MIR-F0 reference evaluator for mircap ModuleImage"
+license = "UNLICENSED"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mircap = { path = "../mircap" }
+

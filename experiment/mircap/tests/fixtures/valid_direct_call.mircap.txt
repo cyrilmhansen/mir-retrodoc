@@ -1,0 +1,17 @@
+mircap mircap
+version 0
+module 1 direct_call
+type 1 i32
+symbol 1 main function
+symbol 2 callee function
+function 1 1 - 1 2 0 1,1
+function 2 2 1 1 2 0 1,1
+func_block 1 1
+func_block 2 2
+block 1 1 1 2 3
+block 2 2 4 5
+insn 1 const_i32 r:0 i:41
+insn 2 call r:1 f:2 v:0
+insn 3 ret v:1
+insn 4 copy r:1 v:0
+insn 5 ret v:1

@@ -1,0 +1,16 @@
+mircap mircap
+version 0
+module 1 wrong_call_arity
+type 1 i32
+symbol 1 main function
+symbol 2 callee function
+function 1 1 - 1 2 0 1,1
+function 2 2 1 1 2 0 1,1
+func_block 1 1
+func_block 2 2
+block 1 1 1 2
+block 2 2 3 4
+insn 1 call r:0 f:2
+insn 2 ret v:0
+insn 3 copy r:1 v:0
+insn 4 ret v:1

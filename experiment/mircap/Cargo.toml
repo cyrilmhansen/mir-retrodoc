@@ -1,0 +1,12 @@
+[package]
+name = "mircap"
+version = "0.1.0"
+edition = "2021"
+description = "Experimental MIR-F0 immutable module image and validator"
+license = "UNLICENSED"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+
