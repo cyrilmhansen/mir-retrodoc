@@ -1,0 +1,18 @@
+mircap mircap
+version 0
+module 1 load_store_u8
+type 1 u32
+type 2 addr32
+symbol 1 main function
+function 1 1 - 1 6 0 2,1,2,1,1,1
+func_block 1 1
+block 1 1 1 2 3 4 5 6 7 8 9
+insn 1 alloc r:0 u:4 u:4
+insn 2 const_u32 r:1 u:171
+insn 3 store_u8 v:0 v:1
+insn 4 const_u32 r:3 u:1
+insn 5 addr_add r:2 v:0 v:3
+insn 6 const_u32 r:4 u:205
+insn 7 store_u8 v:2 v:4
+insn 8 load_u8 r:5 v:0
+insn 9 ret v:5

@@ -1,0 +1,14 @@
+mircap mircap
+version 0
+module 1 data_addr_static_oob
+type 1 u32
+type 2 addr32
+symbol 1 main function
+symbol 2 global0 data
+data 2 100 2a2b2c2d 0
+function 1 1 - 1 5 0 2,1,1,1,1
+func_block 1 1
+block 1 1 1 2 3
+insn 1 data_addr r:0 s:2 u:5
+insn 2 const_u32 r:1 u:0
+insn 3 ret v:1

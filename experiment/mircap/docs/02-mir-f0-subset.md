@@ -35,6 +35,15 @@ runtime type.
 - `eq_i32`
 - `ne_i32`
 - `lt_i32`
+- `add_u32`
+- `sub_u32`
+- `mul_u32`
+- `eq_u32`
+- `ne_u32`
+- `lt_u32`
+- `le_u32`
+- `gt_u32`
+- `ge_u32`
 - `branch`
 - `branch_if`
 - `call`
@@ -43,9 +52,12 @@ runtime type.
 - `alloc`
 - `load_i32`
 - `load_u32`
+- `load_u8`
 - `store_i32`
 - `store_u32`
+- `store_u8`
 - `addr_add`
+- `data_addr`
 
 ## Memory Opcode Semantics
 
@@ -57,12 +69,26 @@ module-image validation error.
 `load_i32(addr32) -> i32` and `load_u32(addr32) -> u32` read four bytes from
 linear memory using little-endian layout.
 
+`load_u8(addr32) -> u32` reads a single byte from linear memory and zero-extends
+it to a `u32`.
+
 `store_i32(addr32, i32) -> void` and `store_u32(addr32, u32) -> void` write four
 bytes using little-endian layout. `store_u32` is separate from `store_i32` to
 avoid ambiguity in static validation.
 
+`store_u8(addr32, u32) -> void` writes a single byte to linear memory, masking
+the input value to its lowest 8 bits (`value & 0xFF`).
+
 `addr_add(addr32, u32) -> addr32` performs explicit address arithmetic. MIR-F0
 does not allow implicit casts between `addr32` and `u32`.
+
+`data_addr(data_segment_symbol, offset: u32) -> addr32` calculates the linear
+memory address of a static data segment. The base of the address is the segment's
+static loading offset (`ds.offset`). The valid range of offsets is `0 <= offset <= segment_len`
+where `segment_len` is the total size of the data segment (bytes length + zero fill).
+If a static offset is an immediate constant and exceeds `segment_len`, it fails
+static validation. If it is a dynamic value and exceeds `segment_len` at runtime,
+it triggers an execution trap (`OutOfBoundsLoad`).
 
 Out-of-bounds access and misalignment are execution traps owned by `mirsem` or
 another executor.
@@ -85,9 +111,6 @@ flow must be explicit.
 - exception handling: `out-of-scope`
 - SSA phi nodes: `out-of-scope`
 - host C ABI constructs: `out-of-scope`
-
-`load_u8` and `store_u8` are deferred. They are likely useful for strings or a
-BASIC-like environment, but they are not part of the first memory subset.
 
 ## Memory Model
 

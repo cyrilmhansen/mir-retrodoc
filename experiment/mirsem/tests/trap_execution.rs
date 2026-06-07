@@ -134,3 +134,27 @@ insn 6 ret v:3
     let err = runner.run_entry_by_name("main", &[]).expect_err("address overflow trap expected");
     assert!(matches!(err, ExecutionError::Trap(ExecutionTrap::AddressOverflow { .. })));
 }
+
+#[test]
+fn data_addr_dynamic_oob_is_reported() {
+    let text = include_str!("../../mircap/tests/fixtures/trap_data_addr_dynamic_oob.mircap.txt");
+    let mut runner = runner_from_text(text, ExecutionProfile::default());
+    let err = runner.run_entry_by_name("main", &[]).expect_err("data_addr dynamic oob trap expected");
+    assert!(matches!(err, ExecutionError::Trap(ExecutionTrap::OutOfBoundsLoad { .. })));
+}
+
+#[test]
+fn store_oob_is_reported() {
+    let text = include_str!("../../mircap/tests/fixtures/trap_store_oob.mircap.txt");
+    let mut runner = runner_from_text(text, ExecutionProfile::default());
+    let err = runner.run_entry_by_name("main", &[]).expect_err("store oob trap expected");
+    assert!(matches!(err, ExecutionError::Trap(ExecutionTrap::OutOfBoundsStore { .. })));
+}
+
+#[test]
+fn load_oob_is_reported() {
+    let text = include_str!("../../mircap/tests/fixtures/trap_load_oob.mircap.txt");
+    let mut runner = runner_from_text(text, ExecutionProfile::default());
+    let err = runner.run_entry_by_name("main", &[]).expect_err("load oob trap expected");
+    assert!(matches!(err, ExecutionError::Trap(ExecutionTrap::OutOfBoundsLoad { .. })));
+}

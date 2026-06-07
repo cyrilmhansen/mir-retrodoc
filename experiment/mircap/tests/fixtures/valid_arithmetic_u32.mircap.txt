@@ -1,0 +1,14 @@
+mircap mircap
+version 0
+module 1 arithmetic_u32
+type 1 u32
+symbol 1 main function
+function 1 1 - 1 5 0 1,1,1,1,1
+func_block 1 1
+block 1 1 1 2 3 4 5 6
+insn 1 const_u32 r:0 u:100
+insn 2 const_u32 r:1 u:30
+insn 3 sub_u32 r:2 v:0 v:1
+insn 4 const_u32 r:3 u:70
+insn 5 eq_u32 r:4 v:2 v:3
+insn 6 ret v:4

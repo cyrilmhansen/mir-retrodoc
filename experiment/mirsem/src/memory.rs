@@ -96,6 +96,17 @@ impl LinearMemory {
         Ok(())
     }
 
+    pub fn load_u8(&self, addr: u32) -> Result<u8, ExecutionTrap> {
+        self.check_load(addr, 1, 1)?;
+        Ok(self.bytes[addr as usize])
+    }
+
+    pub fn store_u8(&mut self, addr: u32, value: u8) -> Result<(), ExecutionTrap> {
+        self.check_store(addr, 1, 1)?;
+        self.bytes[addr as usize] = value;
+        Ok(())
+    }
+
     pub fn allocation_count(&self) -> u64 {
         self.allocation_count
     }

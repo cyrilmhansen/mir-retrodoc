@@ -39,17 +39,26 @@ Static validation checks malformed memory instructions:
 - `alloc` has one `addr32` result and two integer/immediate operands;
 - `load_i32` has one `i32` result and one `addr32` operand;
 - `load_u32` has one `u32` result and one `addr32` operand;
+- `load_u8` has one `u32` result and one `addr32` operand;
 - `store_i32` has no result, one `addr32` address, and one `i32` value;
 - `store_u32` has no result, one `addr32` address, and one `u32` value;
+- `store_u8` has no result, one `addr32` address, and one `u32` value;
 - `addr_add` has one `addr32` result, one `addr32` base operand, and one `u32`
   offset operand;
+- `data_addr` has one `addr32` result, one Symbol operand (referencing a Data symbol in a declared DataSegment), and one `u32` offset operand (immediate `ImmU32` or value `U32`). If the offset operand is a static immediate `ImmU32` constant, it must not exceed the referenced segment's length (bytes size + zero fill); otherwise, it is a validation error.
 - i64 memory forms are rejected through unsupported type/opcode validation.
 
 `branch_if` validation requires one `u32` condition operand and two explicit
 same-function block targets. There is no implicit false-target fallthrough.
 
-Execution traps are not validation errors. Out-of-bounds access, heap/stack
-collision, out-of-memory, and misalignment belong to the executor.
+Execution traps are not validation errors. Out-of-bounds access (including dynamic `data_addr` offsets exceeding segment length), heap/stack collision, out-of-memory, and misalignment belong to the executor.
+
+## Unsigned Arithmetic & Comparison Validation
+
+Static type safety checks enforce the following:
+- `add_u32`, `sub_u32`, `mul_u32` require two `u32` input operands and one `u32` result.
+- `eq_u32`, `ne_u32`, `lt_u32`, `le_u32`, `gt_u32`, `ge_u32` require two `u32` input operands and one `u32` result (representing 0 or 1).
+- No implicit casting is permitted between `i32`, `u32`, and `addr32`.
 
 ## Error Model
 

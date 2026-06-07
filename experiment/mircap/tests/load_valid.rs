@@ -42,3 +42,58 @@ fn valid_alloc_store_load_u32_loads() {
 fn valid_data_segment_loads() {
     load_fixture("valid_data_segment.mircap.txt").validate().expect("valid fixture");
 }
+
+#[test]
+fn valid_loop_loads() {
+    load_fixture("valid_loop.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn valid_addr_add_two_cells_loads() {
+    load_fixture("valid_addr_add_two_cells.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn valid_memory_loop_sum_loads() {
+    load_fixture("valid_memory_loop_sum.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn valid_sieve_32_loads() {
+    load_fixture("valid_sieve_32.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn valid_arithmetic_u32_loads() {
+    load_fixture("valid_arithmetic_u32.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn valid_sieve_32_u32_loads() {
+    load_fixture("valid_sieve_32_u32.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn valid_data_segment_load_loads() {
+    load_fixture("valid_data_segment_load.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn trap_data_addr_dynamic_oob_loads() {
+    load_fixture("trap_data_addr_dynamic_oob.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn trap_store_oob_loads() {
+    load_fixture("trap_store_oob.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn trap_load_oob_loads() {
+    load_fixture("trap_load_oob.mircap.txt").validate().expect("valid fixture");
+}
+
+#[test]
+fn valid_load_store_u8_loads() {
+    load_fixture("valid_load_store_u8.mircap.txt").validate().expect("valid fixture");
+}

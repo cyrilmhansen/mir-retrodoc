@@ -1,0 +1,16 @@
+mircap mircap
+version 0
+module 1 store_oob
+type 1 i32
+type 2 u32
+type 3 addr32
+symbol 1 main function
+function 1 1 - - 4 0 3,2,3,1
+func_block 1 1
+block 1 1 1 2 3 4 5 6
+insn 1 alloc r:0 u:4 u:4
+insn 2 const_u32 r:1 u:1048576
+insn 3 addr_add r:2 v:0 v:1
+insn 4 const_i32 r:3 i:42
+insn 5 store_i32 v:2 v:3
+insn 6 trap

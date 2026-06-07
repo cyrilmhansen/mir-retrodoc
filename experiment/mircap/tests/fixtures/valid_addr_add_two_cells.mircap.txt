@@ -1,0 +1,21 @@
+mircap mircap
+version 0
+module 1 addr_add_two_cells
+type 1 i32
+type 2 u32
+type 3 addr32
+symbol 1 main function
+function 1 1 - 1 8 0 3,2,3,2,2,1,1,1
+func_block 1 1
+block 1 1 1 2 3 4 5 6 7 8 9 10 11
+insn 1 alloc r:0 u:8 u:4
+insn 2 const_u32 r:1 u:4
+insn 3 addr_add r:2 v:0 v:1
+insn 4 const_u32 r:3 u:10
+insn 5 const_u32 r:4 u:32
+insn 6 store_u32 v:0 v:3
+insn 7 store_u32 v:2 v:4
+insn 8 load_i32 r:5 v:0
+insn 9 load_i32 r:6 v:2
+insn 10 add_i32 r:7 v:5 v:6
+insn 11 ret v:7

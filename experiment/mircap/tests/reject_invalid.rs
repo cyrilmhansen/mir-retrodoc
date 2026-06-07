@@ -81,3 +81,18 @@ fn rejects_addr_add_wrong_base_type() {
 fn rejects_addr_add_addr32_offset() {
     reject_fixture("invalid_addr_add_addr32_offset.mircap.txt");
 }
+
+#[test]
+fn rejects_data_addr_static_oob() {
+    reject_fixture("invalid_data_addr_static_oob.mircap.txt");
+}
+
+#[test]
+fn rejects_mixed_arithmetic() {
+    reject_fixture("invalid_mixed_arithmetic.mircap.txt");
+}
+
+#[test]
+fn rejects_addr32_normal_arithmetic() {
+    reject_fixture("invalid_addr32_normal_arithmetic.mircap.txt");
+}

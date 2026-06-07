@@ -121,6 +121,7 @@ impl Runner {
                 Opcode::ConstU32 => self.exec_const_u32(&mut stack, &insn)?,
                 Opcode::Copy => self.exec_copy(&mut stack, &insn)?,
                 Opcode::AddI32 | Opcode::SubI32 | Opcode::MulI32 | Opcode::EqI32 | Opcode::NeI32 | Opcode::LtI32 => self.exec_i32_binop(&mut stack, &insn)?,
+                Opcode::AddU32 | Opcode::SubU32 | Opcode::MulU32 | Opcode::EqU32 | Opcode::NeU32 | Opcode::LtU32 | Opcode::LeU32 | Opcode::GtU32 | Opcode::GeU32 => self.exec_u32_binop(&mut stack, &insn)?,
                 Opcode::Branch => self.exec_branch(&mut stack, &insn)?,
                 Opcode::BranchIf => self.exec_branch_if(&mut stack, &insn)?,
                 Opcode::Call => self.exec_call(&mut stack, &insn)?,
@@ -135,7 +136,10 @@ impl Runner {
                 Opcode::LoadU32 => self.exec_load_u32(&mut stack, &insn)?,
                 Opcode::StoreI32 => self.exec_store_i32(&mut stack, &insn)?,
                 Opcode::StoreU32 => self.exec_store_u32(&mut stack, &insn)?,
+                Opcode::LoadU8 => self.exec_load_u8(&mut stack, &insn)?,
+                Opcode::StoreU8 => self.exec_store_u8(&mut stack, &insn)?,
                 Opcode::AddrAdd => self.exec_addr_add(&mut stack, &insn)?,
+                Opcode::DataAddr => self.exec_data_addr(&mut stack, &insn)?,
                 Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {
                     return Err(ExecutionTrap::UnsupportedInstruction { instruction: insn.id, opcode: format!("{:?}", insn.opcode) }.into());
                 }
@@ -378,6 +382,67 @@ impl Runner {
 
     fn current_block<'a>(&'a self, frame: &Frame) -> Result<&'a Block, RunError> {
         self.image.block(frame.current_block).ok_or(ExecutionTrap::InvalidBlock { function: frame.function, block: frame.current_block }.into())
+    }
+
+    fn exec_u32_binop(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let lhs = match self.value_operand(stack, insn, 0)? {
+            Value::U32(val) => val,
+            _ => return Err(ExecutionTrap::UnsupportedType { function: self.current_frame(stack)?.function }.into()),
+        };
+        let rhs = match self.value_operand(stack, insn, 1)? {
+            Value::U32(val) => val,
+            _ => return Err(ExecutionTrap::UnsupportedType { function: self.current_frame(stack)?.function }.into()),
+        };
+        let value = match insn.opcode {
+            Opcode::AddU32 => Value::U32(lhs.wrapping_add(rhs)),
+            Opcode::SubU32 => Value::U32(lhs.wrapping_sub(rhs)),
+            Opcode::MulU32 => Value::U32(lhs.wrapping_mul(rhs)),
+            Opcode::EqU32 => Value::U32((lhs == rhs) as u32),
+            Opcode::NeU32 => Value::U32((lhs != rhs) as u32),
+            Opcode::LtU32 => Value::U32((lhs < rhs) as u32),
+            Opcode::LeU32 => Value::U32((lhs <= rhs) as u32),
+            Opcode::GtU32 => Value::U32((lhs > rhs) as u32),
+            Opcode::GeU32 => Value::U32((lhs >= rhs) as u32),
+            _ => return Err(ExecutionTrap::InvalidInstruction { instruction: insn.id }.into()),
+        };
+        self.write_result_and_advance(stack, insn, value)
+    }
+
+    fn exec_data_addr(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let sym_id = match insn.operands.first() {
+            Some(Operand::Symbol(sym_id)) => *sym_id,
+            _ => return Err(ExecutionTrap::InvalidInstruction { instruction: insn.id }.into()),
+        };
+        let offset = match self.value_operand(stack, insn, 1)? {
+            Value::U32(val) => val,
+            _ => return Err(ExecutionTrap::UnsupportedType { function: self.current_frame(stack)?.function }.into()),
+        };
+        let ds = self.image.data_segments.iter().find(|ds| ds.symbol == sym_id)
+            .ok_or_else(|| ExecutionError::Internal(format!("missing data segment symbol {:?}", sym_id)))?;
+        let segment_len = ds.bytes.len() as u32 + ds.zero_fill;
+        if offset > segment_len {
+            return Err(ExecutionTrap::OutOfBoundsLoad { addr: ds.offset + offset, size: 1 }.into());
+        }
+        let addr = ds.offset.checked_add(offset)
+            .ok_or_else(|| ExecutionTrap::AddressOverflow { base: ds.offset, offset })?;
+        self.write_result_and_advance(stack, insn, Value::Addr32(addr))
+    }
+
+    fn exec_load_u8(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let addr = self.addr_operand(stack, insn, 0)?;
+        let value = self.memory.load_u8(addr)?;
+        self.write_result_and_advance(stack, insn, Value::U32(value as u32))
+    }
+
+    fn exec_store_u8(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let addr = self.addr_operand(stack, insn, 0)?;
+        let value = match self.value_operand(stack, insn, 1)? {
+            Value::U32(value) => value,
+            _ => return Err(ExecutionTrap::UnsupportedType { function: self.current_frame(stack)?.function }.into()),
+        };
+        self.memory.store_u8(addr, (value & 0xFF) as u8)?;
+        self.current_frame_mut(stack)?.instruction_position += 1;
+        Ok(())
     }
 
     fn function<'a>(&'a self, function: FunctionId) -> Result<&'a Function, RunError> {

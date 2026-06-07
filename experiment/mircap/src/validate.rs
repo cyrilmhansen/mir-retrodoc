@@ -251,6 +251,15 @@ impl Validator<'_> {
                 self.expect_operand_type(current_function, insn, functions, 0, TypeKind::I32);
                 self.expect_operand_type(current_function, insn, functions, 1, TypeKind::I32);
             }
+            Opcode::AddU32 | Opcode::SubU32 | Opcode::MulU32 | Opcode::EqU32 | Opcode::NeU32 | Opcode::LtU32 | Opcode::LeU32 | Opcode::GtU32 | Opcode::GeU32 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 2);
+                self.expect_value_operand(insn, 0);
+                self.expect_value_operand(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::U32);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::U32);
+                self.expect_operand_type(current_function, insn, functions, 1, TypeKind::U32);
+            }
             Opcode::Branch => {
                 self.expect_results(insn, 0);
                 self.expect_operands(insn, 1);
@@ -274,7 +283,10 @@ impl Validator<'_> {
             Opcode::LoadU32 => self.check_load(current_function, insn, functions, TypeKind::U32),
             Opcode::StoreI32 => self.check_store(current_function, insn, functions, TypeKind::I32),
             Opcode::StoreU32 => self.check_store(current_function, insn, functions, TypeKind::U32),
+            Opcode::LoadU8 => self.check_load(current_function, insn, functions, TypeKind::U32),
+            Opcode::StoreU8 => self.check_store(current_function, insn, functions, TypeKind::U32),
             Opcode::AddrAdd => self.check_addr_add(current_function, insn, functions),
+            Opcode::DataAddr => self.check_data_addr(current_function, insn, functions),
             Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {}
         }
     }
@@ -307,6 +319,54 @@ impl Validator<'_> {
         self.expect_result_type(current_function, insn, functions, 0, TypeKind::Addr32);
         self.expect_operand_type(current_function, insn, functions, 0, TypeKind::Addr32);
         self.expect_operand_type(current_function, insn, functions, 1, TypeKind::U32);
+    }
+
+    fn check_data_addr(&mut self, current_function: FunctionId, insn: &crate::image::Instruction, functions: &BTreeMap<FunctionId, &crate::image::Function>) {
+        self.expect_results(insn, 1);
+        self.expect_operands(insn, 2);
+        self.expect_result_type(current_function, insn, functions, 0, TypeKind::Addr32);
+        
+        let mut valid_symbol = false;
+        let mut segment_len = 0u32;
+        
+        match insn.operands.first() {
+            Some(Operand::Symbol(sym_id)) => {
+                match self.image.symbol(*sym_id) {
+                    Some(sym) => {
+                        if sym.kind != SymbolKind::Data {
+                            self.error(ErrorKind::TypeMismatch, EntityRef::Instruction(insn.id), "data_addr first operand must reference a Data symbol");
+                        } else {
+                            valid_symbol = true;
+                            if let Some(ds) = self.image.data_segments.iter().find(|ds| ds.symbol == *sym_id) {
+                                segment_len = ds.bytes.len() as u32 + ds.zero_fill;
+                            } else {
+                                self.error(ErrorKind::MissingReference, EntityRef::Instruction(insn.id), format!("data_addr references symbol {} but no corresponding data segment exists", sym.name));
+                                valid_symbol = false;
+                            }
+                        }
+                    }
+                    None => {
+                        self.error(ErrorKind::MissingReference, EntityRef::Instruction(insn.id), format!("data_addr references missing symbol {sym_id}"));
+                    }
+                }
+            }
+            _ => self.error(ErrorKind::MalformedOperand, EntityRef::Instruction(insn.id), "data_addr first operand must be a symbol reference"),
+        }
+
+        match insn.operands.get(1) {
+            Some(Operand::ImmU32(val)) => {
+                if valid_symbol && *val > segment_len {
+                    self.error(ErrorKind::MalformedOperand, EntityRef::Instruction(insn.id), format!("static offset {} is out of range for data segment (max {})", val, segment_len));
+                }
+            }
+            Some(Operand::Value(val_id)) => {
+                let Some(actual) = self.value_type(current_function, *val_id, functions) else { return };
+                if actual != TypeKind::U32 {
+                    self.error(ErrorKind::TypeMismatch, EntityRef::Instruction(insn.id), format!("data_addr offset operand must be u32, got {actual:?}"));
+                }
+            }
+            _ => self.error(ErrorKind::MalformedOperand, EntityRef::Instruction(insn.id), "data_addr second operand must be a u32 immediate or value reference"),
+        }
     }
 
     fn check_call(&mut self, current_function: FunctionId, insn: &crate::image::Instruction, functions: &BTreeMap<FunctionId, &crate::image::Function>) {
