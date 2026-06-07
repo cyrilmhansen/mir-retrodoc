@@ -23,6 +23,7 @@ fn show_help() -> String {
     s.push_str("  validate <input_file>                     Loads and statically validates a module image.\n");
     s.push_str("  encode <input_file> <output_file>          Encodes textual mircap to Cap'n Proto binary.\n");
     s.push_str("  decode <input_file>                       Decodes binary mircap to a readable debug layout.\n");
+    s.push_str("  dump <input_file>                         Alias for decode. Prints readable debug representation.\n");
     s.push_str("  run <input_file>                          Executes entry function with mirsem reference interpreter.\n");
     s.push_str("  compile-c <input_file> <output_file>      Transpiles a module image to portable C11.\n");
     s.push_str("  diff <input_file>                         Runs differential execution comparison between mirsem and compiled C.\n\n");
@@ -77,7 +78,7 @@ fn parse_args() -> Result<Args, String> {
     }
 
     let (input, output) = match command.as_str() {
-        "validate" | "decode" | "run" | "diff" => {
+        "validate" | "decode" | "dump" | "run" | "diff" => {
             if positional.is_empty() {
                 return Err(format!("Command '{}' requires an input file path.\n\n{}", command, show_help()));
             }
@@ -126,7 +127,7 @@ fn main() {
     let result = match args.command.as_str() {
         "validate" => commands::cmd_validate(&args.input, args.format.as_deref()),
         "encode" => commands::cmd_encode(&args.input, args.output.as_ref().unwrap(), args.force),
-        "decode" => commands::cmd_decode(&args.input, args.format.as_deref()),
+        "decode" | "dump" => commands::cmd_decode(&args.input, args.format.as_deref()),
         "run" => commands::cmd_run(&args.input, args.format.as_deref(), entry_name, args.trace),
         "compile-c" => commands::cmd_compile_c(&args.input, args.output.as_ref().unwrap(), args.format.as_deref(), entry_name),
         "diff" => commands::cmd_diff(&args.input, args.format.as_deref(), entry_name, args.keep_temp),

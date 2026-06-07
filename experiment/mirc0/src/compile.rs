@@ -85,11 +85,15 @@ pub fn compile(image: &ModuleImage, entry_name: &str) -> Result<String, CompileE
         }
         TypeKind::I32 => {
             out.push_str(&format!("    int32_t res = mir_fn_{}();\n", entry_func.id.0));
-            out.push_str("    printf(\"Result: %\" PRId32 \"\\n\", res);\n");
+            out.push_str("    printf(\"Result: i32 %\" PRId32 \"\\n\", res);\n");
         }
-        TypeKind::U32 | TypeKind::Addr32 => {
+        TypeKind::U32 => {
             out.push_str(&format!("    uint32_t res = mir_fn_{}();\n", entry_func.id.0));
-            out.push_str("    printf(\"Result: %\" PRIu32 \"\\n\", res);\n");
+            out.push_str("    printf(\"Result: u32 %\" PRIu32 \"\\n\", res);\n");
+        }
+        TypeKind::Addr32 => {
+            out.push_str(&format!("    uint32_t res = mir_fn_{}();\n", entry_func.id.0));
+            out.push_str("    printf(\"Result: addr32 %\" PRIu32 \"\\n\", res);\n");
         }
         _ => return Err(CompileError::UnsupportedType(entry_ret_type)),
     }

@@ -141,15 +141,15 @@ fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
                     assert_eq!(result_line, Some("Result: void"));
                 }
                 Some(Value::I32(val)) => {
-                    let expected_line = format!("Result: {}", val);
+                    let expected_line = format!("Result: i32 {}", val);
                     assert_eq!(result_line, Some(expected_line.as_str()));
                 }
                 Some(Value::U32(val)) => {
-                    let expected_line = format!("Result: {}", val);
+                    let expected_line = format!("Result: u32 {}", val);
                     assert_eq!(result_line, Some(expected_line.as_str()));
                 }
                 Some(Value::Addr32(val)) => {
-                    let expected_line = format!("Result: {}", val);
+                    let expected_line = format!("Result: addr32 {}", val);
                     assert_eq!(result_line, Some(expected_line.as_str()));
                 }
             }

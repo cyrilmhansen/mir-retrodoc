@@ -69,6 +69,26 @@ fn test_decode_binary() {
 }
 
 #[test]
+fn test_dump_binary() {
+    let text_path = fixture_path("valid_const_return.mircap.txt");
+    let temp_bin = "temp_smoke_dump.mircap";
+    
+    // Encode text to binary
+    let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
+    assert!(output.status.success());
+    
+    // Dump binary
+    let output2 = run_mirtool(&["dump", temp_bin]);
+    assert!(output2.status.success());
+    let stdout = String::from_utf8_lossy(&output2.stdout);
+    assert!(stdout.contains("mircap"));
+    assert!(stdout.contains("const_return"));
+    assert!(stdout.contains("const_i32"));
+    
+    let _ = std::fs::remove_file(temp_bin);
+}
+
+#[test]
 fn test_run_valid_sieve_32_u32() {
     let path = fixture_path("valid_sieve_32_u32.mircap.txt");
     let output = run_mirtool(&["run", &path]);
@@ -104,6 +124,7 @@ fn test_diff_valid_sieve_32_u32() {
     }
 }
 
+
 #[test]
 fn test_run_trap_load_oob() {
     let path = fixture_path("trap_load_oob.mircap.txt");
@@ -111,4 +132,97 @@ fn test_run_trap_load_oob() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Trap: 13 OutOfBoundsLoad"));
+}
+
+#[test]
+fn test_binary_sieve_32_u32_flow() {
+    let text_path = fixture_path("valid_sieve_32_u32.mircap.txt");
+    let temp_bin = "temp_smoke_sieve.mircap";
+    let temp_c = "temp_smoke_sieve_bin.c";
+    let temp_exec = "temp_smoke_sieve_bin_exe";
+
+    // 1. Encode
+    let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
+    assert!(output.status.success());
+
+    // 2. Validate
+    let output = run_mirtool(&["validate", temp_bin]);
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "OK");
+
+    // 3. Run
+    let output = run_mirtool(&["run", temp_bin]);
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Result: u32 11"));
+
+    // 4. Compile C
+    let output = run_mirtool(&["compile-c", temp_bin, temp_c]);
+    assert!(output.status.success());
+
+    // 5. Build with CC and Run
+    let cc_check = std::process::Command::new("cc").arg("--version").output();
+    if cc_check.is_ok() {
+        let compile_res = std::process::Command::new("cc")
+            .arg("-std=c11")
+            .arg("-Wall")
+            .arg("-Wextra")
+            .arg("-Werror")
+            .arg("-O0")
+            .arg("-o")
+            .arg(temp_exec)
+            .arg(temp_c)
+            .output();
+        assert!(compile_res.is_ok());
+        let compile_output = compile_res.unwrap();
+        assert!(compile_output.status.success(), "C compilation failed:\n{}", String::from_utf8_lossy(&compile_output.stderr));
+
+        let exec_res = std::process::Command::new(format!("./{}", temp_exec)).output();
+        assert!(exec_res.is_ok());
+        let exec_output = exec_res.unwrap();
+        assert!(exec_output.status.success());
+        assert!(String::from_utf8_lossy(&exec_output.stdout).contains("Result: u32 11"));
+
+        let _ = std::fs::remove_file(temp_exec);
+    }
+
+    // 6. Diff
+    let cc_check = std::process::Command::new("cc").arg("--version").output();
+    if cc_check.is_ok() {
+        let output = run_mirtool(&["diff", temp_bin]);
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "PASS");
+    }
+
+    let _ = std::fs::remove_file(temp_bin);
+    let _ = std::fs::remove_file(temp_c);
+}
+
+#[test]
+fn test_binary_trap_load_oob_flow() {
+    let text_path = fixture_path("trap_load_oob.mircap.txt");
+    let temp_bin = "temp_smoke_trap.mircap";
+
+    // 1. Encode
+    let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
+    assert!(output.status.success());
+
+    // 2. Validate
+    let output = run_mirtool(&["validate", temp_bin]);
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "OK");
+
+    // 3. Run binary trap
+    let output = run_mirtool(&["run", temp_bin]);
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Trap: 13 OutOfBoundsLoad"));
+
+    // 4. Diff binary trap
+    let cc_check = std::process::Command::new("cc").arg("--version").output();
+    if cc_check.is_ok() {
+        let output = run_mirtool(&["diff", temp_bin]);
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "PASS");
+    }
+
+    let _ = std::fs::remove_file(temp_bin);
 }

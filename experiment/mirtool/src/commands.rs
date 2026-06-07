@@ -240,9 +240,9 @@ pub fn cmd_diff(
             let result_line = stdout_str.lines().find(|l| l.starts_with("Result: "));
             let expected_str = match expected_val {
                 None | Some(mirsem::Value::Void) => "Result: void".to_string(),
-                Some(mirsem::Value::I32(v)) => format!("Result: {}", v),
-                Some(mirsem::Value::U32(v)) => format!("Result: {}", v),
-                Some(mirsem::Value::Addr32(v)) => format!("Result: {}", v),
+                Some(mirsem::Value::I32(v)) => format!("Result: i32 {}", v),
+                Some(mirsem::Value::U32(v)) => format!("Result: u32 {}", v),
+                Some(mirsem::Value::Addr32(v)) => format!("Result: addr32 {}", v),
             };
             if result_line == Some(expected_str.as_str()) {
                 println!("PASS");

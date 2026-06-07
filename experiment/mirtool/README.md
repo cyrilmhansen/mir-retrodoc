@@ -64,7 +64,7 @@ Decodes binary MIR-F0 bytecode into a readable debug textual representation.
 ```bash
 mirtool decode <input_file> [--format text|binary]
 ```
-*Note: The decode output is intended for debugging/inspection and is not yet a canonical source format.*
+*Note: The decode output is a debug layout intended only for troubleshooting and inspection, and is not a canonical MIR-F0 source format.*
 
 ### `run`
 Executes the entry function using the `mirsem` interpreter.
@@ -86,3 +86,15 @@ mirtool diff <input_file> [--format text|binary] [--entry <name>] [--keep-temp]
 ```
 Outputs `PASS` or `FAIL: <reason>`. Safe temporary files are deleted immediately after execution unless `--keep-temp` is specified.
 If no C compiler is available on the host system, the command gracefully reports that compilation was skipped.
+
+---
+
+## 4. Build and Runtime Dependencies
+
+### Build-Time Dependencies
+* **Cap'n Proto Compiler (`capnp` on PATH)**: Building `mirtool` transitively compiles the `mircap` crate. `mircap` compiles `/schema/mircap.capnp` at build time using a custom `build.rs` script, which requires the `capnp` schema compiler binary to be present on the host system `PATH`.
+
+### Runtime Dependencies
+* **Host C Compiler (`cc`, `gcc`, or `clang`)**: A host C compiler is required at runtime **only** when performing differential execution checks (using the `diff` command) or compiling generated C output for testing. Other commands (`validate`, `encode`, `decode`, `run`, `compile-c`) have no runtime dependency on a C compiler.
+* **Graceful Degradation**: If no C compiler is available, `diff` will gracefully report that the host compiler is unavailable and skip the compilation/execution phase without failing the command.
+
