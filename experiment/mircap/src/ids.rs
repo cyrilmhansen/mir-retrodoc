@@ -20,4 +20,3 @@ stable_id!(ValueId);
 stable_id!(TypeId);
 stable_id!(SymbolId);
 stable_id!(SourceSpanId);
-

@@ -17,3 +17,6 @@ jobs:
 
       - name: Run tests
         run: ./scripts/test-all.sh
+
+      - name: Check formatting
+        run: ./scripts/fmt-all.sh --check

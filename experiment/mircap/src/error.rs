@@ -35,7 +35,11 @@ pub struct ValidationError {
 
 impl ValidationError {
     pub fn new(kind: ErrorKind, entity: EntityRef, message: impl Into<String>) -> Self {
-        Self { kind, entity, source_span: None, message: message.into() }
+        Self {
+            kind,
+            entity,
+            source_span: None,
+            message: message.into(),
+        }
     }
 }
-

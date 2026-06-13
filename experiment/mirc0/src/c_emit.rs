@@ -1,5 +1,5 @@
-use mircap::{Operand, Opcode, TypeKind, Instruction, ModuleImage};
 use crate::error::CompileError;
+use mircap::{Instruction, ModuleImage, Opcode, Operand, TypeKind};
 
 pub fn emit_type(kind: TypeKind) -> Result<&'static str, CompileError> {
     match kind {
@@ -32,106 +32,169 @@ pub fn emit_operand(op: &Operand) -> String {
 pub fn emit_instruction(insn: &Instruction, image: &ModuleImage) -> Result<String, CompileError> {
     match insn.opcode {
         Opcode::ConstI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let val = emit_operand(&insn.operands[0]);
             Ok(format!("v{} = {};", dest.0, val))
         }
         Opcode::ConstU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let val = emit_operand(&insn.operands[0]);
             Ok(format!("v{} = {};", dest.0, val))
         }
         Opcode::Copy => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let src = emit_operand(&insn.operands[0]);
             Ok(format!("v{} = {};", dest.0, src))
         }
         Opcode::AddI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
-            Ok(format!("v{} = (int32_t)((uint32_t){} + (uint32_t){});", dest.0, lhs, rhs))
+            Ok(format!(
+                "v{} = (int32_t)((uint32_t){} + (uint32_t){});",
+                dest.0, lhs, rhs
+            ))
         }
         Opcode::SubI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
-            Ok(format!("v{} = (int32_t)((uint32_t){} - (uint32_t){});", dest.0, lhs, rhs))
+            Ok(format!(
+                "v{} = (int32_t)((uint32_t){} - (uint32_t){});",
+                dest.0, lhs, rhs
+            ))
         }
         Opcode::MulI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
-            Ok(format!("v{} = (int32_t)((uint32_t){} * (uint32_t){});", dest.0, lhs, rhs))
+            Ok(format!(
+                "v{} = (int32_t)((uint32_t){} * (uint32_t){});",
+                dest.0, lhs, rhs
+            ))
         }
         Opcode::EqI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} == {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::NeI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} != {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::LtI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} < {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::AddU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = {} + {};", dest.0, lhs, rhs))
         }
         Opcode::SubU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = {} - {};", dest.0, lhs, rhs))
         }
         Opcode::MulU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = {} * {};", dest.0, lhs, rhs))
         }
         Opcode::EqU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} == {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::NeU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} != {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::LtU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} < {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::LeU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} <= {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::GtU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} > {}) ? 1u : 0u;", dest.0, lhs, rhs))
         }
         Opcode::GeU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let lhs = emit_operand(&insn.operands[0]);
             let rhs = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = ({} >= {}) ? 1u : 0u;", dest.0, lhs, rhs))
@@ -169,22 +232,29 @@ pub fn emit_instruction(insn: &Instruction, image: &ModuleImage) -> Result<Strin
                 Err(CompileError::MultipleResultsNotSupported)
             }
         }
-        Opcode::Trap => {
-            Ok("mir_trap(3);".to_string())
-        }
+        Opcode::Trap => Ok("mir_trap(3);".to_string()),
         Opcode::Alloc => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let size = emit_operand(&insn.operands[0]);
             let align = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = mir_alloc({}, {});", dest.0, size, align))
         }
         Opcode::LoadI32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let addr = emit_operand(&insn.operands[0]);
             Ok(format!("v{} = mir_load_i32({});", dest.0, addr))
         }
         Opcode::LoadU32 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let addr = emit_operand(&insn.operands[0]);
             Ok(format!("v{} = mir_load_u32({});", dest.0, addr))
         }
@@ -199,7 +269,10 @@ pub fn emit_instruction(insn: &Instruction, image: &ModuleImage) -> Result<Strin
             Ok(format!("mir_store_u32({}, {});", addr, val))
         }
         Opcode::LoadU8 => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let addr = emit_operand(&insn.operands[0]);
             Ok(format!("v{} = mir_load_u8({});", dest.0, addr))
         }
@@ -209,22 +282,34 @@ pub fn emit_instruction(insn: &Instruction, image: &ModuleImage) -> Result<Strin
             Ok(format!("mir_store_u8({}, {});", addr, val))
         }
         Opcode::AddrAdd => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let base = emit_operand(&insn.operands[0]);
             let offset = emit_operand(&insn.operands[1]);
             Ok(format!("v{} = mir_addr_add({}, {});", dest.0, base, offset))
         }
         Opcode::DataAddr => {
-            let dest = insn.results.first().ok_or(CompileError::MultipleResultsNotSupported)?;
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
             let sym_id = match insn.operands[0] {
                 Operand::Symbol(sym_id) => sym_id,
                 _ => return Err(CompileError::MultipleResultsNotSupported),
             };
             let offset = emit_operand(&insn.operands[1]);
-            let ds = image.data_segments.iter().find(|ds| ds.symbol == sym_id)
+            let ds = image
+                .data_segments
+                .iter()
+                .find(|ds| ds.symbol == sym_id)
                 .ok_or_else(|| CompileError::MultipleResultsNotSupported)?;
             let ds_len = ds.bytes.len() as u32 + ds.zero_fill;
-            Ok(format!("v{} = mir_data_addr({}u, {}, {}u);", dest.0, ds.offset, offset, ds_len))
+            Ok(format!(
+                "v{} = mir_data_addr({}u, {}, {}u);",
+                dest.0, ds.offset, offset, ds_len
+            ))
         }
         Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {
             Err(CompileError::UnsupportedOpcode(insn.opcode))

@@ -2,11 +2,11 @@
 //!
 //! `mirc0` is used to compare compiled execution against reference interpreter `mirsem`.
 
-pub mod error;
 pub mod c_emit;
 pub mod compile;
-pub mod runtime_c;
+pub mod error;
 pub mod pretty;
+pub mod runtime_c;
 
-pub use error::CompileError;
 pub use compile::compile;
+pub use error::CompileError;

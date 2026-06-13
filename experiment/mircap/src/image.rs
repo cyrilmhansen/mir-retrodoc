@@ -118,7 +118,10 @@ pub enum Opcode {
 
 impl Opcode {
     pub fn is_terminator(self) -> bool {
-        matches!(self, Opcode::Branch | Opcode::BranchIf | Opcode::Ret | Opcode::Trap)
+        matches!(
+            self,
+            Opcode::Branch | Opcode::BranchIf | Opcode::Ret | Opcode::Trap
+        )
     }
 }
 

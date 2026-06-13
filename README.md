@@ -55,6 +55,7 @@ Preferred commands:
 ```sh
 ./scripts/test-all.sh
 ./scripts/fmt-all.sh
+./scripts/fmt-all.sh --check
 ```
 
 Each experiment crate is standalone:
@@ -72,6 +73,7 @@ The `mirc0` and `mirtool` differential tests use the host C compiler `cc` when
 available.
 
 `scripts/test-all.sh` runs the same crate tests in a fixed order and fails fast.
+`scripts/fmt-all.sh --check` verifies rustfmt output without rewriting files.
 
 ## License
 

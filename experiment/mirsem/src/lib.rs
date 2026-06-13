@@ -20,4 +20,3 @@ pub use runner::{ExecutionResult, Runner};
 pub use trace::{FunctionTrace, TraceSnapshot};
 pub use trap::ExecutionTrap;
 pub use value::Value;
-

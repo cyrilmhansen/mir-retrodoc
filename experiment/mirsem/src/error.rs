@@ -15,4 +15,3 @@ impl From<ExecutionTrap> for ExecutionError {
         ExecutionError::Trap(value)
     }
 }
-

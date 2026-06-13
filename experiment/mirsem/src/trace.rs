@@ -71,4 +71,3 @@ impl TraceState {
         *self.block_entries.entry(block).or_default() += 1;
     }
 }
-

@@ -1,7 +1,10 @@
 use crate::mircap_capnp;
 
-use crate::image::{ModuleImage, Header, Module, TypeDef, TypeKind, Symbol, SymbolKind, Function, Block, Instruction, Operand, Opcode, DataSegment};
-use crate::ids::{TypeId, SymbolId, FunctionId, BlockId, InstructionId, ValueId, SourceSpanId};
+use crate::ids::{BlockId, FunctionId, InstructionId, SourceSpanId, SymbolId, TypeId, ValueId};
+use crate::image::{
+    Block, DataSegment, Function, Header, Instruction, Module, ModuleImage, Opcode, Operand,
+    Symbol, SymbolKind, TypeDef, TypeKind,
+};
 use capnp::message::Builder;
 use capnp::serialize;
 
@@ -9,7 +12,7 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
     let mut message = Builder::new_default();
     {
         let mut root = message.init_root::<mircap_capnp::module_image::Builder>();
-        
+
         // 1. Header
         {
             let mut header = root.reborrow().init_header();
@@ -28,14 +31,14 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                 flags.set(i as u32, flag);
             }
         }
-        
+
         // 2. Module
         {
             let mut module = root.reborrow().init_module();
             module.set_id(image.module.id);
             module.set_name(&image.module.name);
         }
-        
+
         // 3. Types
         {
             let mut types = root.reborrow().init_types(image.types.len() as u32);
@@ -49,7 +52,9 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                     TypeKind::Addr32 => mircap_capnp::TypeKind::Addr32,
                     TypeKind::UnsupportedI64 => mircap_capnp::TypeKind::UnsupportedI64,
                     TypeKind::UnsupportedFloat => mircap_capnp::TypeKind::UnsupportedFloat,
-                    TypeKind::UnsupportedLongDouble => mircap_capnp::TypeKind::UnsupportedLongDouble,
+                    TypeKind::UnsupportedLongDouble => {
+                        mircap_capnp::TypeKind::UnsupportedLongDouble
+                    }
                     TypeKind::UnsupportedAggregate => mircap_capnp::TypeKind::UnsupportedAggregate,
                     TypeKind::UnsupportedVarargs => mircap_capnp::TypeKind::UnsupportedVarargs,
                     TypeKind::UnsupportedHostCAbi => mircap_capnp::TypeKind::UnsupportedHostCAbi,
@@ -57,7 +62,7 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                 capnp_ty.set_kind(capnp_kind);
             }
         }
-        
+
         // 4. Symbols
         {
             let mut symbols = root.reborrow().init_symbols(image.symbols.len() as u32);
@@ -128,24 +133,28 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                 let mut capnp_func = functions.reborrow().get(i as u32);
                 capnp_func.set_id(func.id.0);
                 capnp_func.set_symbol(func.symbol.0);
-                
+
                 let mut params = capnp_func.reborrow().init_params(func.params.len() as u32);
                 for (j, &p) in func.params.iter().enumerate() {
                     params.set(j as u32, p.0);
                 }
-                
-                let mut results = capnp_func.reborrow().init_results(func.results.len() as u32);
+
+                let mut results = capnp_func
+                    .reborrow()
+                    .init_results(func.results.len() as u32);
                 for (j, &r) in func.results.iter().enumerate() {
                     results.set(j as u32, r.0);
                 }
-                
+
                 capnp_func.set_value_count(func.value_count);
-                
-                let mut val_types = capnp_func.reborrow().init_value_types(func.value_types.len() as u32);
+
+                let mut val_types = capnp_func
+                    .reborrow()
+                    .init_value_types(func.value_types.len() as u32);
                 for (j, &t) in func.value_types.iter().enumerate() {
                     val_types.set(j as u32, t.0);
                 }
-                
+
                 let (first_block, block_count) = func_block_ranges[i];
                 capnp_func.set_first_block(first_block);
                 capnp_func.set_block_count(block_count);
@@ -156,7 +165,9 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
 
         // 6. Data Segments
         {
-            let mut data_segs = root.reborrow().init_data_segments(image.data_segments.len() as u32);
+            let mut data_segs = root
+                .reborrow()
+                .init_data_segments(image.data_segments.len() as u32);
             for (i, ds) in image.data_segments.iter().enumerate() {
                 let mut capnp_ds = data_segs.reborrow().get(i as u32);
                 capnp_ds.set_symbol(ds.symbol.0);
@@ -173,7 +184,7 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                 let mut capnp_block = blocks.reborrow().get(i as u32);
                 capnp_block.set_id(block.id.0);
                 capnp_block.set_parent_function(block.parent.0);
-                
+
                 let (first_insn, insn_count) = block_insn_ranges[i];
                 capnp_block.set_first_instruction(first_insn);
                 capnp_block.set_instruction_count(insn_count);
@@ -188,7 +199,7 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
             for (i, insn) in flat_insns.iter().enumerate() {
                 let mut capnp_insn = instructions.reborrow().get(i as u32);
                 capnp_insn.set_id(insn.id.0);
-                
+
                 let capnp_op = match insn.opcode {
                     Opcode::ConstI32 => mircap_capnp::Opcode::ConstI32,
                     Opcode::ConstU32 => mircap_capnp::Opcode::ConstU32,
@@ -223,18 +234,20 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                     Opcode::AddrAdd => mircap_capnp::Opcode::AddrAdd,
                     Opcode::DataAddr => mircap_capnp::Opcode::DataAddr,
                     Opcode::UnsupportedI64 => mircap_capnp::Opcode::UnsupportedI64,
-                    Opcode::UnsupportedIndirectCall => mircap_capnp::Opcode::UnsupportedIndirectCall,
+                    Opcode::UnsupportedIndirectCall => {
+                        mircap_capnp::Opcode::UnsupportedIndirectCall
+                    }
                 };
                 capnp_insn.set_opcode(capnp_op);
-                
+
                 let (first_res, res_count) = insn_result_ranges[i];
                 capnp_insn.set_first_result(first_res);
                 capnp_insn.set_result_count(res_count);
-                
+
                 let (first_op, op_count) = insn_operand_ranges[i];
                 capnp_insn.set_first_operand(first_op);
                 capnp_insn.set_operand_count(op_count);
-                
+
                 capnp_insn.set_source_span(insn.source_span.map(|id| id.0).unwrap_or(0));
             }
         }
@@ -266,7 +279,7 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
 
         // 11. Source Spans
         root.reborrow().init_source_spans(0);
-        
+
         // 12. Metadata
         root.reborrow().init_metadata(0);
     }
@@ -279,26 +292,34 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
 pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
     let reader = serialize::read_message(bytes, capnp::message::ReaderOptions::new())?;
     let root = reader.get_root::<mircap_capnp::module_image::Reader>()?;
-    
+
     // 1. Header
     let capnp_header = root.get_header()?;
     let schema_name = capnp_header.get_schema_name()?.to_string()?;
     let format_version = capnp_header.get_format_version();
     let producer_name = capnp_header.get_producer_name()?.to_string()?;
     let producer_version = capnp_header.get_producer_version()?.to_string()?;
-    
+
     let source_lang_str = capnp_header.get_source_language()?.to_string()?;
-    let source_language = if source_lang_str.is_empty() { None } else { Some(source_lang_str) };
-    
+    let source_language = if source_lang_str.is_empty() {
+        None
+    } else {
+        Some(source_lang_str)
+    };
+
     let target_ass_str = capnp_header.get_target_assumptions()?.to_string()?;
-    let target_assumptions = if target_ass_str.is_empty() { None } else { Some(target_ass_str) };
-    
+    let target_assumptions = if target_ass_str.is_empty() {
+        None
+    } else {
+        Some(target_ass_str)
+    };
+
     let capnp_flags = capnp_header.get_feature_flags()?;
     let mut feature_flags = Vec::new();
     for i in 0..capnp_flags.len() {
         feature_flags.push(capnp_flags.get(i)?.to_string()?);
     }
-    
+
     let header = Header {
         schema_name,
         format_version,
@@ -308,14 +329,14 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
         target_assumptions,
         feature_flags,
     };
-    
+
     // 2. Module
     let capnp_module = root.get_module()?;
     let module = Module {
         id: capnp_module.get_id(),
         name: capnp_module.get_name()?.to_string()?,
     };
-    
+
     // 3. Types
     let capnp_types = root.get_types()?;
     let mut types = Vec::new();
@@ -336,7 +357,7 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
         };
         types.push(TypeDef { id, kind });
     }
-    
+
     // 4. Symbols
     let capnp_symbols = root.get_symbols()?;
     let mut symbols = Vec::new();
@@ -351,7 +372,7 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
         };
         symbols.push(Symbol { id, name, kind });
     }
-    
+
     // 5. Data Segments
     let capnp_data_segs = root.get_data_segments()?;
     let mut data_segments = Vec::new();
@@ -361,7 +382,12 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
         let offset = ds.get_offset();
         let bytes = ds.get_bytes()?.to_vec();
         let zero_fill = ds.get_zero_fill();
-        data_segments.push(DataSegment { symbol, offset, bytes, zero_fill });
+        data_segments.push(DataSegment {
+            symbol,
+            offset,
+            bytes,
+            zero_fill,
+        });
     }
 
     // Flat tables
@@ -397,7 +423,7 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
     for i in 0..capnp_instructions.len() {
         let insn = capnp_instructions.get(i);
         let id = InstructionId(insn.get_id());
-        
+
         let opcode = match insn.get_opcode()? {
             mircap_capnp::Opcode::ConstI32 => Opcode::ConstI32,
             mircap_capnp::Opcode::ConstU32 => Opcode::ConstU32,
@@ -434,25 +460,35 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
             mircap_capnp::Opcode::UnsupportedI64 => Opcode::UnsupportedI64,
             mircap_capnp::Opcode::UnsupportedIndirectCall => Opcode::UnsupportedIndirectCall,
         };
-        
+
         let first_res = insn.get_first_result() as usize;
         let res_count = insn.get_result_count() as usize;
         let mut results = Vec::new();
         if first_res + res_count <= results_list.len() {
-            results.extend_from_slice(&results_list[first_res .. first_res + res_count]);
+            results.extend_from_slice(&results_list[first_res..first_res + res_count]);
         }
-        
+
         let first_op = insn.get_first_operand() as usize;
         let op_count = insn.get_operand_count() as usize;
         let mut operands = Vec::new();
         if first_op + op_count <= operands_list.len() {
-            operands.extend_from_slice(&operands_list[first_op .. first_op + op_count]);
+            operands.extend_from_slice(&operands_list[first_op..first_op + op_count]);
         }
-        
+
         let span_val = insn.get_source_span();
-        let source_span = if span_val == 0 { None } else { Some(SourceSpanId(span_val)) };
-        
-        instructions.push(Instruction { id, opcode, results, operands, source_span });
+        let source_span = if span_val == 0 {
+            None
+        } else {
+            Some(SourceSpanId(span_val))
+        };
+
+        instructions.push(Instruction {
+            id,
+            opcode,
+            results,
+            operands,
+            source_span,
+        });
     }
 
     // Read flat blocks list
@@ -461,21 +497,31 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
         let block = capnp_blocks.get(i);
         let id = BlockId(block.get_id());
         let parent = FunctionId(block.get_parent_function());
-        
+
         let first_insn = block.get_first_instruction() as usize;
         let insn_count = block.get_instruction_count() as usize;
         let mut block_insns = Vec::new();
-        for idx in first_insn .. first_insn + insn_count {
+        for idx in first_insn..first_insn + insn_count {
             if idx < instructions.len() {
                 block_insns.push(instructions[idx].id);
             }
         }
-        
+
         let terminator = InstructionId(block.get_terminator());
         let span_val = block.get_source_span();
-        let source_span = if span_val == 0 { None } else { Some(SourceSpanId(span_val)) };
-        
-        blocks.push(Block { id, parent, instructions: block_insns, terminator, source_span });
+        let source_span = if span_val == 0 {
+            None
+        } else {
+            Some(SourceSpanId(span_val))
+        };
+
+        blocks.push(Block {
+            id,
+            parent,
+            instructions: block_insns,
+            terminator,
+            source_span,
+        });
     }
 
     // Read functions
@@ -485,40 +531,44 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
         let func = capnp_functions.get(i);
         let id = FunctionId(func.get_id());
         let symbol = SymbolId(func.get_symbol());
-        
+
         let capnp_params = func.get_params()?;
         let mut params = Vec::new();
         for j in 0..capnp_params.len() {
             params.push(TypeId(capnp_params.get(j)));
         }
-        
+
         let capnp_results_list = func.get_results()?;
         let mut results = Vec::new();
         for j in 0..capnp_results_list.len() {
             results.push(TypeId(capnp_results_list.get(j)));
         }
-        
+
         let value_count = func.get_value_count();
-        
+
         let capnp_val_types = func.get_value_types()?;
         let mut value_types = Vec::new();
         for j in 0..capnp_val_types.len() {
             value_types.push(TypeId(capnp_val_types.get(j)));
         }
-        
+
         let first_block = func.get_first_block() as usize;
         let block_count = func.get_block_count() as usize;
         let mut func_blocks = Vec::new();
-        for idx in first_block .. first_block + block_count {
+        for idx in first_block..first_block + block_count {
             if idx < blocks.len() {
                 func_blocks.push(blocks[idx].id);
             }
         }
-        
+
         let flags = func.get_flags();
         let span_val = func.get_source_span();
-        let source_span = if span_val == 0 { None } else { Some(SourceSpanId(span_val)) };
-        
+        let source_span = if span_val == 0 {
+            None
+        } else {
+            Some(SourceSpanId(span_val))
+        };
+
         functions.push(Function {
             id,
             symbol,

@@ -1,7 +1,7 @@
 use crate::ids::{BlockId, FunctionId, InstructionId, SymbolId, TypeId, ValueId};
 use crate::image::{
-    Block, DataSegment, Function, Header, Instruction, Module, ModuleImage, Operand, Opcode, Symbol,
-    SymbolKind, TypeDef, TypeKind, FORMAT_SCHEMA_NAME, FORMAT_VERSION,
+    Block, DataSegment, Function, Header, Instruction, Module, ModuleImage, Opcode, Operand,
+    Symbol, SymbolKind, TypeDef, TypeKind, FORMAT_SCHEMA_NAME, FORMAT_VERSION,
 };
 use std::collections::BTreeMap;
 
@@ -26,7 +26,10 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
         target_assumptions: None,
         feature_flags: Vec::new(),
     };
-    let mut module = Module { id: 0, name: String::from("unnamed") };
+    let mut module = Module {
+        id: 0,
+        name: String::from("unnamed"),
+    };
     let mut types = Vec::new();
     let mut symbols = Vec::new();
     let mut functions = Vec::new();
@@ -53,11 +56,17 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
             }
             Some("module") => {
                 expect_len(&parts, 3, line_no)?;
-                module = Module { id: parse_u32(parts[1], line_no)?, name: parts[2].to_string() };
+                module = Module {
+                    id: parse_u32(parts[1], line_no)?,
+                    name: parts[2].to_string(),
+                };
             }
             Some("type") => {
                 expect_len(&parts, 3, line_no)?;
-                types.push(TypeDef { id: TypeId(parse_u32(parts[1], line_no)?), kind: parse_type(parts[2], line_no)? });
+                types.push(TypeDef {
+                    id: TypeId(parse_u32(parts[1], line_no)?),
+                    kind: parse_type(parts[2], line_no)?,
+                });
             }
             Some("symbol") => {
                 expect_len(&parts, 4, line_no)?;
@@ -75,8 +84,22 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
                 let results = parse_type_list(parts[4], line_no)?;
                 let value_count = parse_u32(parts[5], line_no)?;
                 let flags = parse_u32(parts[6], line_no)?;
-                let value_types = if parts.len() >= 8 { parse_type_list(parts[7], line_no)? } else { Vec::new() };
-                functions.push(Function { id, symbol, params, results, value_count, value_types, blocks: Vec::new(), flags, source_span: None });
+                let value_types = if parts.len() >= 8 {
+                    parse_type_list(parts[7], line_no)?
+                } else {
+                    Vec::new()
+                };
+                functions.push(Function {
+                    id,
+                    symbol,
+                    params,
+                    results,
+                    value_count,
+                    value_types,
+                    blocks: Vec::new(),
+                    flags,
+                    source_span: None,
+                });
             }
             Some("data") => {
                 expect_len(&parts, 5, line_no)?;
@@ -89,7 +112,10 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
             }
             Some("func_block") => {
                 expect_len(&parts, 3, line_no)?;
-                pending_blocks.entry(FunctionId(parse_u32(parts[1], line_no)?)).or_default().push(BlockId(parse_u32(parts[2], line_no)?));
+                pending_blocks
+                    .entry(FunctionId(parse_u32(parts[1], line_no)?))
+                    .or_default()
+                    .push(BlockId(parse_u32(parts[2], line_no)?));
             }
             Some("block") => {
                 expect_min_len(&parts, 4, line_no)?;
@@ -99,8 +125,16 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
                 for token in &parts[3..] {
                     insns.push(InstructionId(parse_u32(token, line_no)?));
                 }
-                let terminator = *insns.last().ok_or_else(|| err(line_no, "block needs at least one instruction"))?;
-                blocks.push(Block { id, parent, instructions: insns, terminator, source_span: None });
+                let terminator = *insns
+                    .last()
+                    .ok_or_else(|| err(line_no, "block needs at least one instruction"))?;
+                blocks.push(Block {
+                    id,
+                    parent,
+                    instructions: insns,
+                    terminator,
+                    source_span: None,
+                });
             }
             Some("insn") => {
                 expect_min_len(&parts, 3, line_no)?;
@@ -115,7 +149,13 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
                         operands.push(parse_operand(token, line_no)?);
                     }
                 }
-                instructions.push(Instruction { id, opcode, results, operands, source_span: None });
+                instructions.push(Instruction {
+                    id,
+                    opcode,
+                    results,
+                    operands,
+                    source_span: None,
+                });
             }
             Some(_) | None => return Err(err(line_no, "unknown directive")),
         }
@@ -127,23 +167,44 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
         }
     }
 
-    Ok(ModuleImage { header, module, types, symbols, functions, data_segments, blocks, instructions, source_spans: Vec::new(), metadata: Vec::new() })
+    Ok(ModuleImage {
+        header,
+        module,
+        types,
+        symbols,
+        functions,
+        data_segments,
+        blocks,
+        instructions,
+        source_spans: Vec::new(),
+        metadata: Vec::new(),
+    })
 }
 
 fn expect_len(parts: &[&str], expected: usize, line: usize) -> Result<(), LoadError> {
-    if parts.len() == expected { Ok(()) } else { Err(err(line, format!("expected {expected} fields"))) }
+    if parts.len() == expected {
+        Ok(())
+    } else {
+        Err(err(line, format!("expected {expected} fields")))
+    }
 }
 
 fn expect_min_len(parts: &[&str], expected: usize, line: usize) -> Result<(), LoadError> {
-    if parts.len() >= expected { Ok(()) } else { Err(err(line, format!("expected at least {expected} fields"))) }
+    if parts.len() >= expected {
+        Ok(())
+    } else {
+        Err(err(line, format!("expected at least {expected} fields")))
+    }
 }
 
 fn parse_u32(s: &str, line: usize) -> Result<u32, LoadError> {
-    s.parse().map_err(|_| err(line, format!("invalid u32: {s}")))
+    s.parse()
+        .map_err(|_| err(line, format!("invalid u32: {s}")))
 }
 
 fn parse_i32(s: &str, line: usize) -> Result<i32, LoadError> {
-    s.parse().map_err(|_| err(line, format!("invalid i32: {s}")))
+    s.parse()
+        .map_err(|_| err(line, format!("invalid i32: {s}")))
 }
 
 fn parse_type(s: &str, line: usize) -> Result<TypeKind, LoadError> {
@@ -212,7 +273,9 @@ fn parse_opcode(s: &str, line: usize) -> Result<Opcode, LoadError> {
 }
 
 fn parse_operand(s: &str, line: usize) -> Result<Operand, LoadError> {
-    let (kind, value) = s.split_once(':').ok_or_else(|| err(line, format!("invalid operand: {s}")))?;
+    let (kind, value) = s
+        .split_once(':')
+        .ok_or_else(|| err(line, format!("invalid operand: {s}")))?;
     match kind {
         "v" => Ok(Operand::Value(ValueId(parse_u32(value, line)?))),
         "i" => Ok(Operand::ImmI32(parse_i32(value, line)?)),
@@ -229,7 +292,9 @@ fn parse_type_list(s: &str, line: usize) -> Result<Vec<TypeId>, LoadError> {
     if s == "-" {
         return Ok(Vec::new());
     }
-    s.split(',').map(|part| parse_u32(part, line).map(TypeId)).collect()
+    s.split(',')
+        .map(|part| parse_u32(part, line).map(TypeId))
+        .collect()
 }
 
 fn parse_hex_bytes(s: &str, line: usize) -> Result<Vec<u8>, LoadError> {
@@ -241,12 +306,16 @@ fn parse_hex_bytes(s: &str, line: usize) -> Result<Vec<u8>, LoadError> {
     }
     let mut bytes = Vec::new();
     for idx in (0..s.len()).step_by(2) {
-        let byte = u8::from_str_radix(&s[idx..idx + 2], 16).map_err(|_| err(line, format!("invalid hex byte: {}", &s[idx..idx + 2])))?;
+        let byte = u8::from_str_radix(&s[idx..idx + 2], 16)
+            .map_err(|_| err(line, format!("invalid hex byte: {}", &s[idx..idx + 2])))?;
         bytes.push(byte);
     }
     Ok(bytes)
 }
 
 fn err(line: usize, message: impl Into<String>) -> LoadError {
-    LoadError::InvalidLine { line, message: message.into() }
+    LoadError::InvalidLine {
+        line,
+        message: message.into(),
+    }
 }

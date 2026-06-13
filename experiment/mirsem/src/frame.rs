@@ -11,7 +11,12 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new(function: FunctionId, current_block: BlockId, value_count: u32, return_destinations: Vec<ValueId>) -> Self {
+    pub fn new(
+        function: FunctionId,
+        current_block: BlockId,
+        value_count: u32,
+        return_destinations: Vec<ValueId>,
+    ) -> Self {
         Self {
             function,
             current_block,
@@ -34,4 +39,3 @@ impl Frame {
         }
     }
 }
-
