@@ -76,7 +76,7 @@ This file collects project-level questions raised during the first source-map pa
 
 - Which preserved web articles or slides contain design rationale not present in source comments?
 - Are there GitHub issues/discussions about RISC-V, porting, 32-bit targets, Windows, Java, MicroPython, or lightweight subsets?
-- Which source revision is represented by `mir-preservation/git/mir-restored`, and does it correspond to a tagged release?
+- Which upstream source revision was represented by the original local preservation checkout, and does it correspond to a tagged release?
 - Do release notes indicate backend maturity or known limitations?
 
 ## Current First-Pass Answers To Preserve

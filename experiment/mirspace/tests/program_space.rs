@@ -119,3 +119,71 @@ fn rejects_invalid_module_images_before_space_construction() {
 
     assert!(matches!(err, SpaceError::Validation(_)));
 }
+
+#[test]
+fn builds_def_use_index_for_direct_call_values() {
+    let image = load_fixture("valid_direct_call.mircap.txt");
+    let space = ProgramSpace::from_module_image(&image).expect("space");
+    let def_use = space.def_use_index();
+
+    let main_arg = space.maps.values[&(FunctionId(1), ValueId(0))];
+    let main_result = space.maps.values[&(FunctionId(1), ValueId(1))];
+    let callee_param = space.maps.values[&(FunctionId(2), ValueId(0))];
+    let callee_result = space.maps.values[&(FunctionId(2), ValueId(1))];
+
+    assert_eq!(
+        def_use.definitions_of(main_arg),
+        &[space.maps.instructions[&InstructionId(1)]]
+    );
+    assert_eq!(
+        def_use.uses_of(main_arg),
+        &[space.maps.instructions[&InstructionId(2)]]
+    );
+    assert_eq!(
+        def_use.definitions_of(main_result),
+        &[space.maps.instructions[&InstructionId(2)]]
+    );
+    assert_eq!(
+        def_use.uses_of(main_result),
+        &[space.maps.instructions[&InstructionId(3)]]
+    );
+
+    assert_eq!(def_use.definitions_of(callee_param), &[]);
+    assert_eq!(
+        def_use.uses_of(callee_param),
+        &[space.maps.instructions[&InstructionId(4)]]
+    );
+    assert_eq!(
+        def_use.definitions_of(callee_result),
+        &[space.maps.instructions[&InstructionId(4)]]
+    );
+    assert_eq!(
+        def_use.uses_of(callee_result),
+        &[space.maps.instructions[&InstructionId(5)]]
+    );
+}
+
+#[test]
+fn def_use_index_preserves_multiple_definitions_for_reused_values() {
+    let image = load_fixture("valid_loop.mircap.txt");
+    let space = ProgramSpace::from_module_image(&image).expect("space");
+    let def_use = space.def_use_index();
+
+    let accumulator = space.maps.values[&(FunctionId(1), ValueId(0))];
+
+    assert_eq!(
+        def_use.definitions_of(accumulator),
+        &[
+            space.maps.instructions[&InstructionId(1)],
+            space.maps.instructions[&InstructionId(7)],
+        ]
+    );
+    assert_eq!(
+        def_use.uses_of(accumulator),
+        &[
+            space.maps.instructions[&InstructionId(5)],
+            space.maps.instructions[&InstructionId(7)],
+            space.maps.instructions[&InstructionId(9)],
+        ]
+    );
+}

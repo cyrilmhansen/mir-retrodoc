@@ -1,6 +1,6 @@
 # Source Map
 
-This source map covers the restored MIR checkout at `mir-preservation/git/mir-restored`. It is a first-pass classification, not a full behavioral trace.
+This source map covers a restored local checkout of upstream MIR used during the original documentation pass. Upstream MIR is available at <https://github.com/vnmakarov/mir>. The local checkout path was `mir-preservation/git/mir-restored`, but that preservation archive is not part of this public repository.
 
 Confidence levels:
 
@@ -573,7 +573,7 @@ Relevant files:
 - `mir-tests/readme-example.c`
 - `mir-tests/*.mir`
 - `mir-gen.svg`, `c2mir/c2mir.svg`, `mir3.svg`, `mirall.svg`
-- Preserved web/slides under `mir-preservation/web/`
+- Preserved web/slides from the local, non-versioned preservation archive.
 
 Key structs/types/functions:
 

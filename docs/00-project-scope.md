@@ -2,7 +2,7 @@
 
 This project documents the preserved source archive of Vladimir Makarov's MIR lightweight JIT compiler. The source archive is the authority. The documentation is retrospective: it records what can be observed in the code and existing project documents, then separates those observations from hypotheses, design inferences, and open questions.
 
-The local source archive used by this pass is `mir-preservation/git/mir-restored`. The surrounding preservation bundle also contains archived repository metadata, GitHub data, web material, and slides under `mir-preservation/`.
+The source archive used by the original documentation pass was a local, non-versioned preservation checkout of upstream MIR. The public upstream project is `vnmakarov/mir` on GitHub: <https://github.com/vnmakarov/mir>. Historical local paths such as `mir-preservation/git/mir-restored` are documented in `docs/upstream-mir.md`; they are not part of this public repository.
 
 ## Goals
 

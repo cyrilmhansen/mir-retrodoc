@@ -23,3 +23,6 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Local-only upstream MIR preservation archive link.
+/mir-preservation

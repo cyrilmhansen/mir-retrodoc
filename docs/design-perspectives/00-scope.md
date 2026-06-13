@@ -18,7 +18,7 @@ Rule: MIR-as-archived and MIR-inspired future design must remain separate. A fut
 
 ## Source Revision And Line References
 
-Fact: The source checkout used for the current design-perspective line references is `99c65079038f3ba9242ef646f308c266cfd7a8e5` in `mir-preservation/git/mir-restored`.
+Fact: The source checkout used for the current design-perspective line references was upstream MIR commit `99c65079038f3ba9242ef646f308c266cfd7a8e5`, stored locally during the original pass as `mir-preservation/git/mir-restored`. That preservation archive is not part of this public repository.
 
 Fact: All source line references in these notes are valid only for that checkout.
 

@@ -5,7 +5,7 @@ the immutable loaded bytecode/module image for the minimal `MIR-F0` subset.
 
 This crate is separate from:
 
-- upstream MIR preservation files under `mir-preservation/`;
+- upstream MIR source references, credited in `../../docs/upstream-mir.md`;
 - retrospective documentation under `docs/`;
 - exploratory design-perspective notes under `docs/design-perspectives/`.
 
