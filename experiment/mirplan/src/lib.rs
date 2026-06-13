@@ -1,7 +1,11 @@
+mod format;
+
 use mircap::{BlockId, FunctionId, InstructionId, Opcode, SymbolId, TypeKind, ValueId};
 use mirspace::{
     BlockIx, EdgeKind, FunctionIx, InstructionIx, OperandRec, ProgramSpace, SymbolIx, ValueIx,
 };
+
+pub use format::format_plan;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompilePlan {
