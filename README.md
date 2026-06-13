@@ -87,3 +87,6 @@ Upstream MIR is also MIT licensed and is credited separately in
 Build products and temporary differential-test files are ignored through the
 root `.gitignore` and crate-local `.gitignore` files. Source, tests, fixtures,
 schemas, lockfiles, scripts, and documentation are intended to be versioned.
+
+See `RELEASE-NOTES.md` for the current public repository snapshot and
+validation entry points.
