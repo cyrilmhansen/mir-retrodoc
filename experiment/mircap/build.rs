@@ -1,9 +1,15 @@
 fn main() {
-    // Tell Cargo to rerun this build script if the schema file changes.
     println!("cargo:rerun-if-changed=schema/mircap.capnp");
 
     capnpc::CompilerCommand::new()
         .file("schema/mircap.capnp")
         .run()
-        .expect("schema compilation failed");
+        .unwrap_or_else(|err| {
+            panic!(
+                "Failed to compile Cap'n Proto schema. \
+                 Make sure the `capnp` executable is installed. \
+                 On Ubuntu: sudo apt-get install capnproto. \
+                 Original error: {err:?}"
+            );
+        });
 }
