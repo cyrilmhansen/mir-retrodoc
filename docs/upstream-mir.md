@@ -8,6 +8,7 @@ Makarov's MIR lightweight JIT compiler.
 - Upstream repository: <https://github.com/vnmakarov/mir>
 - Author: Vladimir Makarov
 - Upstream license: MIT
+- Upstream copyright notice: Copyright (c) 2018-2024 Vladimir Makarov
 
 The upstream MIR repository is live and public. `mir-retrodoc` does not vendor
 or mirror the upstream source tree. Readers should use the upstream repository

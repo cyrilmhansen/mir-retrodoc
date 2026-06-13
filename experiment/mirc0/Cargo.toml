@@ -3,7 +3,7 @@ name = "mirc0"
 version = "0.1.0"
 edition = "2021"
 description = "Baseline compiler from MIR-F0 ModuleImage to simple portable C"
-license = "UNLICENSED"
+license = "MIT"
 
 [lib]
 path = "src/lib.rs"

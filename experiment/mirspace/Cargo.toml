@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Google DeepMind Team"]
 description = "Internal indexed program space for MIR-F0 analysis and compilation"
+license = "MIT"
 
 [dependencies]
 mircap = { path = "../mircap" }

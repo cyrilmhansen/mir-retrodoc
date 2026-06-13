@@ -64,6 +64,13 @@ cd ../mirplan && cargo test
 The `mirc0` and `mirtool` differential tests use the host C compiler `cc` when
 available.
 
+## License
+
+This repository is licensed under the MIT License. See `LICENSE`.
+
+Upstream MIR is also MIT licensed and is credited separately in
+`ATTRIBUTION.md` and `docs/upstream-mir.md`.
+
 ## Public Repository Hygiene
 
 Build products and temporary differential-test files are ignored through the
