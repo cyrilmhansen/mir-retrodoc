@@ -22,8 +22,8 @@ The first F1 axis is `mirspace` analysis:
 - def-use indexing for values;
 - stable block and instruction traversal utilities;
 - CFG-derived analyses needed by a future baseline compiler;
-- deterministic compile-plan data structures that can be tested before code
-  generation exists.
+- deterministic compile-plan data structures in `experiment/mirplan` that can
+  be tested before code generation exists.
 
 ## Deferred From Early F1
 
@@ -52,6 +52,8 @@ F1 is ready to move toward target work when:
 
 - `mirspace` exposes tested analysis views for values, instructions, blocks, and
   calls;
+- `mirplan` produces deterministic planning artifacts over representative F0
+  fixtures;
 - all analysis output is deterministic;
 - all F0 tests remain green;
 - the planned baseline compiler input is documented and covered by fixtures.

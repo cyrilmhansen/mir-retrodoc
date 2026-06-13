@@ -1,0 +1,9 @@
+[package]
+name = "mirplan"
+version = "0.1.0"
+edition = "2021"
+description = "Deterministic compile-plan artifacts for MIR-F1"
+
+[dependencies]
+mircap = { path = "../mircap" }
+mirspace = { path = "../mirspace" }

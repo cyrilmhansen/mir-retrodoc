@@ -35,6 +35,8 @@ Upstream MIR lives at <https://github.com/vnmakarov/mir> and is credited in
   flows.
 - `experiment/mirspace`: dense indexed analysis view over validated
   `mircap::ModuleImage` values.
+- `experiment/mirplan`: deterministic compile-plan artifacts consumed from
+  `mirspace`, used to stabilize future compiler inputs before code generation.
 
 ## Current Milestone
 
@@ -56,6 +58,7 @@ cd ../mirsem && cargo test
 cd ../mirc0 && cargo test
 cd ../mirtool && cargo test
 cd ../mirspace && cargo test
+cd ../mirplan && cargo test
 ```
 
 The `mirc0` and `mirtool` differential tests use the host C compiler `cc` when
