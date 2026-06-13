@@ -17,8 +17,14 @@ silently accepted.
 Upstream MIR lives at <https://github.com/vnmakarov/mir> and is credited in
 `docs/upstream-mir.md`.
 
+The high-level project plan is tracked in `ROADMAP.md`. The current public
+snapshot is tracked in `RELEASE-NOTES.md`.
+
 ## Repository Layout
 
+- `ROADMAP.md`: project phases, current F0/F1 boundary, and deferred work.
+- `RELEASE-NOTES.md`: current public repository snapshot and validation entry
+  points.
 - `docs/`: preservation-first notes about MIR structure, APIs, parser behavior,
   JIT/runtime topics, and open questions.
 - `docs/design-perspectives/`: exploratory future-design notes. These are not
@@ -42,7 +48,7 @@ Upstream MIR lives at <https://github.com/vnmakarov/mir> and is credited in
 
 MIR-F0 v0 is the current frozen subset. It supports a small set of integer,
 address, memory, control-flow, direct-call, return, and trap operations. The
-current status gate is tracked in
+project roadmap is tracked in `ROADMAP.md`, and the F0 status gate is tracked in
 `docs/experimental-rewrite/F0-status.md`.
 
 F1 work starts from `mirspace`: it adds compiler-facing analysis structures
@@ -88,5 +94,5 @@ Build products and temporary differential-test files are ignored through the
 root `.gitignore` and crate-local `.gitignore` files. Source, tests, fixtures,
 schemas, lockfiles, scripts, and documentation are intended to be versioned.
 
-See `RELEASE-NOTES.md` for the current public repository snapshot and
-validation entry points.
+See `ROADMAP.md` for the high-level project plan and `RELEASE-NOTES.md` for the
+current public repository snapshot.

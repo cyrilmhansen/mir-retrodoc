@@ -3,6 +3,8 @@
 This repository is a public preservation and experimental rewrite workspace for
 MIR.
 
+The long-term project plan lives in `ROADMAP.md`.
+
 ## Current Public State
 
 - `MIR-F0 v0` is implemented and documented.
@@ -34,4 +36,3 @@ MIR.
 ./scripts/test-all.sh
 ./scripts/fmt-all.sh --check
 ```
-
