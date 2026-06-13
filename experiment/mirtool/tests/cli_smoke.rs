@@ -2,10 +2,7 @@ use std::path::Path;
 
 fn run_mirtool(args: &[&str]) -> std::process::Output {
     let mut cmd = std::process::Command::new("cargo");
-    cmd.arg("run")
-       .arg("--bin")
-       .arg("mirtool")
-       .arg("--");
+    cmd.arg("run").arg("--bin").arg("mirtool").arg("--");
     for &arg in args {
         cmd.arg(arg);
     }
@@ -14,7 +11,8 @@ fn run_mirtool(args: &[&str]) -> std::process::Output {
 
 fn fixture_path(name: &str) -> String {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir.join("../mircap/tests/fixtures")
+    manifest_dir
+        .join("../mircap/tests/fixtures")
         .join(name)
         .to_str()
         .unwrap()
@@ -34,17 +32,17 @@ fn test_validate_valid_const_return() {
 fn test_encode_and_validate_binary() {
     let text_path = fixture_path("valid_const_return.mircap.txt");
     let temp_bin = "temp_smoke_test.mircap";
-    
+
     // Encode text to binary
     let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
     assert!(output.status.success());
-    
+
     // Validate binary
     let output2 = run_mirtool(&["validate", temp_bin]);
     assert!(output2.status.success());
     let stdout = String::from_utf8_lossy(&output2.stdout);
     assert_eq!(stdout.trim(), "OK");
-    
+
     let _ = std::fs::remove_file(temp_bin);
 }
 
@@ -52,11 +50,11 @@ fn test_encode_and_validate_binary() {
 fn test_decode_binary() {
     let text_path = fixture_path("valid_const_return.mircap.txt");
     let temp_bin = "temp_smoke_decode.mircap";
-    
+
     // Encode text to binary
     let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
     assert!(output.status.success());
-    
+
     // Decode binary
     let output2 = run_mirtool(&["decode", temp_bin]);
     assert!(output2.status.success());
@@ -64,7 +62,7 @@ fn test_decode_binary() {
     assert!(stdout.contains("mircap"));
     assert!(stdout.contains("const_return"));
     assert!(stdout.contains("const_i32"));
-    
+
     let _ = std::fs::remove_file(temp_bin);
 }
 
@@ -72,11 +70,11 @@ fn test_decode_binary() {
 fn test_dump_binary() {
     let text_path = fixture_path("valid_const_return.mircap.txt");
     let temp_bin = "temp_smoke_dump.mircap";
-    
+
     // Encode text to binary
     let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
     assert!(output.status.success());
-    
+
     // Dump binary
     let output2 = run_mirtool(&["dump", temp_bin]);
     assert!(output2.status.success());
@@ -84,7 +82,7 @@ fn test_dump_binary() {
     assert!(stdout.contains("mircap"));
     assert!(stdout.contains("const_return"));
     assert!(stdout.contains("const_i32"));
-    
+
     let _ = std::fs::remove_file(temp_bin);
 }
 
@@ -98,17 +96,31 @@ fn test_run_valid_sieve_32_u32() {
 }
 
 #[test]
+fn test_run_trace_summary() {
+    let path = fixture_path("valid_sieve_32_u32.mircap.txt");
+    let output = run_mirtool(&["run", &path, "--trace"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Result: u32 11"));
+    assert!(stdout.contains("Trace Summary"));
+    assert!(stdout.contains("Executed Instructions:"));
+    assert!(stdout.contains("Maximum Call Depth:"));
+    assert!(stdout.contains("Allocations:"));
+    assert!(stdout.contains("Allocated Bytes:"));
+}
+
+#[test]
 fn test_compile_c_valid_sieve_32_u32() {
     let path = fixture_path("valid_sieve_32_u32.mircap.txt");
     let temp_c = "temp_smoke_sieve.c";
-    
+
     let output = run_mirtool(&["compile-c", &path, temp_c]);
     assert!(output.status.success());
-    
+
     let content = std::fs::read_to_string(temp_c).expect("read temp c");
     assert!(content.contains("mir_data_addr"));
     assert!(content.contains("mir_load_u32"));
-    
+
     let _ = std::fs::remove_file(temp_c);
 }
 
@@ -123,7 +135,6 @@ fn test_diff_valid_sieve_32_u32() {
         assert_eq!(stdout.trim(), "PASS");
     }
 }
-
 
 #[test]
 fn test_run_trap_load_oob() {
@@ -174,7 +185,11 @@ fn test_binary_sieve_32_u32_flow() {
             .output();
         assert!(compile_res.is_ok());
         let compile_output = compile_res.unwrap();
-        assert!(compile_output.status.success(), "C compilation failed:\n{}", String::from_utf8_lossy(&compile_output.stderr));
+        assert!(
+            compile_output.status.success(),
+            "C compilation failed:\n{}",
+            String::from_utf8_lossy(&compile_output.stderr)
+        );
 
         let exec_res = std::process::Command::new(format!("./{}", temp_exec)).output();
         assert!(exec_res.is_ok());

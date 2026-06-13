@@ -1,0 +1,25 @@
+# Rust/Cargo build output for standalone experiment crates.
+target/
+**/target/
+
+# Temporary files produced by smoke/differential tests.
+temp_*
+**/temp_*
+*.tmp
+
+# Native compiler/linker byproducts.
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Logs and local editor/OS metadata.
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,8 +1,8 @@
-use std::fs;
-use std::process::Command;
-use std::path::PathBuf;
 use mircap::ModuleImage;
-use mirsem::{Runner, ExecutionProfile, Value, ExecutionTrap, RunError};
+use mirsem::{ExecutionProfile, ExecutionTrap, RunError, Runner, Value};
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Debug)]
 enum ExpectedOutcome {
@@ -49,9 +49,7 @@ fn run_mirsem(image: &ModuleImage, profile: ExecutionProfile) -> ExpectedOutcome
             let val = res.values.first().cloned();
             ExpectedOutcome::Success(val)
         }
-        Err(RunError::Trap(trap)) => {
-            ExpectedOutcome::Trap(map_mirsem_trap(&trap))
-        }
+        Err(RunError::Trap(trap)) => ExpectedOutcome::Trap(map_mirsem_trap(&trap)),
         Err(e) => {
             panic!("Unexpected mirsem execution error: {:?}", e);
         }
@@ -94,7 +92,7 @@ fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
     if profile.stack_size != 64 * 1024 {
         compile_cmd.arg(format!("-DSTACK_SIZE={}", profile.stack_size));
     }
-    
+
     let compile_output = compile_cmd
         .arg("-o")
         .arg(&bin_path)
@@ -112,9 +110,7 @@ fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
     }
 
     // Run the compiled executable
-    let output = Command::new(&bin_path)
-        .output()
-        .expect("run bin");
+    let output = Command::new(&bin_path).output().expect("run bin");
 
     // Clean up
     let _ = fs::remove_file(&c_path);
@@ -191,7 +187,7 @@ fn diff_const_return() {
     run_differential(
         "const_return",
         include_str!("../../mircap/tests/fixtures/valid_const_return.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -200,7 +196,7 @@ fn diff_arithmetic() {
     run_differential(
         "arithmetic",
         include_str!("../../mircap/tests/fixtures/valid_arithmetic.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -209,7 +205,7 @@ fn diff_branch() {
     run_differential(
         "branch",
         include_str!("../../mircap/tests/fixtures/valid_branch.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -218,7 +214,7 @@ fn diff_loop() {
     run_differential(
         "loop",
         include_str!("../../mircap/tests/fixtures/valid_loop.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -227,7 +223,7 @@ fn diff_direct_call() {
     run_differential(
         "direct_call",
         include_str!("../../mircap/tests/fixtures/valid_direct_call.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -236,7 +232,7 @@ fn diff_alloc_store_load_u32() {
     run_differential(
         "alloc_store_load_u32",
         include_str!("../../mircap/tests/fixtures/valid_alloc_store_load_u32.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -245,7 +241,7 @@ fn diff_addr_add_two_cells() {
     run_differential(
         "addr_add_two_cells",
         include_str!("../../mircap/tests/fixtures/valid_addr_add_two_cells.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -254,7 +250,7 @@ fn diff_memory_loop_sum() {
     run_differential(
         "memory_loop_sum",
         include_str!("../../mircap/tests/fixtures/valid_memory_loop_sum.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -263,7 +259,7 @@ fn diff_sieve_32() {
     run_differential(
         "sieve_32",
         include_str!("../../mircap/tests/fixtures/valid_sieve_32.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -272,7 +268,7 @@ fn diff_arithmetic_u32() {
     run_differential(
         "arithmetic_u32",
         include_str!("../../mircap/tests/fixtures/valid_arithmetic_u32.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -281,7 +277,7 @@ fn diff_sieve_32_u32() {
     run_differential(
         "sieve_32_u32",
         include_str!("../../mircap/tests/fixtures/valid_sieve_32_u32.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -290,7 +286,7 @@ fn diff_data_segment_load() {
     run_differential(
         "data_segment_load",
         include_str!("../../mircap/tests/fixtures/valid_data_segment_load.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -356,6 +352,48 @@ insn 4 ret v:2
 }
 
 #[test]
+fn diff_trap_misaligned_store() {
+    let text = r#"
+mircap mircap
+version 0
+module 1 misaligned_store
+type 1 i32
+type 2 u32
+type 3 addr32
+symbol 1 main function
+function 1 1 - 1 3 0 3,3,1
+func_block 1 1
+block 1 1 1 2 3 4 5
+insn 1 alloc r:0 u:1 u:1
+insn 2 alloc r:1 u:4 u:1
+insn 3 const_i32 r:2 i:42
+insn 4 store_i32 v:1 v:2
+insn 5 ret v:2
+"#;
+    run_differential("trap_misaligned_store", text, ExecutionProfile::default());
+}
+
+#[test]
+fn diff_trap_out_of_memory() {
+    let text = r#"
+mircap mircap
+version 0
+module 1 out_of_memory
+type 1 i32
+type 2 u32
+type 3 addr32
+symbol 1 main function
+function 1 1 - 3 2 0 3,3
+func_block 1 1
+block 1 1 1 2 3
+insn 1 alloc r:0 u:4 u:4
+insn 2 alloc r:1 u:4294967295 u:4
+insn 3 ret v:1
+"#;
+    run_differential("trap_out_of_memory", text, ExecutionProfile::default());
+}
+
+#[test]
 fn diff_trap_address_overflow() {
     let text = r#"
 mircap mircap
@@ -383,7 +421,7 @@ fn diff_trap_data_addr_dynamic_oob() {
     run_differential(
         "trap_data_addr_dynamic_oob",
         include_str!("../../mircap/tests/fixtures/trap_data_addr_dynamic_oob.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -392,7 +430,7 @@ fn diff_trap_store_oob() {
     run_differential(
         "trap_store_oob",
         include_str!("../../mircap/tests/fixtures/trap_store_oob.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -401,7 +439,7 @@ fn diff_trap_load_oob() {
     run_differential(
         "trap_load_oob",
         include_str!("../../mircap/tests/fixtures/trap_load_oob.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
 
@@ -410,6 +448,6 @@ fn diff_load_store_u8() {
     run_differential(
         "load_store_u8",
         include_str!("../../mircap/tests/fixtures/valid_load_store_u8.mircap.txt"),
-        ExecutionProfile::default()
+        ExecutionProfile::default(),
     );
 }
