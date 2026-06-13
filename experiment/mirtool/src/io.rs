@@ -12,7 +12,10 @@ pub fn detect_format(path: &str, format_opt: Option<&str>) -> Result<FileFormat,
         match f {
             "text" => Ok(FileFormat::Text),
             "binary" => Ok(FileFormat::Binary),
-            _ => Err(CliError::Generic(format!("Invalid format option: {}. Must be 'text' or 'binary'", f))),
+            _ => Err(CliError::Generic(format!(
+                "Invalid format option: {}. Must be 'text' or 'binary'",
+                f
+            ))),
         }
     } else {
         if path.ends_with(".mircap.txt") {

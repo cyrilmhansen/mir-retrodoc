@@ -65,7 +65,7 @@ pub fn cmd_validate(path: &str, format_opt: Option<&str>) -> Result<(), CliError
 
 pub fn cmd_encode(input_path: &str, output_path: &str, force: bool) -> Result<(), CliError> {
     let image = load_image(input_path, Some("text"))?;
-    
+
     // Safety check for existing file
     let out_path = Path::new(output_path);
     if out_path.exists() && !force {
@@ -127,6 +127,15 @@ pub fn cmd_run(
     }
 }
 
+pub fn cmd_plan(input_path: &str, format_opt: Option<&str>) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    print!("{}", mirplan::format_plan(&plan));
+    Ok(())
+}
+
 pub fn cmd_compile_c(
     input_path: &str,
     output_path: &str,
@@ -162,7 +171,10 @@ pub fn cmd_diff(
             DiffOutcome::Trap(code)
         }
         Err(err) => {
-            return Err(CliError::Generic(format!("Reference interpreter run failed: {:?}", err)));
+            return Err(CliError::Generic(format!(
+                "Reference interpreter run failed: {:?}",
+                err
+            )));
         }
     };
 
@@ -172,7 +184,9 @@ pub fn cmd_diff(
     // 3. Check for C compiler
     let cc_check = std::process::Command::new("cc").arg("--version").output();
     if cc_check.is_err() {
-        println!("Host C compiler 'cc' is unavailable. Skipping differential execution verification.");
+        println!(
+            "Host C compiler 'cc' is unavailable. Skipping differential execution verification."
+        );
         return Ok(());
     }
 
@@ -184,7 +198,8 @@ pub fn cmd_diff(
     std::fs::write(&c_path, c_code)?;
 
     let mut compile_cmd = std::process::Command::new("cc");
-    compile_cmd.arg("-O0")
+    compile_cmd
+        .arg("-O0")
         .arg("-std=c11")
         .arg("-Wall")
         .arg("-Wextra")
@@ -233,7 +248,10 @@ pub fn cmd_diff(
     match expected {
         DiffOutcome::Success(expected_val) => {
             if output.status.code() != Some(0) {
-                println!("FAIL: Expected exit code 0 for normal return, got status {:?}", output.status);
+                println!(
+                    "FAIL: Expected exit code 0 for normal return, got status {:?}",
+                    output.status
+                );
                 return Ok(());
             }
             let stdout_str = String::from_utf8_lossy(&output.stdout);
@@ -247,12 +265,18 @@ pub fn cmd_diff(
             if result_line == Some(expected_str.as_str()) {
                 println!("PASS");
             } else {
-                println!("FAIL: Result mismatch. Expected '{}', got '{:?}'", expected_str, result_line);
+                println!(
+                    "FAIL: Result mismatch. Expected '{}', got '{:?}'",
+                    expected_str, result_line
+                );
             }
         }
         DiffOutcome::Trap(expected_code) => {
             if output.status.code() != Some(expected_code as i32) {
-                println!("FAIL: Expected exit status to match trap code {}, got status {:?}", expected_code, output.status);
+                println!(
+                    "FAIL: Expected exit status to match trap code {}, got status {:?}",
+                    expected_code, output.status
+                );
                 return Ok(());
             }
             let stderr_str = String::from_utf8_lossy(&output.stderr);
@@ -262,10 +286,16 @@ pub fn cmd_diff(
                 if line == expected_line.as_str() {
                     println!("PASS");
                 } else {
-                    println!("FAIL: Trap line mismatch. Expected '{}', got '{}'", expected_line, line);
+                    println!(
+                        "FAIL: Trap line mismatch. Expected '{}', got '{}'",
+                        expected_line, line
+                    );
                 }
             } else {
-                println!("FAIL: Expected stderr to contain 'Trap: ' line. Stderr:\n{}", stderr_str);
+                println!(
+                    "FAIL: Expected stderr to contain 'Trap: ' line. Stderr:\n{}",
+                    stderr_str
+                );
             }
         }
     }
@@ -275,8 +305,14 @@ pub fn cmd_diff(
 
 fn print_trace_summary(snapshot: &mirsem::TraceSnapshot) {
     println!("--- Trace Summary ---");
-    println!("Executed Instructions: {}", snapshot.executed_instruction_count);
-    println!("Maximum Call Depth: {}", snapshot.maximum_call_depth_reached);
+    println!(
+        "Executed Instructions: {}",
+        snapshot.executed_instruction_count
+    );
+    println!(
+        "Maximum Call Depth: {}",
+        snapshot.maximum_call_depth_reached
+    );
     println!("Allocations: {}", snapshot.allocation_count);
     println!("Allocated Bytes: {}", snapshot.allocated_bytes);
 }
@@ -286,7 +322,10 @@ pub fn image_to_text(image: &ModuleImage) -> String {
     out.push_str("# Note: Decode output is for debugging purposes and is not yet a canonical source format\n");
     out.push_str(&format!("mircap {}\n", image.header.schema_name));
     out.push_str(&format!("version {}\n", image.header.format_version));
-    out.push_str(&format!("module {} {}\n", image.module.id, image.module.name));
+    out.push_str(&format!(
+        "module {} {}\n",
+        image.module.id, image.module.name
+    ));
 
     for ty in &image.types {
         let kind_str = match ty.kind {
@@ -317,7 +356,10 @@ pub fn image_to_text(image: &ModuleImage) -> String {
         if list.is_empty() {
             "-".to_string()
         } else {
-            list.iter().map(|t| t.0.to_string()).collect::<Vec<_>>().join(",")
+            list.iter()
+                .map(|t| t.0.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
         }
     }
 
@@ -342,7 +384,10 @@ pub fn image_to_text(image: &ModuleImage) -> String {
             if bytes.is_empty() {
                 "-".to_string()
             } else {
-                bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+                bytes
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<String>()
             }
         }
         out.push_str(&format!(
@@ -355,8 +400,16 @@ pub fn image_to_text(image: &ModuleImage) -> String {
     }
 
     for block in &image.blocks {
-        let insn_ids = block.instructions.iter().map(|id| id.0.to_string()).collect::<Vec<_>>().join(" ");
-        out.push_str(&format!("block {} {} {}\n", block.id.0, block.parent.0, insn_ids));
+        let insn_ids = block
+            .instructions
+            .iter()
+            .map(|id| id.0.to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        out.push_str(&format!(
+            "block {} {} {}\n",
+            block.id.0, block.parent.0, insn_ids
+        ));
     }
 
     for insn in &image.instructions {
@@ -416,7 +469,12 @@ pub fn image_to_text(image: &ModuleImage) -> String {
         if parts.is_empty() {
             out.push_str(&format!("insn {} {}\n", insn.id.0, opcode_name));
         } else {
-            out.push_str(&format!("insn {} {} {}\n", insn.id.0, opcode_name, parts.join(" ")));
+            out.push_str(&format!(
+                "insn {} {} {}\n",
+                insn.id.0,
+                opcode_name,
+                parts.join(" ")
+            ));
         }
     }
 

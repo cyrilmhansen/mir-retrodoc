@@ -42,7 +42,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mirplan"
+version = "0.1.0"
+dependencies = [
+ "mircap",
+ "mirspace",
+]
+
+[[package]]
 name = "mirsem"
+version = "0.1.0"
+dependencies = [
+ "mircap",
+]
+
+[[package]]
+name = "mirspace"
 version = "0.1.0"
 dependencies = [
  "mircap",
@@ -55,5 +70,7 @@ dependencies = [
  "capnp",
  "mirc0",
  "mircap",
+ "mirplan",
  "mirsem",
+ "mirspace",
 ]

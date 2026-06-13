@@ -10,7 +10,8 @@ The pipeline consists of the following components:
 1. **Serialization Format (`mircap`)**: Loads/saves either the textual representation (`.mircap.txt`) or the compiled Cap'n Proto binary serialization format (`.mircap`).
 2. **Interpreter (`mirsem`)**: Reference semantic interpreter used to execute the module image as a strict oracle.
 3. **C Transpiler (`mirc0`)**: Baseline C transpiler that converts the module image to C11 code, allowing comparison of compiled C execution against interpreted `mirsem` outcomes.
-4. **CLI Wrapper (`mirtool`)**: Unifies the validator, compiler, interpreter, and differential testing tools into a single developer utility.
+4. **Compile Plan (`mirspace` + `mirplan`)**: Builds deterministic planning artifacts for future compiler work without generating code.
+5. **CLI Wrapper (`mirtool`)**: Unifies the validator, compiler, interpreter, planning, and differential testing tools into a single developer utility.
 
 ```mermaid
 graph TD
@@ -22,6 +23,9 @@ graph TD
     
     TextFile -->|mirtool run| Interpreter[mirsem interpreter]
     BinaryFile -->|mirtool run| Interpreter
+
+    TextFile -->|mirtool plan| Plan[mirplan compile plan]
+    BinaryFile -->|mirtool plan| Plan
     
     TextFile -->|mirtool compile-c| TranspiledC[Generated C11 Code]
     BinaryFile -->|mirtool compile-c| TranspiledC
@@ -73,6 +77,13 @@ mirtool run <input_file> [--format text|binary] [--entry <name>] [--trace]
 ```
 Outputs the execution results in scriptable format (e.g. `Result: i32 42` or `Trap: 13 OutOfBoundsLoad`). If `--trace` is provided, prints a summary of executed instructions, maximum call depth, and allocator profiling stats.
 
+### `plan`
+Prints the deterministic MIR-F1 compile-plan text for a module image.
+```bash
+mirtool plan <input_file> [--format text|binary]
+```
+This command is read-only. It validates the image, constructs `mirspace::ProgramSpace`, builds a `mirplan::CompilePlan`, and renders it as stable text.
+
 ### `compile-c`
 Transpiles the module image into portable C11 code.
 ```bash
@@ -97,4 +108,3 @@ If no C compiler is available on the host system, the command gracefully reports
 ### Runtime Dependencies
 * **Host C Compiler (`cc`, `gcc`, or `clang`)**: A host C compiler is required at runtime **only** when performing differential execution checks (using the `diff` command) or compiling generated C output for testing. Other commands (`validate`, `encode`, `decode`, `run`, `compile-c`) have no runtime dependency on a C compiler.
 * **Graceful Degradation**: If no C compiler is available, `diff` will gracefully report that the host compiler is unavailable and skip the compilation/execution phase without failing the command.
-

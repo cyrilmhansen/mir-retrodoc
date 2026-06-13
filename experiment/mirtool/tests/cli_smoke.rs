@@ -110,6 +110,35 @@ fn test_run_trace_summary() {
 }
 
 #[test]
+fn test_plan_valid_branch() {
+    let path = fixture_path("valid_branch.mircap.txt");
+    let output = run_mirtool(&["plan", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("module branch"));
+    assert!(stdout.contains("fn f0#1 main"));
+    assert!(stdout.contains("i1#2 branch_if"));
+    assert!(stdout.contains("successors: true:b1#2, false:b2#3"));
+}
+
+#[test]
+fn test_plan_binary_input() {
+    let text_path = fixture_path("valid_branch.mircap.txt");
+    let temp_bin = "temp_smoke_plan.mircap";
+
+    let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
+    assert!(output.status.success());
+
+    let output = run_mirtool(&["plan", temp_bin]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("module branch"));
+    assert!(stdout.contains("successors: true:b1#2, false:b2#3"));
+
+    let _ = std::fs::remove_file(temp_bin);
+}
+
+#[test]
 fn test_compile_c_valid_sieve_32_u32() {
     let path = fixture_path("valid_sieve_32_u32.mircap.txt");
     let temp_c = "temp_smoke_sieve.c";

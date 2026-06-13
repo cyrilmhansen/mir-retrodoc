@@ -10,4 +10,6 @@ license = "MIT"
 mircap = { path = "../mircap" }
 mirsem = { path = "../mirsem" }
 mirc0 = { path = "../mirc0" }
+mirspace = { path = "../mirspace" }
+mirplan = { path = "../mirplan" }
 capnp = "0.19"
