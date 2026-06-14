@@ -54,6 +54,22 @@ project roadmap is tracked in `ROADMAP.md`, and the F0 status gate is tracked in
 F1 work starts from `mirspace`: it adds compiler-facing analysis structures
 without expanding the language surface first.
 
+## Quick Demo
+
+Run the project tour:
+
+```sh
+./scripts/demo.sh
+```
+
+For environments without a host C compiler:
+
+```sh
+./scripts/demo.sh --no-cc
+```
+
+See `docs/demo.md` for the demo narrative and expected outputs.
+
 ## Running Tests
 
 Preferred commands:

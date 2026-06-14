@@ -79,3 +79,11 @@ Current validation entry points:
 ```
 
 GitHub Actions runs both commands on push and pull request.
+
+## Demo Path
+
+The current public demo is documented in `docs/demo.md` and can be run with:
+
+```sh
+./scripts/demo.sh
+```
