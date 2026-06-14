@@ -428,8 +428,134 @@ fn run_performance_benchmarks() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn run_riscv32_demo() -> Result<(), Box<dyn Error>> {
+    println!("================================================================");
+    println!("PART 1.5: RISC-V32 (RV32I) Code Generation & QEMU Execution");
+    println!("================================================================\n");
+
+    let gcc_check = Command::new("riscv64-linux-gnu-gcc")
+        .arg("--version")
+        .output();
+    let qemu_check = Command::new("qemu-riscv32").arg("--version").output();
+    if gcc_check.is_err() || qemu_check.is_err() {
+        println!("RISC-V32 toolchain (riscv64-linux-gnu-gcc or qemu-riscv32) is unavailable.");
+        println!("Skipping RISC-V32 execution demo.\n");
+        return Ok(());
+    }
+
+    println!("Loading sieve fixture...");
+    let image = ModuleImage::from_text(SIEVE_FIXTURE).map_err(|e| format!("{:?}", e))?;
+    let space =
+        mirspace::ProgramSpace::from_module_image(&image).map_err(|e| format!("{:?}", e))?;
+    let plan = build_compile_plan(&space);
+    let lowered = lower_compile_plan(&plan);
+
+    println!("Compiling lowered plan to RV32I assembly via Riscv32Backend...");
+    let backend = mirrv32::Riscv32Backend;
+    let generated_asm = backend.compile(&lowered).map_err(|e| e.to_string())?;
+
+    // Append our custom baremetal stub and mir_alloc
+    let mut full_asm = String::new();
+    full_asm.push_str(&generated_asm);
+    full_asm.push_str(
+        r#"
+.section .text
+.global _start
+_start:
+    jal ra, mir_fn_1
+    # Exit syscall (sys_exit is 93 on RISC-V)
+    li a7, 93
+    ecall
+
+.global mir_alloc
+mir_alloc:
+    la t0, heap_ptr
+    lw t1, 0(t0)
+    addi t2, a1, -1
+    add t1, t1, t2
+    not t2, t2
+    and t1, t1, t2
+    la t3, heap_buffer
+    li t4, 1048576
+    add t3, t3, t4
+    add t4, t1, a0
+    bgtu t4, t3, .Loom
+    sw t4, 0(t0)
+    mv a0, t1
+    ret
+.Loom:
+    li a0, 11
+    li a7, 93
+    ecall
+
+.section .data
+.align 4
+heap_ptr:
+    .word heap_buffer
+
+.section .bss
+.align 16
+heap_buffer:
+    .zero 1048576
+"#,
+    );
+
+    println!("Printing snippet of the generated RV32I assembly (first 40 lines):");
+    println!("----------------------------------------------------------------");
+    for (idx, line) in full_asm.lines().take(40).enumerate() {
+        println!("{:>2} | {}", idx + 1, line);
+    }
+    println!("...\n----------------------------------------------------------------");
+
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target");
+    let _ = fs::create_dir_all(&dir);
+    let s_path = dir.join("temp_demo_sieve.s");
+    let bin_path = dir.join("temp_demo_sieve");
+
+    fs::write(&s_path, &full_asm)?;
+
+    println!("Assembling and statically linking for RV32I target...");
+    let mut compile_cmd = Command::new("riscv64-linux-gnu-gcc");
+    compile_cmd
+        .arg("-mabi=ilp32")
+        .arg("-march=rv32im")
+        .arg("-static")
+        .arg("-nostdlib")
+        .arg("-o")
+        .arg(&bin_path)
+        .arg(&s_path);
+
+    let compile_output = compile_cmd.output()?;
+    let _ = fs::remove_file(&s_path);
+
+    if !compile_output.status.success() {
+        return Err(format!(
+            "RISC-V32 Compilation failed: {}",
+            String::from_utf8_lossy(&compile_output.stderr)
+        )
+        .into());
+    }
+
+    println!("Executing statically-linked RV32I binary under QEMU user space...");
+    let run_output = Command::new("qemu-riscv32").arg(&bin_path).output()?;
+
+    let _ = fs::remove_file(&bin_path);
+
+    let code = run_output.status.code().unwrap_or(255);
+    println!("QEMU Execution return code (count of primes): {}", code);
+    if code == 11 {
+        println!("Execution succeeded! Sieve prime count is 11.");
+    } else {
+        println!("Unexpected exit code: {}", code);
+    }
+    println!("");
+
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     run_pedagogical_demo()?;
+    run_riscv32_demo()?;
     run_performance_benchmarks()?;
     Ok(())
 }

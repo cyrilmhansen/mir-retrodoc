@@ -14,3 +14,4 @@ mirsem = { path = "../mirsem" }
 mirplan = { path = "../mirplan" }
 mirc0 = { path = "../mirc0" }
 mirspace = { path = "../mirspace" }
+mirrv32 = { path = "../mirrv32" }
