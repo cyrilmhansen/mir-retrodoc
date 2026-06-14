@@ -61,6 +61,7 @@ F1 is ready to move toward target work when:
 - `mirplan` produces deterministic planning artifacts over representative F0
   fixtures;
 - `mirplan` exposes a tested target-neutral lowering projection;
+- `mirplan` artifacts are identical across text and Cap'n Proto load paths;
 - `mirtool` exposes both plan and lower inspection paths;
 - all analysis output is deterministic;
 - all F0 tests remain green;
