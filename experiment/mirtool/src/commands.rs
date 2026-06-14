@@ -1,6 +1,8 @@
 use crate::error::CliError;
 use crate::io::{detect_format, load_image, FileFormat};
 use mircap::image::ModuleImage;
+use mircap::Opcode;
+use mirplan::{DataSegmentPlan, LoweredInstruction, LoweredOperand, LoweredProgram};
 use mirsem::runner::Runner;
 use mirsem::trap::ExecutionTrap;
 use std::hint::black_box;
@@ -555,3 +557,785 @@ pub fn image_to_text(image: &ModuleImage) -> String {
 
     out
 }
+
+pub fn cmd_diff_upstream(
+    input_path: &str,
+    format_opt: Option<&str>,
+    entry_name: &str,
+    keep_temp: bool,
+) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+
+    // 1. Run interpreter
+    let mut runner = Runner::new(image.clone(), mirsem::ExecutionProfile::default())?;
+    let expected = match runner.run_entry_by_name(entry_name, &[]) {
+        Ok(res) => DiffOutcome::Success(res.values.first().cloned()),
+        Err(mirsem::RunError::Trap(trap)) => {
+            let (code, _) = trap_info(&trap);
+            DiffOutcome::Trap(code)
+        }
+        Err(err) => {
+            return Err(CliError::Generic(format!(
+                "Reference interpreter run failed: {:?}",
+                err
+            )));
+        }
+    };
+
+    // 2. Generate original MIR
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let lowered = mirplan::lower_compile_plan(&plan);
+
+    let mir_code = translate_to_upstream_mir(&lowered, entry_name);
+
+    // 3. Write MIR source code and compile
+    let cur_dir = std::env::current_dir()?;
+    let input_name = Path::new(input_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("temp")
+        .replace('.', "_");
+    let mir_path = cur_dir.join(format!("temp_mirtool_upstream_{}.mir", input_name));
+    let bmir_path = cur_dir.join(format!("temp_mirtool_upstream_{}.bmir", input_name));
+
+    std::fs::write(&mir_path, mir_code)?;
+
+    let m2b_path = "/home/john/project/mir-preservation/git/mir-restored/m2b";
+    let mir_bin_run_path = "/home/john/project/mir-preservation/git/mir-restored/mir-bin-run";
+
+    let mut compile_cmd = std::process::Command::new(m2b_path);
+    compile_cmd.stdin(std::fs::File::open(&mir_path)?);
+    compile_cmd.stdout(std::fs::File::create(&bmir_path)?);
+
+    let compile_output = compile_cmd.output();
+    match compile_output {
+        Ok(output) => {
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if !keep_temp {
+                    let _ = std::fs::remove_file(&mir_path);
+                    let _ = std::fs::remove_file(&bmir_path);
+                }
+                println!("FAIL: m2b compilation failed:\n{}", stderr);
+                return Ok(());
+            }
+        }
+        Err(err) => {
+            if !keep_temp {
+                let _ = std::fs::remove_file(&mir_path);
+                let _ = std::fs::remove_file(&bmir_path);
+            }
+            println!("FAIL: Failed to run m2b compiler: {}", err);
+            return Ok(());
+        }
+    }
+
+    // 4. Run compiled binary with mir-bin-run
+    let run_output = std::process::Command::new(mir_bin_run_path)
+        .arg(&bmir_path)
+        .arg("dummy_name")
+        .output();
+
+    if !keep_temp {
+        let _ = std::fs::remove_file(&mir_path);
+        let _ = std::fs::remove_file(&bmir_path);
+    }
+
+    let output = match run_output {
+        Ok(o) => o,
+        Err(err) => {
+            println!(
+                "FAIL: Failed to execute compiled binary under mir-bin-run: {}",
+                err
+            );
+            return Ok(());
+        }
+    };
+
+    let exit_code = output.status.code();
+
+    // 5. Compare exit codes
+    match expected {
+        DiffOutcome::Success(expected_val) => {
+            let expected_code = match expected_val {
+                None | Some(mirsem::Value::Void) => 0,
+                Some(mirsem::Value::I32(v)) => v,
+                Some(mirsem::Value::U32(v)) => v as i32,
+                Some(mirsem::Value::Addr32(v)) => v as i32,
+            };
+            let expected_exit_status = (expected_code & 0xff) as i32;
+            let actual_exit_status = exit_code.map(|c| c & 0xff);
+            if actual_exit_status == Some(expected_exit_status) {
+                println!("PASS");
+            } else {
+                println!(
+                    "FAIL: Result mismatch. Expected exit code {} (masked: {}), got {:?}",
+                    expected_code, expected_exit_status, exit_code
+                );
+            }
+        }
+        DiffOutcome::Trap(expected_trap_code) => {
+            let expected_exit_status = (expected_trap_code & 0xff) as i32;
+            let actual_exit_status = exit_code.map(|c| c & 0xff);
+            if actual_exit_status == Some(expected_exit_status) {
+                println!("PASS");
+            } else {
+                println!(
+                    "FAIL: Trap mismatch. Expected exit status to match trap code {} (masked: {}), got {:?}",
+                    expected_trap_code, expected_exit_status, exit_code
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn map_type(kind: mircap::TypeKind) -> &'static str {
+    match kind {
+        mircap::TypeKind::Void => "void",
+        mircap::TypeKind::I32 => "i32",
+        mircap::TypeKind::U32 => "u32",
+        mircap::TypeKind::Addr32 => "p",
+        _ => "i64",
+    }
+}
+
+pub fn translate_to_upstream_mir(program: &LoweredProgram, entry_name: &str) -> String {
+    let mut out = String::new();
+
+    // Module header
+    out.push_str(&format!("{}: module\n", program.module_name));
+
+    // Standard imports and prototypes
+    out.push_str("import malloc, abort, exit\n");
+    out.push_str("proto_malloc: proto p, i64:size\n");
+    out.push_str("proto_abort: proto\n");
+    out.push_str("proto_exit: proto i64:code\n\n");
+
+    // Globals
+    out.push_str("g_heap_ptr: i64 0\n");
+    out.push_str("g_memory: bss 1048576\n\n");
+
+    // Emit data segment declarations
+    for (idx, segment) in program.data_segments.iter().enumerate() {
+        out.push_str(&format!("data_seg_{}: u8 ", idx));
+        if segment.bytes.is_empty() {
+            out.push_str("0");
+        } else {
+            let byte_strs = segment
+                .bytes
+                .iter()
+                .map(|b| format!("0x{b:02x}"))
+                .collect::<Vec<_>>();
+            out.push_str(&byte_strs.join(", "));
+        }
+        out.push_str("\n");
+    }
+    out.push('\n');
+
+    // Emit static safety helpers
+    out.push_str(HELPER_FUNCTIONS);
+
+    // Emit dynamic init_data_segments function
+    out.push_str("init_data_segments: func\n");
+    out.push_str(
+        "                    local i64:mem_addr, i64:seg_addr, i64:i, i64:temp, i64:val\n",
+    );
+    for (idx, segment) in program.data_segments.iter().enumerate() {
+        let len = segment.bytes.len();
+        out.push_str(&format!("                    # Segment {}\n", idx));
+        if len > 0 {
+            out.push_str("                    mov i, 0\n");
+            out.push_str(&format!("L_loop_seg_{}:\n", idx));
+            out.push_str(&format!(
+                "                    bge L_end_seg_{}, i, {}\n",
+                idx, len
+            ));
+            out.push_str(&format!(
+                "                    add temp, {}, i\n",
+                segment.offset
+            ));
+            out.push_str(&format!(
+                "                    mov seg_addr, data_seg_{}\n",
+                idx
+            ));
+            out.push_str("                    add seg_addr, seg_addr, i\n");
+            out.push_str("                    mov val, u8:0(seg_addr)\n");
+            out.push_str("                    mov mem_addr, g_memory\n");
+            out.push_str("                    add mem_addr, mem_addr, temp\n");
+            out.push_str("                    mov u8:0(mem_addr), val\n");
+            out.push_str("                    add i, i, 1\n");
+            out.push_str(&format!("                    jmp L_loop_seg_{}\n", idx));
+            out.push_str(&format!("L_end_seg_{}:\n", idx));
+        }
+        if segment.zero_fill > 0 {
+            let zero_start = segment.offset as usize + len;
+            out.push_str("                    mov i, 0\n");
+            out.push_str(&format!("L_zero_loop_seg_{}:\n", idx));
+            out.push_str(&format!(
+                "                    bge L_zero_end_seg_{}, i, {}\n",
+                idx, segment.zero_fill
+            ));
+            out.push_str(&format!(
+                "                    add temp, {}, i\n",
+                zero_start
+            ));
+            out.push_str("                    mov mem_addr, g_memory\n");
+            out.push_str("                    add mem_addr, mem_addr, temp\n");
+            out.push_str("                    mov u8:0(mem_addr), 0\n");
+            out.push_str("                    add i, i, 1\n");
+            out.push_str(&format!(
+                "                    jmp L_zero_loop_seg_{}\n",
+                idx
+            ));
+            out.push_str(&format!("L_zero_end_seg_{}:\n", idx));
+        }
+    }
+    out.push_str("                    ret\n");
+    out.push_str("                    endfunc\n\n");
+
+    // Prototypes for other functions in the module
+    for func in &program.functions {
+        let name = if func.name == entry_name {
+            "main"
+        } else {
+            &func.name
+        };
+        let results_str = func
+            .results
+            .iter()
+            .map(|t| map_type(*t))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let params_str = func
+            .params
+            .iter()
+            .map(|p| format!("{}:v_{}", map_type(p.type_kind), p.id.0))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let signature = if results_str.is_empty() {
+            if params_str.is_empty() {
+                "".to_string()
+            } else {
+                format!(" {}", params_str)
+            }
+        } else {
+            if params_str.is_empty() {
+                format!(" {}", results_str)
+            } else {
+                format!(" {}, {}", results_str, params_str)
+            }
+        };
+        out.push_str(&format!("proto_{}: proto{}\n", name, signature));
+    }
+    out.push('\n');
+
+    // Translate functions
+    for func in &program.functions {
+        let name = if func.name == entry_name {
+            "main"
+        } else {
+            &func.name
+        };
+        let results_str = func
+            .results
+            .iter()
+            .map(|t| map_type(*t))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let params_str = func
+            .params
+            .iter()
+            .map(|p| format!("{}:v_{}", map_type(p.type_kind), p.id.0))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let signature = if results_str.is_empty() {
+            if params_str.is_empty() {
+                "".to_string()
+            } else {
+                format!(" {}", params_str)
+            }
+        } else {
+            if params_str.is_empty() {
+                format!(" {}", results_str)
+            } else {
+                format!(" {}, {}", results_str, params_str)
+            }
+        };
+        out.push_str(&format!("{}: func{}\n", name, signature));
+
+        // Declare local variables (all used registers except parameters, type i64)
+        let param_ids: std::collections::HashSet<u32> =
+            func.params.iter().map(|p| p.id.0).collect();
+        let mut local_ids = std::collections::HashSet::new();
+        for block in &func.blocks {
+            for insn in &block.instructions {
+                for r in &insn.writes {
+                    if !param_ids.contains(&r.id.0) {
+                        local_ids.insert(r.id.0);
+                    }
+                }
+                for r in &insn.reads {
+                    if !param_ids.contains(&r.id.0) {
+                        local_ids.insert(r.id.0);
+                    }
+                }
+                for op in &insn.operands {
+                    if let LoweredOperand::Value(val) = op {
+                        if !param_ids.contains(&val.id.0) {
+                            local_ids.insert(val.id.0);
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut sorted_ids: Vec<_> = local_ids.into_iter().collect();
+        sorted_ids.sort();
+        let mut decls = sorted_ids
+            .iter()
+            .map(|id| format!("i64:v_{}", id))
+            .collect::<Vec<_>>();
+        decls.push("i64:addr_add_temp".to_string());
+        let local_declarations = decls.join(", ");
+        out.push_str(&format!(
+            "                    local {}\n",
+            local_declarations
+        ));
+
+        // If this is the entry function ("main"), call init_data_segments first
+        if name == "main" {
+            out.push_str("                    call proto_init_data_segments, init_data_segments\n");
+        }
+
+        // If the first block is not the entry block, jump to the entry block
+        if let Some(first_block) = func.blocks.first() {
+            if first_block.label.id != func.entry.id {
+                out.push_str(&format!("                    jmp L_{}\n", func.entry.id.0));
+            }
+        }
+
+        // Translate blocks
+        for block in &func.blocks {
+            out.push_str(&format!("L_{}:\n", block.label.id.0));
+            for insn in &block.instructions {
+                out.push_str("                    ");
+                let insn_str = translate_instruction(insn, entry_name, &program.data_segments);
+                out.push_str(&insn_str);
+                out.push('\n');
+            }
+        }
+        out.push_str("                    endfunc\n\n");
+    }
+
+    out.push_str("endmodule\n");
+    out
+}
+
+fn translate_instruction(
+    insn: &LoweredInstruction,
+    entry_name: &str,
+    data_segments: &[DataSegmentPlan],
+) -> String {
+    let dest_str = if !insn.writes.is_empty() {
+        format!("v_{}", insn.writes[0].id.0)
+    } else {
+        String::new()
+    };
+
+    let format_op = |op: &LoweredOperand| -> String {
+        match op {
+            LoweredOperand::Value(val) => format!("v_{}", val.id.0),
+            LoweredOperand::ImmI32(imm) => imm.to_string(),
+            LoweredOperand::ImmU32(imm) => imm.to_string(),
+            LoweredOperand::Block(lbl) => format!("L_{}", lbl.id.0),
+            LoweredOperand::Function(f) => {
+                let name = if f.name == entry_name {
+                    "main"
+                } else {
+                    &f.name
+                };
+                name.to_string()
+            }
+            LoweredOperand::Symbol { name, .. } => name.clone(),
+            _ => String::new(),
+        }
+    };
+
+    match insn.opcode {
+        Opcode::ConstI32 | Opcode::ConstU32 => {
+            let val = format_op(&insn.operands[0]);
+            format!("mov {}, {}", dest_str, val)
+        }
+        Opcode::Copy => {
+            let val = format_op(&insn.operands[0]);
+            format!("mov {}, {}", dest_str, val)
+        }
+        Opcode::AddI32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("adds {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::SubI32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("subs {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::MulI32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("muls {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::AddU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("adds {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::SubU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("subs {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::MulU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("umuls {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::EqI32 | Opcode::EqU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("eqs {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::NeI32 | Opcode::NeU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("nes {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::LtI32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("lts {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::LtU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("ults {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::LeU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("ules {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::GtU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("ugts {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::GeU32 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("uges {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::Branch => {
+            let lbl = format_op(&insn.operands[0]);
+            format!("jmp {}", lbl)
+        }
+        Opcode::BranchIf => {
+            let cond = format_op(&insn.operands[0]);
+            let true_lbl = format_op(&insn.operands[1]);
+            let false_lbl = format_op(&insn.operands[2]);
+            format!(
+                "bt {}, {}\n                    jmp {}",
+                true_lbl, cond, false_lbl
+            )
+        }
+        Opcode::Ret => {
+            let read_strs: Vec<String> =
+                insn.reads.iter().map(|v| format!("v_{}", v.id.0)).collect();
+            if read_strs.is_empty() {
+                "ret".to_string()
+            } else {
+                format!("ret {}", read_strs.join(", "))
+            }
+        }
+        Opcode::Call => {
+            let callee_ref = match insn
+                .operands
+                .iter()
+                .find(|op| matches!(op, LoweredOperand::Function(_)))
+            {
+                Some(LoweredOperand::Function(f)) => f,
+                _ => panic!("Call instruction must have function callee"),
+            };
+            let callee_name = if callee_ref.name == entry_name {
+                "main"
+            } else {
+                &callee_ref.name
+            };
+
+            let args: Vec<String> = insn
+                .operands
+                .iter()
+                .filter(|op| !matches!(op, LoweredOperand::Function(_)))
+                .map(|op| format_op(op))
+                .collect();
+
+            let mut parts = vec![format!("proto_{}", callee_name), callee_name.to_string()];
+            if !dest_str.is_empty() {
+                parts.push(dest_str);
+            }
+            parts.extend(args);
+            format!("call {}", parts.join(", "))
+        }
+        Opcode::Trap => "call proto_exit, exit, 3".to_string(),
+        Opcode::Alloc => {
+            let size = format_op(&insn.operands[0]);
+            let align = format_op(&insn.operands[1]);
+            format!(
+                "call proto_mir_alloc, mir_alloc, {}, {}, {}",
+                dest_str, size, align
+            )
+        }
+        Opcode::LoadI32 => {
+            let addr = format_op(&insn.operands[0]);
+            format!(
+                "call proto_mir_load_i32, mir_load_i32, {}, {}",
+                dest_str, addr
+            )
+        }
+        Opcode::LoadU32 => {
+            let addr = format_op(&insn.operands[0]);
+            format!(
+                "call proto_mir_load_u32, mir_load_u32, {}, {}",
+                dest_str, addr
+            )
+        }
+        Opcode::StoreI32 => {
+            let addr = format_op(&insn.operands[0]);
+            let val = format_op(&insn.operands[1]);
+            format!("call proto_mir_store_i32, mir_store_i32, {}, {}", addr, val)
+        }
+        Opcode::StoreU32 => {
+            let addr = format_op(&insn.operands[0]);
+            let val = format_op(&insn.operands[1]);
+            format!("call proto_mir_store_u32, mir_store_u32, {}, {}", addr, val)
+        }
+        Opcode::LoadU8 => {
+            let addr = format_op(&insn.operands[0]);
+            format!(
+                "call proto_mir_load_u8, mir_load_u8, {}, {}",
+                dest_str, addr
+            )
+        }
+        Opcode::StoreU8 => {
+            let addr = format_op(&insn.operands[0]);
+            let val = format_op(&insn.operands[1]);
+            format!("call proto_mir_store_u8, mir_store_u8, {}, {}", addr, val)
+        }
+        Opcode::AddrAdd => {
+            let base = format_op(&insn.operands[0]);
+            let offset = format_op(&insn.operands[1]);
+            let insn_id = insn.id.0;
+            format!(
+                "mov addr_add_temp, {base}\n                    adds {dest}, addr_add_temp, {offset}\n                    ublts L_overflow_addradd_insn_{insn_id}, {dest}, addr_add_temp\n                    uext32 {dest}, {dest}\n                    jmp L_ok_addradd_insn_{insn_id}\nL_overflow_addradd_insn_{insn_id}:\n                    call proto_exit, exit, 17\nL_ok_addradd_insn_{insn_id}:",
+                dest = dest_str,
+                base = base,
+                offset = offset,
+                insn_id = insn_id
+            )
+        }
+        Opcode::DataAddr => {
+            let sym_name = match &insn.operands[0] {
+                LoweredOperand::Symbol { name, .. } => name.clone(),
+                _ => String::new(),
+            };
+            let offset = format_op(&insn.operands[1]);
+            let ds = data_segments
+                .iter()
+                .find(|ds| ds.name == sym_name)
+                .expect("Data segment must exist for DataAddr instruction");
+            let ds_len = ds.bytes.len() as u32 + ds.zero_fill;
+            format!(
+                "call proto_mir_data_addr, mir_data_addr, {}, {}, {}, {}",
+                dest_str, ds.offset, offset, ds_len
+            )
+        }
+        _ => String::new(),
+    }
+}
+
+const HELPER_FUNCTIONS: &str = r#"proto_init_data_segments: proto
+proto_mir_alloc: proto i64, i64:size, i64:align
+proto_mir_load_i32: proto i64, i64:addr
+proto_mir_load_u32: proto i64, i64:addr
+proto_mir_store_i32: proto i64:addr, i64:val
+proto_mir_store_u32: proto i64:addr, i64:val
+proto_mir_load_u8: proto i64, i64:addr
+proto_mir_store_u8: proto i64:addr, i64:val
+proto_mir_data_addr: proto i64, i64:base, i64:offset, i64:len
+
+mir_trap: func i64:code
+          call proto_exit, exit, code
+          ret
+          endfunc
+
+mir_alloc: func i64, i64:size, i64:align
+           local i64:mask, i64:heap_ptr_addr, i64:heap_val, i64:aligned, i64:end, i64:temp, i64:limit, i64:not_mask
+           bne L_align_ok_1_alloc, align, 0
+           call proto_exit, exit, 16
+L_align_ok_1_alloc:
+           sub temp, align, 1
+           and temp, align, temp
+           beq L_align_ok_2_alloc, temp, 0
+           call proto_exit, exit, 16
+L_align_ok_2_alloc:
+           sub mask, align, 1
+           mov heap_ptr_addr, g_heap_ptr
+           mov heap_val, i64:0(heap_ptr_addr)
+           mov limit, 4294967295
+           sub limit, limit, mask
+           ubgt L_oom_1_alloc, heap_val, limit
+           jmp L_heap_ok_1_alloc
+L_oom_1_alloc:
+           call proto_exit, exit, 11
+L_heap_ok_1_alloc:
+           add aligned, heap_val, mask
+           xor not_mask, mask, -1
+           and aligned, aligned, not_mask
+           mov limit, 4294967295
+           sub limit, limit, aligned
+           ubgt L_oom_2_alloc, size, limit
+           jmp L_heap_ok_2_alloc
+L_oom_2_alloc:
+           call proto_exit, exit, 11
+L_heap_ok_2_alloc:
+           add end, aligned, size
+           ubgt L_collision_alloc, end, 983040
+           jmp L_heap_ok_3_alloc
+L_collision_alloc:
+           call proto_exit, exit, 12
+L_heap_ok_3_alloc:
+           mov i64:0(heap_ptr_addr), end
+           uext32 aligned, aligned
+           ret aligned
+           endfunc
+
+mir_load_i32: func i64, i64:addr
+              local i64:rem, i64:mem_addr, i64:val
+              mod rem, addr, 4
+              beq L_align_ok_load_i32, rem, 0
+              call proto_exit, exit, 15
+L_align_ok_load_i32:
+              ubgt L_bounds_ok_load_i32, addr, 1048572
+              jmp L_bounds_ok2_load_i32
+L_bounds_ok_load_i32:
+              call proto_exit, exit, 13
+L_bounds_ok2_load_i32:
+              mov mem_addr, g_memory
+              add mem_addr, mem_addr, addr
+              mov val, i32:0(mem_addr)
+              ret val
+              endfunc
+
+mir_load_u32: func i64, i64:addr
+              local i64:rem, i64:mem_addr, i64:val
+              mod rem, addr, 4
+              beq L_align_ok_load_u32, rem, 0
+              call proto_exit, exit, 15
+L_align_ok_load_u32:
+              ubgt L_bounds_ok_load_u32, addr, 1048572
+              jmp L_bounds_ok2_load_u32
+L_bounds_ok_load_u32:
+              call proto_exit, exit, 13
+L_bounds_ok2_load_u32:
+              mov mem_addr, g_memory
+              add mem_addr, mem_addr, addr
+              mov val, u32:0(mem_addr)
+              ret val
+              endfunc
+
+mir_store_i32: func i64:addr, i64:val
+               local i64:rem, i64:mem_addr
+               mod rem, addr, 4
+               beq L_align_ok_store_i32, rem, 0
+               call proto_exit, exit, 16
+L_align_ok_store_i32:
+               ubgt L_bounds_ok_store_i32, addr, 1048572
+               jmp L_bounds_ok2_store_i32
+L_bounds_ok_store_i32:
+               call proto_exit, exit, 14
+L_bounds_ok2_store_i32:
+               mov mem_addr, g_memory
+               add mem_addr, mem_addr, addr
+               mov i32:0(mem_addr), val
+               ret
+               endfunc
+
+mir_store_u32: func i64:addr, i64:val
+               local i64:rem, i64:mem_addr
+               mod rem, addr, 4
+               beq L_align_ok_store_u32, rem, 0
+               call proto_exit, exit, 16
+L_align_ok_store_u32:
+               ubgt L_bounds_ok_store_u32, addr, 1048572
+               jmp L_bounds_ok2_store_u32
+L_bounds_ok_store_u32:
+               call proto_exit, exit, 14
+L_bounds_ok2_store_u32:
+               mov mem_addr, g_memory
+               add mem_addr, mem_addr, addr
+               mov u32:0(mem_addr), val
+               ret
+               endfunc
+
+mir_load_u8: func i64, i64:addr
+             local i64:mem_addr, i64:val
+             ubgt L_bounds_ok_load_u8, addr, 1048575
+             jmp L_bounds_ok2_load_u8
+L_bounds_ok_load_u8:
+             call proto_exit, exit, 13
+L_bounds_ok2_load_u8:
+             mov mem_addr, g_memory
+             add mem_addr, mem_addr, addr
+             mov val, u8:0(mem_addr)
+             ret val
+             endfunc
+
+mir_store_u8: func i64:addr, i64:val
+              local i64:mem_addr
+              ubgt L_bounds_ok_store_u8, addr, 1048575
+              jmp L_bounds_ok2_store_u8
+L_bounds_ok_store_u8:
+              call proto_exit, exit, 14
+L_bounds_ok2_store_u8:
+              mov mem_addr, g_memory
+              add mem_addr, mem_addr, addr
+              mov u8:0(mem_addr), val
+              ret
+              endfunc
+
+mir_data_addr: func i64, i64:base, i64:offset, i64:len
+               local i64:limit, i64:res
+               ubgt L_bounds_ok_data_addr, offset, len
+               jmp L_bounds_ok2_data_addr
+L_bounds_ok_data_addr:
+               call proto_exit, exit, 13
+L_bounds_ok2_data_addr:
+               mov limit, 4294967295
+               sub limit, limit, offset
+               ubgt L_overflow_data_addr, base, limit
+               jmp L_overflow_ok_data_addr
+L_overflow_data_addr:
+               call proto_exit, exit, 17
+L_overflow_ok_data_addr:
+               add res, base, offset
+               uext32 res, res
+               ret res
+               endfunc
+
+"#;

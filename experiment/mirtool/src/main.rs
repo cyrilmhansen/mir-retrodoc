@@ -33,7 +33,8 @@ fn show_help() -> String {
     s.push_str(
         "  compile-c <input_file> <output_file>      Transpiles a module image to portable C11.\n",
     );
-    s.push_str("  diff <input_file>                         Runs differential execution comparison between mirsem and compiled C.\n\n");
+    s.push_str("  diff <input_file>                         Runs differential execution comparison between mirsem and compiled C.\n");
+    s.push_str("  diff-upstream <input_file>                Runs differential execution comparison between mirsem and original MIR.\n\n");
     s.push_str("Options:\n");
     s.push_str(
         "  --format <text|binary>                    Explicitly specify input file format.\n",
@@ -110,7 +111,8 @@ fn parse_args() -> Result<Args, String> {
     }
 
     let (input, output) = match command.as_str() {
-        "validate" | "decode" | "dump" | "run" | "plan" | "lower" | "bench-load" | "diff" => {
+        "validate" | "decode" | "dump" | "run" | "plan" | "lower" | "bench-load" | "diff"
+        | "diff-upstream" => {
             if positional.is_empty() {
                 return Err(format!(
                     "Command '{}' requires an input file path.\n\n{}",
@@ -196,6 +198,12 @@ fn main() {
             entry_name,
         ),
         "diff" => commands::cmd_diff(
+            &args.input,
+            args.format.as_deref(),
+            entry_name,
+            args.keep_temp,
+        ),
+        "diff-upstream" => commands::cmd_diff_upstream(
             &args.input,
             args.format.as_deref(),
             entry_name,

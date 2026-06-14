@@ -313,3 +313,42 @@ fn test_binary_trap_load_oob_flow() {
 
     let _ = std::fs::remove_file(temp_bin);
 }
+
+#[test]
+fn test_diff_upstream_valid_const_return() {
+    let m2b_check =
+        std::path::Path::new("/home/john/project/mir-preservation/git/mir-restored/m2b").exists();
+    if m2b_check {
+        let path = fixture_path("valid_const_return.mircap.txt");
+        let output = run_mirtool(&["diff-upstream", &path]);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout.trim(), "PASS");
+    }
+}
+
+#[test]
+fn test_diff_upstream_valid_sieve_32_u32() {
+    let m2b_check =
+        std::path::Path::new("/home/john/project/mir-preservation/git/mir-restored/m2b").exists();
+    if m2b_check {
+        let path = fixture_path("valid_sieve_32_u32.mircap.txt");
+        let output = run_mirtool(&["diff-upstream", &path]);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout.trim(), "PASS");
+    }
+}
+
+#[test]
+fn test_diff_upstream_trap_load_oob() {
+    let m2b_check =
+        std::path::Path::new("/home/john/project/mir-preservation/git/mir-restored/m2b").exists();
+    if m2b_check {
+        let path = fixture_path("trap_load_oob.mircap.txt");
+        let output = run_mirtool(&["diff-upstream", &path]);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout.trim(), "PASS");
+    }
+}
