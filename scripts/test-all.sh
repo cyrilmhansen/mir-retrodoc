@@ -3,7 +3,7 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-CRATES="mircap mirsem mirc0 mirtool mirspace mirplan"
+CRATES="mircap mirsem mirc0 mirtool mirspace mirplan mirjit"
 
 for crate in $CRATES; do
     printf '%s\n' "==> cargo test ($crate)"

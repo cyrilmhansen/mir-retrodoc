@@ -10,5 +10,5 @@ pub mod pretty;
 pub mod runtime_c;
 
 pub use compile::compile;
-pub use compile_lowered::compile_lowered;
+pub use compile_lowered::{compile_lowered, C11Backend};
 pub use error::CompileError;

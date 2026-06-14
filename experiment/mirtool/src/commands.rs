@@ -203,7 +203,15 @@ pub fn cmd_compile_c(
     entry_name: &str,
 ) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
-    let c_code = mirc0::compile(&image, entry_name)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let lowered = mirplan::lower_compile_plan(&plan);
+
+    use mirplan::Backend;
+    let backend = mirc0::C11Backend::new(entry_name);
+    let c_code = backend.compile(&lowered)?;
+
     std::fs::write(output_path, c_code)?;
     Ok(())
 }
@@ -239,7 +247,14 @@ pub fn cmd_diff(
     };
 
     // 2. Generate C
-    let c_code = mirc0::compile(&image, entry_name)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let lowered = mirplan::lower_compile_plan(&plan);
+
+    use mirplan::Backend;
+    let backend = mirc0::C11Backend::new(entry_name);
+    let c_code = backend.compile(&lowered)?;
 
     // 3. Check for C compiler
     let cc_check = std::process::Command::new("cc").arg("--version").output();

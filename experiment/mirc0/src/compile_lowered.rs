@@ -482,3 +482,25 @@ fn emit_main(out: &mut String, entry_func: &LoweredFunction) -> Result<(), Compi
     out.push_str("}\n");
     Ok(())
 }
+
+pub struct C11Backend {
+    pub entry_name: String,
+}
+
+impl C11Backend {
+    pub fn new(entry_name: impl Into<String>) -> Self {
+        Self {
+            entry_name: entry_name.into(),
+        }
+    }
+}
+
+impl mirplan::Backend for C11Backend {
+    type Output = String;
+    type Error = CompileError;
+
+    fn compile(&self, program: &LoweredProgram) -> Result<Self::Output, Self::Error> {
+        compile_lowered(program, &self.entry_name)
+    }
+}
+

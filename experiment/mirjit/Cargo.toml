@@ -1,0 +1,16 @@
+[package]
+name = "mirjit"
+version = "0.1.0"
+edition = "2021"
+description = "MIR-inspired execution engine and JIT context for eager/lazy compilation"
+license = "MIT"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mircap = { path = "../mircap" }
+mirsem = { path = "../mirsem" }
+mirplan = { path = "../mirplan" }
+mirc0 = { path = "../mirc0" }
+mirspace = { path = "../mirspace" }

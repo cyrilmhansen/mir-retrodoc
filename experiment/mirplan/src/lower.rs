@@ -267,3 +267,11 @@ fn memory_op(opcode: Opcode) -> Option<LoweredMemoryOp> {
         _ => None,
     }
 }
+
+pub trait Backend {
+    type Output;
+    type Error: std::error::Error + Send + Sync + 'static;
+
+    fn compile(&self, program: &LoweredProgram) -> Result<Self::Output, Self::Error>;
+}
+
