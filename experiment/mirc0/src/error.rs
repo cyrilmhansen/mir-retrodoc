@@ -9,6 +9,7 @@ pub enum CompileError {
     MultipleResultsNotSupported,
     EntryFunctionNotFound(String),
     InvalidEntrySignature(String),
+    PlanningFailed(String),
 }
 
 impl fmt::Display for CompileError {
@@ -35,6 +36,9 @@ impl fmt::Display for CompileError {
             }
             CompileError::InvalidEntrySignature(reason) => {
                 write!(f, "Invalid entry function signature: {}", reason)
+            }
+            CompileError::PlanningFailed(reason) => {
+                write!(f, "Planning/lowering failed: {}", reason)
             }
         }
     }

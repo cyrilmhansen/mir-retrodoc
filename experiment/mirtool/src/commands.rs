@@ -140,7 +140,11 @@ pub fn cmd_plan(input_path: &str, format_opt: Option<&str>) -> Result<(), CliErr
     Ok(())
 }
 
-pub fn cmd_lower(input_path: &str, format_opt: Option<&str>, optimize: bool) -> Result<(), CliError> {
+pub fn cmd_lower(
+    input_path: &str,
+    format_opt: Option<&str>,
+    optimize: bool,
+) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
     let space = mirspace::ProgramSpace::from_module_image(&image)
         .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;

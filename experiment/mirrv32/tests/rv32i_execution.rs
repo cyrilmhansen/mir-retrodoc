@@ -27,11 +27,14 @@ fn check_tools() -> bool {
     gcc_check.is_ok() && qemu_check.is_ok()
 }
 
-fn execute_rv32i(fixture: &str, test_name: &str) -> i32 {
+fn execute_rv32i(fixture: &str, test_name: &str, optimize: bool) -> i32 {
     let image = ModuleImage::from_text(fixture).unwrap();
     let space = mirspace::ProgramSpace::from_module_image(&image).unwrap();
     let plan = build_compile_plan(&space);
-    let lowered = lower_compile_plan(&plan);
+    let mut lowered = lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
 
     let backend = Riscv32Backend;
     let generated_asm = backend.compile(&lowered).unwrap();
@@ -140,8 +143,11 @@ fn test_rv32i_const_return() {
     if !check_tools() {
         return;
     }
-    let code = execute_rv32i(CONST_RETURN_FIXTURE, "const_return");
-    assert_eq!(code, 42);
+    let code_unopt = execute_rv32i(CONST_RETURN_FIXTURE, "const_return_unopt", false);
+    assert_eq!(code_unopt, 42);
+
+    let code_opt = execute_rv32i(CONST_RETURN_FIXTURE, "const_return_opt", true);
+    assert_eq!(code_opt, 42);
 }
 
 #[test]
@@ -149,8 +155,11 @@ fn test_rv32i_branch() {
     if !check_tools() {
         return;
     }
-    let code = execute_rv32i(BRANCH_FIXTURE, "branch");
-    assert_eq!(code, 7);
+    let code_unopt = execute_rv32i(BRANCH_FIXTURE, "branch_unopt", false);
+    assert_eq!(code_unopt, 7);
+
+    let code_opt = execute_rv32i(BRANCH_FIXTURE, "branch_opt", true);
+    assert_eq!(code_opt, 7);
 }
 
 #[test]
@@ -158,8 +167,11 @@ fn test_rv32i_arithmetic() {
     if !check_tools() {
         return;
     }
-    let code = execute_rv32i(ARITHMETIC_FIXTURE, "arithmetic");
-    assert_eq!(code, 42);
+    let code_unopt = execute_rv32i(ARITHMETIC_FIXTURE, "arithmetic_unopt", false);
+    assert_eq!(code_unopt, 42);
+
+    let code_opt = execute_rv32i(ARITHMETIC_FIXTURE, "arithmetic_opt", true);
+    assert_eq!(code_opt, 42);
 }
 
 #[test]
@@ -167,8 +179,11 @@ fn test_rv32i_arithmetic_u32() {
     if !check_tools() {
         return;
     }
-    let code = execute_rv32i(ARITHMETIC_U32_FIXTURE, "arithmetic_u32");
-    assert_eq!(code, 1);
+    let code_unopt = execute_rv32i(ARITHMETIC_U32_FIXTURE, "arithmetic_u32_unopt", false);
+    assert_eq!(code_unopt, 1);
+
+    let code_opt = execute_rv32i(ARITHMETIC_U32_FIXTURE, "arithmetic_u32_opt", true);
+    assert_eq!(code_opt, 1);
 }
 
 #[test]
@@ -176,8 +191,11 @@ fn test_rv32i_direct_call() {
     if !check_tools() {
         return;
     }
-    let code = execute_rv32i(DIRECT_CALL_FIXTURE, "direct_call");
-    assert_eq!(code, 41);
+    let code_unopt = execute_rv32i(DIRECT_CALL_FIXTURE, "direct_call_unopt", false);
+    assert_eq!(code_unopt, 41);
+
+    let code_opt = execute_rv32i(DIRECT_CALL_FIXTURE, "direct_call_opt", true);
+    assert_eq!(code_opt, 41);
 }
 
 #[test]
@@ -185,8 +203,11 @@ fn test_rv32i_sieve_32_u32() {
     if !check_tools() {
         return;
     }
-    let code = execute_rv32i(SIEVE_FIXTURE, "sieve_32_u32");
-    assert_eq!(code, 11);
+    let code_unopt = execute_rv32i(SIEVE_FIXTURE, "sieve_32_u32_unopt", false);
+    assert_eq!(code_unopt, 11);
+
+    let code_opt = execute_rv32i(SIEVE_FIXTURE, "sieve_32_u32_opt", true);
+    assert_eq!(code_opt, 11);
 }
 
 #[test]
@@ -194,6 +215,9 @@ fn test_rv32i_trap() {
     if !check_tools() {
         return;
     }
-    let code = execute_rv32i(TRAP_FIXTURE, "trap");
-    assert_eq!(code, 139);
+    let code_unopt = execute_rv32i(TRAP_FIXTURE, "trap_unopt", false);
+    assert_eq!(code_unopt, 139);
+
+    let code_opt = execute_rv32i(TRAP_FIXTURE, "trap_opt", true);
+    assert_eq!(code_opt, 139);
 }

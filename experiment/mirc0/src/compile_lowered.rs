@@ -89,7 +89,7 @@ fn emit_data_segments(out: &mut String, segments: &[DataSegmentPlan]) {
     }
     out.push('\n');
 
-    out.push_str("static void init_data_segments(void) {\n");
+    out.push_str("void init_data_segments(void) {\n");
     for (idx, segment) in segments.iter().enumerate() {
         let len = segment.bytes.len() as u32;
         out.push_str(&format!("    /* Segment {} */\n", idx));

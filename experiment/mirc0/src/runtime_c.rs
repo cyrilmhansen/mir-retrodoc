@@ -11,10 +11,10 @@ pub const RUNTIME_HEADER: &str = r#"#include <stdint.h>
 #define STACK_SIZE (64 * 1024)
 #endif
 
-static uint32_t g_memory_aligned[MEMORY_SIZE / 4];
+uint32_t g_memory_aligned[MEMORY_SIZE / 4];
 #define g_memory ((uint8_t*)g_memory_aligned)
-static uint32_t g_heap_ptr = 0;
-static uint32_t g_stack_base = MEMORY_SIZE - STACK_SIZE;
+uint32_t g_heap_ptr = 0;
+uint32_t g_stack_base = MEMORY_SIZE - STACK_SIZE;
 
 void mir_trap(int code) {
     const char *name = "Unknown";

@@ -79,7 +79,18 @@ impl JitContext {
     {
         for thunk in self.thunks.values() {
             let binary_path = compile_fn(&self.image, thunk.function_id)?;
-            thunk.set_target(ThunkTarget::Compiled { binary_path });
+            if binary_path.ends_with(".so") {
+                let dl = crate::thunk::DynamicLibrary::new(&binary_path).map_err(|e| {
+                    Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
+                        as Box<dyn Error + Send + Sync>
+                })?;
+                thunk.set_target(ThunkTarget::InProcess {
+                    binary_path,
+                    handle: std::sync::Arc::new(dl),
+                });
+            } else {
+                thunk.set_target(ThunkTarget::Compiled { binary_path });
+            }
         }
         Ok(())
     }
@@ -106,12 +117,31 @@ impl JitContext {
             ThunkTarget::LazyCompile { hook } => {
                 let path = hook(&self.image, thunk.function_id)
                     .map_err(|e| JitError::Compile(e.to_string()))?;
-                thunk.set_target(ThunkTarget::Compiled {
-                    binary_path: path.clone(),
-                });
-                self.run_compiled_binary(&path)
+                if path.ends_with(".so") {
+                    let dl = crate::thunk::DynamicLibrary::new(&path)
+                        .map_err(|e| JitError::Compile(e))?;
+                    let target = ThunkTarget::InProcess {
+                        binary_path: path.clone(),
+                        handle: std::sync::Arc::new(dl),
+                    };
+                    thunk.set_target(target.clone());
+                    match target {
+                        ThunkTarget::InProcess { handle, .. } => unsafe {
+                            self.run_in_process(&handle, thunk.function_id, args)
+                        },
+                        _ => unreachable!(),
+                    }
+                } else {
+                    thunk.set_target(ThunkTarget::Compiled {
+                        binary_path: path.clone(),
+                    });
+                    self.run_compiled_binary(&path)
+                }
             }
             ThunkTarget::Compiled { binary_path } => self.run_compiled_binary(&binary_path),
+            ThunkTarget::InProcess { handle, .. } => unsafe {
+                self.run_in_process(&handle, thunk.function_id, args)
+            },
         }
     }
 
@@ -189,5 +219,128 @@ impl JitContext {
 
             Err(JitError::Trap(trap))
         }
+    }
+
+    unsafe fn run_in_process(
+        &self,
+        handle: &std::sync::Arc<crate::thunk::DynamicLibrary>,
+        function_id: mircap::FunctionId,
+        args: &[Value],
+    ) -> Result<ExecutionResult, JitError> {
+        // 1. Reset heap pointer
+        let heap_ptr_sym = handle
+            .get_symbol("g_heap_ptr")
+            .map_err(|e| JitError::Compile(e))?;
+        let g_heap_ptr_ref = heap_ptr_sym as *mut u32;
+        *g_heap_ptr_ref = 0;
+
+        // 2. Initialize data segments
+        let init_data_sym = handle
+            .get_symbol("init_data_segments")
+            .map_err(|e| JitError::Compile(e))?;
+        let init_data_segments: extern "C" fn() = std::mem::transmute(init_data_sym);
+        init_data_segments();
+
+        // 3. Resolve target function
+        let fn_name = format!("mir_fn_{}", function_id.0);
+        let fn_sym = handle
+            .get_symbol(&fn_name)
+            .map_err(|e| JitError::Compile(e))?;
+
+        // 4. Resolve function signature and call it
+        let func = self.image.function(function_id).ok_or_else(|| {
+            JitError::Compile(format!("Function {} not found in image", function_id.0))
+        })?;
+
+        let param_kinds: Vec<mircap::TypeKind> = func
+            .params
+            .iter()
+            .map(|&tid| self.image.type_kind(tid).unwrap_or(mircap::TypeKind::Void))
+            .collect();
+        let result_kinds: Vec<mircap::TypeKind> = func
+            .results
+            .iter()
+            .map(|&tid| self.image.type_kind(tid).unwrap_or(mircap::TypeKind::Void))
+            .collect();
+
+        self.call_ffi(fn_sym, &param_kinds, &result_kinds, args)
+    }
+
+    unsafe fn call_ffi(
+        &self,
+        func_ptr: *mut std::os::raw::c_void,
+        _param_kinds: &[mircap::TypeKind],
+        result_kinds: &[mircap::TypeKind],
+        args: &[Value],
+    ) -> Result<ExecutionResult, JitError> {
+        let arg_vals: Vec<u32> = args
+            .iter()
+            .map(|arg| match arg {
+                Value::Void => 0,
+                Value::I32(v) => *v as u32,
+                Value::U32(v) => *v,
+                Value::Addr32(v) => *v,
+            })
+            .collect();
+
+        let ret_val = match (arg_vals.len(), result_kinds.first()) {
+            (0, None) => {
+                let f: extern "C" fn() = std::mem::transmute(func_ptr);
+                f();
+                Value::Void
+            }
+            (0, Some(mircap::TypeKind::I32)) => {
+                let f: extern "C" fn() -> i32 = std::mem::transmute(func_ptr);
+                Value::I32(f())
+            }
+            (0, Some(mircap::TypeKind::U32)) => {
+                let f: extern "C" fn() -> u32 = std::mem::transmute(func_ptr);
+                Value::U32(f())
+            }
+            (0, Some(mircap::TypeKind::Addr32)) => {
+                let f: extern "C" fn() -> u32 = std::mem::transmute(func_ptr);
+                Value::Addr32(f())
+            }
+            (1, None) => {
+                let f: extern "C" fn(u32) = std::mem::transmute(func_ptr);
+                f(arg_vals[0]);
+                Value::Void
+            }
+            (1, Some(mircap::TypeKind::I32)) => {
+                let f: extern "C" fn(u32) -> i32 = std::mem::transmute(func_ptr);
+                Value::I32(f(arg_vals[0]))
+            }
+            (1, Some(mircap::TypeKind::U32)) => {
+                let f: extern "C" fn(u32) -> u32 = std::mem::transmute(func_ptr);
+                Value::U32(f(arg_vals[0]))
+            }
+            (1, Some(mircap::TypeKind::Addr32)) => {
+                let f: extern "C" fn(u32) -> u32 = std::mem::transmute(func_ptr);
+                Value::Addr32(f(arg_vals[0]))
+            }
+            (2, None) => {
+                let f: extern "C" fn(u32, u32) = std::mem::transmute(func_ptr);
+                f(arg_vals[0], arg_vals[1]);
+                Value::Void
+            }
+            (2, Some(mircap::TypeKind::I32)) => {
+                let f: extern "C" fn(u32, u32) -> i32 = std::mem::transmute(func_ptr);
+                Value::I32(f(arg_vals[0], arg_vals[1]))
+            }
+            (2, Some(mircap::TypeKind::U32)) => {
+                let f: extern "C" fn(u32, u32) -> u32 = std::mem::transmute(func_ptr);
+                Value::U32(f(arg_vals[0], arg_vals[1]))
+            }
+            (2, Some(mircap::TypeKind::Addr32)) => {
+                let f: extern "C" fn(u32, u32) -> u32 = std::mem::transmute(func_ptr);
+                Value::Addr32(f(arg_vals[0], arg_vals[1]))
+            }
+            _ => return Err(JitError::Compile("Unsupported FFI signature".to_string())),
+        };
+
+        Ok(ExecutionResult {
+            values: vec![ret_val],
+            executed_instruction_count: 0,
+        })
     }
 }

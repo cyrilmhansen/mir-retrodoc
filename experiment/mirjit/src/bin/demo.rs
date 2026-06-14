@@ -15,7 +15,11 @@ const CONST_RETURN_FIXTURE: &str =
 const SIEVE_FIXTURE: &str =
     include_str!("../../../mircap/tests/fixtures/valid_sieve_32_u32.mircap.txt");
 
-fn compile_function_to_bin(image: &ModuleImage, test_name: &str, optimize: bool) -> Result<String, String> {
+fn compile_function_to_bin(
+    image: &ModuleImage,
+    test_name: &str,
+    optimize: bool,
+) -> Result<String, String> {
     let space = mirspace::ProgramSpace::from_module_image(image).map_err(|e| format!("{:?}", e))?;
     let plan = build_compile_plan(&space);
     let mut lowered = lower_compile_plan(&plan);
@@ -472,7 +476,9 @@ fn run_riscv32_demo() -> Result<(), Box<dyn Error>> {
 
     println!("Compiling optimized lowered plan to RV32I assembly via Riscv32Backend...");
     let backend = mirrv32::Riscv32Backend;
-    let generated_asm = backend.compile(&optimized_lowered).map_err(|e| e.to_string())?;
+    let generated_asm = backend
+        .compile(&optimized_lowered)
+        .map_err(|e| e.to_string())?;
 
     // Append our custom baremetal stub and mir_alloc
     let mut full_asm = String::new();

@@ -1,6 +1,5 @@
 use crate::lower::{
-    LoweredBranchTarget, LoweredFunction, LoweredInstructionKind, LoweredOperand,
-    LoweredProgram,
+    LoweredBranchTarget, LoweredFunction, LoweredInstructionKind, LoweredOperand, LoweredProgram,
 };
 use mircap::Opcode;
 use mirspace::EdgeKind;
@@ -35,7 +34,9 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
             }
 
             // Re-sync reads vector after propagation
-            insn.reads = insn.operands.iter()
+            insn.reads = insn
+                .operands
+                .iter()
                 .filter_map(|op| match op {
                     LoweredOperand::Value(val) => Some(val.clone()),
                     _ => None,
@@ -46,12 +47,24 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
             let mut is_folded_constant = false;
             let mut folded_val = None;
             match insn.opcode {
-                Opcode::AddI32 | Opcode::SubI32 | Opcode::MulI32 |
-                Opcode::AddU32 | Opcode::SubU32 | Opcode::MulU32 |
-                Opcode::EqI32 | Opcode::NeI32 | Opcode::LtI32 |
-                Opcode::EqU32 | Opcode::NeU32 | Opcode::LtU32 | Opcode::LeU32 | Opcode::GtU32 | Opcode::GeU32 => {
+                Opcode::AddI32
+                | Opcode::SubI32
+                | Opcode::MulI32
+                | Opcode::AddU32
+                | Opcode::SubU32
+                | Opcode::MulU32
+                | Opcode::EqI32
+                | Opcode::NeI32
+                | Opcode::LtI32
+                | Opcode::EqU32
+                | Opcode::NeU32
+                | Opcode::LtU32
+                | Opcode::LeU32
+                | Opcode::GtU32
+                | Opcode::GeU32 => {
                     if insn.operands.len() >= 2 {
-                        let folded = fold_binary_op(insn.opcode, &insn.operands[0], &insn.operands[1]);
+                        let folded =
+                            fold_binary_op(insn.opcode, &insn.operands[0], &insn.operands[1]);
                         if let Some(folded_op) = folded {
                             insn.opcode = match folded_op {
                                 LoweredOperand::ImmI32(_) => Opcode::ConstI32,
@@ -76,7 +89,10 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                 }
                 Opcode::Copy => {
                     if let Some(dest) = insn.writes.first() {
-                        if matches!(insn.operands[0], LoweredOperand::ImmI32(_) | LoweredOperand::ImmU32(_)) {
+                        if matches!(
+                            insn.operands[0],
+                            LoweredOperand::ImmI32(_) | LoweredOperand::ImmU32(_)
+                        ) {
                             is_folded_constant = true;
                             folded_val = Some((dest.id, insn.operands[0].clone()));
                         }
@@ -111,7 +127,9 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                     insn.operands = vec![taken_target.clone()];
                     insn.reads = Vec::new();
 
-                    let LoweredOperand::Block(target_lbl) = taken_target else { unreachable!() };
+                    let LoweredOperand::Block(target_lbl) = taken_target else {
+                        unreachable!()
+                    };
                     insn.kind = LoweredInstructionKind::Branch {
                         targets: vec![LoweredBranchTarget {
                             kind: EdgeKind::Unconditional,
@@ -128,7 +146,9 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                     insn.operands = vec![taken_target.clone()];
                     insn.reads = Vec::new();
 
-                    let LoweredOperand::Block(target_lbl) = taken_target else { unreachable!() };
+                    let LoweredOperand::Block(target_lbl) = taken_target else {
+                        unreachable!()
+                    };
                     insn.kind = LoweredInstructionKind::Branch {
                         targets: vec![LoweredBranchTarget {
                             kind: EdgeKind::Unconditional,
@@ -150,33 +170,33 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
     }
 }
 
-fn fold_binary_op(opcode: Opcode, lhs: &LoweredOperand, rhs: &LoweredOperand) -> Option<LoweredOperand> {
+fn fold_binary_op(
+    opcode: Opcode,
+    lhs: &LoweredOperand,
+    rhs: &LoweredOperand,
+) -> Option<LoweredOperand> {
     match (lhs, rhs) {
-        (LoweredOperand::ImmI32(a), LoweredOperand::ImmI32(b)) => {
-            match opcode {
-                Opcode::AddI32 => Some(LoweredOperand::ImmI32(a.wrapping_add(*b))),
-                Opcode::SubI32 => Some(LoweredOperand::ImmI32(a.wrapping_sub(*b))),
-                Opcode::MulI32 => Some(LoweredOperand::ImmI32(a.wrapping_mul(*b))),
-                Opcode::EqI32 => Some(LoweredOperand::ImmU32(if a == b { 1 } else { 0 })),
-                Opcode::NeI32 => Some(LoweredOperand::ImmU32(if a != b { 1 } else { 0 })),
-                Opcode::LtI32 => Some(LoweredOperand::ImmU32(if a < b { 1 } else { 0 })),
-                _ => None,
-            }
-        }
-        (LoweredOperand::ImmU32(a), LoweredOperand::ImmU32(b)) => {
-            match opcode {
-                Opcode::AddU32 => Some(LoweredOperand::ImmU32(a.wrapping_add(*b))),
-                Opcode::SubU32 => Some(LoweredOperand::ImmU32(a.wrapping_sub(*b))),
-                Opcode::MulU32 => Some(LoweredOperand::ImmU32(a.wrapping_mul(*b))),
-                Opcode::EqU32 => Some(LoweredOperand::ImmU32(if a == b { 1 } else { 0 })),
-                Opcode::NeU32 => Some(LoweredOperand::ImmU32(if a != b { 1 } else { 0 })),
-                Opcode::LtU32 => Some(LoweredOperand::ImmU32(if a < b { 1 } else { 0 })),
-                Opcode::LeU32 => Some(LoweredOperand::ImmU32(if a <= b { 1 } else { 0 })),
-                Opcode::GtU32 => Some(LoweredOperand::ImmU32(if a > b { 1 } else { 0 })),
-                Opcode::GeU32 => Some(LoweredOperand::ImmU32(if a >= b { 1 } else { 0 })),
-                _ => None,
-            }
-        }
+        (LoweredOperand::ImmI32(a), LoweredOperand::ImmI32(b)) => match opcode {
+            Opcode::AddI32 => Some(LoweredOperand::ImmI32(a.wrapping_add(*b))),
+            Opcode::SubI32 => Some(LoweredOperand::ImmI32(a.wrapping_sub(*b))),
+            Opcode::MulI32 => Some(LoweredOperand::ImmI32(a.wrapping_mul(*b))),
+            Opcode::EqI32 => Some(LoweredOperand::ImmU32(if a == b { 1 } else { 0 })),
+            Opcode::NeI32 => Some(LoweredOperand::ImmU32(if a != b { 1 } else { 0 })),
+            Opcode::LtI32 => Some(LoweredOperand::ImmU32(if a < b { 1 } else { 0 })),
+            _ => None,
+        },
+        (LoweredOperand::ImmU32(a), LoweredOperand::ImmU32(b)) => match opcode {
+            Opcode::AddU32 => Some(LoweredOperand::ImmU32(a.wrapping_add(*b))),
+            Opcode::SubU32 => Some(LoweredOperand::ImmU32(a.wrapping_sub(*b))),
+            Opcode::MulU32 => Some(LoweredOperand::ImmU32(a.wrapping_mul(*b))),
+            Opcode::EqU32 => Some(LoweredOperand::ImmU32(if a == b { 1 } else { 0 })),
+            Opcode::NeU32 => Some(LoweredOperand::ImmU32(if a != b { 1 } else { 0 })),
+            Opcode::LtU32 => Some(LoweredOperand::ImmU32(if a < b { 1 } else { 0 })),
+            Opcode::LeU32 => Some(LoweredOperand::ImmU32(if a <= b { 1 } else { 0 })),
+            Opcode::GtU32 => Some(LoweredOperand::ImmU32(if a > b { 1 } else { 0 })),
+            Opcode::GeU32 => Some(LoweredOperand::ImmU32(if a >= b { 1 } else { 0 })),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -202,7 +222,8 @@ fn dead_code_elimination_pass(func: &mut LoweredFunction) {
             let mut i = 0;
             while i < block.instructions.len() {
                 let insn = &block.instructions[i];
-                let is_dead = !insn.writes.is_empty() && insn.writes.iter().all(|w| !read_values.contains(&w.id));
+                let is_dead = !insn.writes.is_empty()
+                    && insn.writes.iter().all(|w| !read_values.contains(&w.id));
 
                 if is_dead && !has_side_effects(insn.opcode) {
                     block.instructions.remove(i);
