@@ -136,6 +136,16 @@ pub fn cmd_plan(input_path: &str, format_opt: Option<&str>) -> Result<(), CliErr
     Ok(())
 }
 
+pub fn cmd_lower(input_path: &str, format_opt: Option<&str>) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let lowered = mirplan::lower_compile_plan(&plan);
+    print!("{}", mirplan::format_lowered(&lowered));
+    Ok(())
+}
+
 pub fn cmd_compile_c(
     input_path: &str,
     output_path: &str,

@@ -139,6 +139,37 @@ fn test_plan_binary_input() {
 }
 
 #[test]
+fn test_lower_valid_branch() {
+    let path = fixture_path("valid_branch.mircap.txt");
+    let output = run_mirtool(&["lower", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("lowered module branch"));
+    assert!(stdout.contains("fn f0#1 main"));
+    assert!(stdout.contains("branch branch_if"));
+    assert!(stdout.contains("targets=[true:b1#2, false:b2#3]"));
+    assert!(stdout.contains("successors: true:b1#2, false:b2#3"));
+}
+
+#[test]
+fn test_lower_binary_input() {
+    let text_path = fixture_path("valid_direct_call.mircap.txt");
+    let temp_bin = "temp_smoke_lower.mircap";
+
+    let output = run_mirtool(&["encode", &text_path, temp_bin, "--force"]);
+    assert!(output.status.success());
+
+    let output = run_mirtool(&["lower", temp_bin]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("lowered module direct_call"));
+    assert!(stdout.contains("call call writes=[v1#1:i32] reads=[v0#0:i32]"));
+    assert!(stdout.contains("callee=f1#2 callee"));
+
+    let _ = std::fs::remove_file(temp_bin);
+}
+
+#[test]
 fn test_compile_c_valid_sieve_32_u32() {
     let path = fixture_path("valid_sieve_32_u32.mircap.txt");
     let temp_c = "temp_smoke_sieve.c";

@@ -1,4 +1,7 @@
-use crate::{CompilePlan, FunctionPlan, OperandPlan, ValuePlan};
+use crate::{
+    CompilePlan, FunctionPlan, LoweredBranchTarget, LoweredInstructionKind, LoweredMemoryOp,
+    LoweredProgram, LoweredValue, OperandPlan, ValuePlan,
+};
 use mircap::{Opcode, TypeKind};
 use mirspace::EdgeKind;
 
@@ -19,6 +22,57 @@ pub fn format_plan(plan: &CompilePlan) -> String {
     out.push_str("functions:\n");
     for function in &plan.functions {
         format_function(&mut out, function);
+    }
+
+    out
+}
+
+pub fn format_lowered(program: &LoweredProgram) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("lowered module {}\n", program.module_name));
+    out.push_str("functions:\n");
+
+    for function in &program.functions {
+        out.push_str(&format!(
+            "  fn f{}#{} {} entry=b{}#{}\n",
+            function.ix.0, function.id.0, function.name, function.entry.ix.0, function.entry.id.0
+        ));
+        out.push_str(&format!(
+            "    params: {}\n",
+            format_lowered_values(&function.params)
+        ));
+        out.push_str(&format!(
+            "    results: {}\n",
+            format_types(&function.results)
+        ));
+
+        for block in &function.blocks {
+            out.push_str(&format!(
+                "    block b{}#{}\n",
+                block.label.ix.0, block.label.id.0
+            ));
+            for instruction in &block.instructions {
+                let writes = format_lowered_values(&instruction.writes);
+                let reads = format_lowered_values(&instruction.reads);
+                out.push_str(&format!(
+                    "      i{}#{} {} {} writes=[{}] reads=[{}]{}\n",
+                    instruction.ix.0,
+                    instruction.id.0,
+                    format_lowered_kind_name(&instruction.kind),
+                    format_opcode(instruction.opcode),
+                    writes,
+                    reads,
+                    format_lowered_kind_detail(&instruction.kind)
+                ));
+            }
+
+            if !block.successors.is_empty() {
+                out.push_str(&format!(
+                    "      successors: {}\n",
+                    format_lowered_targets(&block.successors)
+                ));
+            }
+        }
     }
 
     out
@@ -115,6 +169,25 @@ fn format_values(values: &[ValuePlan]) -> String {
         .join(", ")
 }
 
+fn format_lowered_values(values: &[LoweredValue]) -> String {
+    if values.is_empty() {
+        return "-".to_string();
+    }
+
+    values
+        .iter()
+        .map(|value| {
+            format!(
+                "v{}#{}:{}",
+                value.ix.0,
+                value.id.0,
+                format_type(value.type_kind)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn format_value(value: &ValuePlan) -> String {
     format!(
         "v{}#{}:{}",
@@ -207,5 +280,55 @@ fn format_edge_kind(kind: EdgeKind) -> &'static str {
         EdgeKind::Unconditional => "branch",
         EdgeKind::TrueBranch => "true",
         EdgeKind::FalseBranch => "false",
+    }
+}
+
+fn format_lowered_kind_name(kind: &LoweredInstructionKind) -> &'static str {
+    match kind {
+        LoweredInstructionKind::Value => "value",
+        LoweredInstructionKind::Branch { .. } => "branch",
+        LoweredInstructionKind::Call { .. } => "call",
+        LoweredInstructionKind::Return => "return",
+        LoweredInstructionKind::Trap => "trap",
+        LoweredInstructionKind::Memory { .. } => "memory",
+    }
+}
+
+fn format_lowered_kind_detail(kind: &LoweredInstructionKind) -> String {
+    match kind {
+        LoweredInstructionKind::Branch { targets } => {
+            format!(" targets=[{}]", format_lowered_targets(targets))
+        }
+        LoweredInstructionKind::Call { callee } => {
+            format!(" callee=f{}#{} {}", callee.ix.0, callee.id.0, callee.name)
+        }
+        LoweredInstructionKind::Memory { op } => {
+            format!(" op={}", format_lowered_memory_op(op))
+        }
+        _ => String::new(),
+    }
+}
+
+fn format_lowered_targets(targets: &[LoweredBranchTarget]) -> String {
+    targets
+        .iter()
+        .map(|target| {
+            format!(
+                "{}:b{}#{}",
+                format_edge_kind(target.kind),
+                target.block.ix.0,
+                target.block.id.0
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_lowered_memory_op(op: &LoweredMemoryOp) -> &'static str {
+    match op {
+        LoweredMemoryOp::Alloc => "alloc",
+        LoweredMemoryOp::Load => "load",
+        LoweredMemoryOp::Store => "store",
+        LoweredMemoryOp::Address => "address",
     }
 }

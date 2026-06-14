@@ -25,7 +25,8 @@ The first F1 axis is `mirspace` analysis:
 - deterministic compile-plan data structures in `experiment/mirplan` that can
   be tested before code generation exists;
 - a target-neutral lowering projection that makes value reads, value writes,
-  branches, calls, and memory operations explicit without generating code.
+  branches, calls, and memory operations explicit without generating code;
+- CLI inspection through `mirtool plan` and `mirtool lower`.
 
 ## Deferred From Early F1
 
@@ -48,7 +49,8 @@ These remain intentionally deferred until the analysis layer is firmer:
    target, register model, or optimizer.
 5. Differentially verify that planning does not mutate `ModuleImage` and stays
    stable across text and Cap'n Proto load paths.
-6. Only then choose the first target-facing F1 feature.
+6. Expose planning and lowering artifacts through read-only CLI inspection.
+7. Only then choose the first target-facing F1 feature.
 
 ## Exit Criteria
 
@@ -59,6 +61,7 @@ F1 is ready to move toward target work when:
 - `mirplan` produces deterministic planning artifacts over representative F0
   fixtures;
 - `mirplan` exposes a tested target-neutral lowering projection;
+- `mirtool` exposes both plan and lower inspection paths;
 - all analysis output is deterministic;
 - all F0 tests remain green;
 - the planned baseline compiler input is documented and covered by fixtures.

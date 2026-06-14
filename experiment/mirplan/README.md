@@ -11,3 +11,6 @@ The crate also exposes a target-neutral lowering projection from `CompilePlan`
 to `LoweredProgram`. This projection makes value reads, value writes, branch
 targets, direct calls, and memory operations explicit without choosing a code
 generation target.
+
+Both `CompilePlan` and `LoweredProgram` have deterministic text renderers so
+they can be inspected by tests and by `mirtool`.

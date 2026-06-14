@@ -6,7 +6,7 @@ use mirspace::{
     BlockIx, EdgeKind, FunctionIx, InstructionIx, OperandRec, ProgramSpace, SymbolIx, ValueIx,
 };
 
-pub use format::format_plan;
+pub use format::{format_lowered, format_plan};
 pub use lower::{
     lower_compile_plan, LoweredBlock, LoweredBlockLabel, LoweredBranchTarget, LoweredFunction,
     LoweredFunctionRef, LoweredInstruction, LoweredInstructionKind, LoweredMemoryOp,

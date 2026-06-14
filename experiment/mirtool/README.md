@@ -10,7 +10,7 @@ The pipeline consists of the following components:
 1. **Serialization Format (`mircap`)**: Loads/saves either the textual representation (`.mircap.txt`) or the compiled Cap'n Proto binary serialization format (`.mircap`).
 2. **Interpreter (`mirsem`)**: Reference semantic interpreter used to execute the module image as a strict oracle.
 3. **C Transpiler (`mirc0`)**: Baseline C transpiler that converts the module image to C11 code, allowing comparison of compiled C execution against interpreted `mirsem` outcomes.
-4. **Compile Plan (`mirspace` + `mirplan`)**: Builds deterministic planning artifacts for future compiler work without generating code.
+4. **Compile Plan (`mirspace` + `mirplan`)**: Builds deterministic planning and lowering artifacts for future compiler work without generating code.
 5. **CLI Wrapper (`mirtool`)**: Unifies the validator, compiler, interpreter, planning, and differential testing tools into a single developer utility.
 
 ```mermaid
@@ -26,6 +26,8 @@ graph TD
 
     TextFile -->|mirtool plan| Plan[mirplan compile plan]
     BinaryFile -->|mirtool plan| Plan
+    TextFile -->|mirtool lower| Lowered[mirplan lowered projection]
+    BinaryFile -->|mirtool lower| Lowered
     
     TextFile -->|mirtool compile-c| TranspiledC[Generated C11 Code]
     BinaryFile -->|mirtool compile-c| TranspiledC
@@ -83,6 +85,13 @@ Prints the deterministic MIR-F1 compile-plan text for a module image.
 mirtool plan <input_file> [--format text|binary]
 ```
 This command is read-only. It validates the image, constructs `mirspace::ProgramSpace`, builds a `mirplan::CompilePlan`, and renders it as stable text.
+
+### `lower`
+Prints the deterministic MIR-F1 lowered-plan text for a module image.
+```bash
+mirtool lower <input_file> [--format text|binary]
+```
+This command is read-only. It validates the image, constructs `mirspace::ProgramSpace`, builds a `mirplan::CompilePlan`, projects it into `mirplan::LoweredProgram`, and renders explicit value reads, value writes, branch targets, direct calls, and memory operations.
 
 ### `compile-c`
 Transpiles the module image into portable C11 code.

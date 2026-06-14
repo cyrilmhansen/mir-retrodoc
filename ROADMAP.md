@@ -47,7 +47,7 @@ Current F1 direction:
 - keep `mirc0` differential testing as the correctness discipline;
 - use `mirplan` to produce deterministic compile-plan artifacts;
 - use `mirplan` lowering projections as backend-facing, target-neutral input;
-- expose inspection through `mirtool plan`.
+- expose inspection through `mirtool plan` and `mirtool lower`.
 
 Detailed F1 scope and exit criteria live in
 `docs/experimental-rewrite/F1-roadmap.md`.
