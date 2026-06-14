@@ -39,6 +39,7 @@ fn show_help() -> String {
     );
     s.push_str("  diff <input_file>                         Runs differential execution comparison between mirsem and compiled C.\n");
     s.push_str("  diff-upstream <input_file>                Runs differential execution comparison between mirsem and original MIR.\n");
+    s.push_str("  diff-rv32i <input_file>                   Runs differential execution comparison between mirsem and compiled RV32I (under QEMU).\n");
     s.push_str("  diff-all                                  Runs differential tests on all valid/trap fixtures.\n\n");
     s.push_str("Options:\n");
     s.push_str(
@@ -122,7 +123,7 @@ fn parse_args() -> Result<Args, String> {
 
     let (input, output) = match command.as_str() {
         "validate" | "decode" | "dump" | "run" | "plan" | "lower" | "bench-load" | "diff"
-        | "diff-upstream" => {
+        | "diff-upstream" | "diff-rv32i" => {
             if positional.is_empty() {
                 return Err(format!(
                     "Command '{}' requires an input file path.\n\n{}",
@@ -247,6 +248,22 @@ fn main() {
                 &args.input,
                 args.format.as_deref(),
                 entry_name,
+                args.keep_temp,
+                args.optimize,
+                false,
+            );
+            match passed {
+                Ok(true) => Ok(()),
+                Ok(false) => {
+                    std::process::exit(1);
+                }
+                Err(err) => Err(err),
+            }
+        }
+        "diff-rv32i" => {
+            let passed = commands::cmd_diff_rv32i(
+                &args.input,
+                args.format.as_deref(),
                 args.keep_temp,
                 args.optimize,
                 false,

@@ -56,7 +56,7 @@ impl mirplan::Backend for Riscv32Backend {
 
         // 2. Generate each function
         for function in &program.functions {
-            emit_function(&mut asm, function)?;
+            emit_function(&mut asm, function, &program.data_segments)?;
             writeln!(&mut asm)?;
         }
 
@@ -83,7 +83,11 @@ impl mirplan::Backend for Riscv32Backend {
     }
 }
 
-fn emit_function(asm: &mut String, function: &LoweredFunction) -> Result<(), CodegenError> {
+fn emit_function(
+    asm: &mut String,
+    function: &LoweredFunction,
+    data_segments: &[mirplan::DataSegmentPlan],
+) -> Result<(), CodegenError> {
     let frame = StackFrame::new(function);
 
     writeln!(asm, ".type mir_fn_{0}, @function", function.id.0)?;
@@ -131,7 +135,7 @@ fn emit_function(asm: &mut String, function: &LoweredFunction) -> Result<(), Cod
     for block in &function.blocks {
         writeln!(asm, "block_{}_{}:", function.id.0, block.label.id.0)?;
         for instruction in &block.instructions {
-            emit_instruction(asm, instruction, &frame, function.id.0)?;
+            emit_instruction(asm, instruction, &frame, function.id.0, data_segments)?;
         }
     }
 
@@ -143,6 +147,7 @@ fn emit_instruction(
     insn: &LoweredInstruction,
     frame: &StackFrame,
     func_id: u32,
+    data_segments: &[mirplan::DataSegmentPlan],
 ) -> Result<(), CodegenError> {
     writeln!(asm, "    # {:?}", insn.opcode)?;
     match insn.opcode {
@@ -745,9 +750,32 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            writeln!(asm, "    la t0, sym_{}", symbol.0)?;
+            
+            let segment = data_segments
+                .iter()
+                .find(|seg| seg.symbol == symbol)
+                .ok_or_else(|| CodegenError::Generic(format!("missing data segment symbol {:?}", symbol)))?;
+            let segment_len = segment.length;
+
             let r_offset = resolve_operand(asm, offset, "t1", frame)?;
+
+            // 1. Check if offset > segment_len
+            writeln!(asm, "    li t3, {}", segment_len)?;
+            writeln!(asm, "    sltu t4, t3, {}", r_offset)?;
+            writeln!(asm, "    beq t4, zero, .Lbounds_ok_{}", insn.id.0)?;
+            writeln!(asm, "    ebreak")?;
+            writeln!(asm, ".Lbounds_ok_{}:", insn.id.0)?;
+
+            // 2. Load symbol address and add offset
+            writeln!(asm, "    la t0, sym_{}", symbol.0)?;
             writeln!(asm, "    add t0, t0, {}", r_offset)?;
+
+            // 3. Check for address overflow
+            writeln!(asm, "    sltu t3, t0, {}", r_offset)?;
+            writeln!(asm, "    beq t3, zero, .Lno_overflow_{}", insn.id.0)?;
+            writeln!(asm, "    ebreak")?;
+            writeln!(asm, ".Lno_overflow_{}:", insn.id.0)?;
+
             let (d_reg, spill) = resolve_dest(dest, "t1", frame);
             if d_reg != "t0" {
                 writeln!(asm, "    mv {}, t0", d_reg)?;

@@ -1529,6 +1529,236 @@ L_overflow_ok_data_addr:
 
 "#;
 
+pub fn cmd_diff_rv32i(
+    input_path: &str,
+    format_opt: Option<&str>,
+    keep_temp: bool,
+    optimize: bool,
+    quiet: bool,
+) -> Result<bool, CliError> {
+    use std::os::unix::process::ExitStatusExt;
+
+    let image = load_image(input_path, format_opt)?;
+
+    // 1. Run interpreter
+    let mut runner = Runner::new(image.clone(), mirsem::ExecutionProfile::default())?;
+    let expected = match runner.run_entry_by_name("main", &[]) {
+        Ok(res) => DiffOutcome::Success(res.values.first().cloned()),
+        Err(mirsem::RunError::Trap(trap)) => {
+            let (code, _) = trap_info(&trap);
+            DiffOutcome::Trap(code)
+        }
+        Err(err) => {
+            return Err(CliError::Generic(format!(
+                "Reference interpreter run failed: {:?}",
+                err
+            )));
+        }
+    };
+
+    // 2. Generate RV32I assembly
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let mut lowered = mirplan::lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
+
+    use mirplan::Backend;
+    let backend = mirrv32::Riscv32Backend;
+    let generated_asm = backend.compile(&lowered)
+        .map_err(|err| CliError::Generic(err.to_string()))?;
+
+    // Append runtime stub and custom mir_alloc
+    let mut full_asm = String::new();
+    full_asm.push_str(&generated_asm);
+    full_asm.push_str(
+        r#"
+.section .text
+.global _start
+_start:
+    jal ra, mir_fn_1
+    # Exit syscall (sys_exit is 93 on RISC-V)
+    li a7, 93
+    ecall
+
+.global mir_alloc
+mir_alloc:
+    # a0 = size, a1 = align
+    la t0, heap_ptr
+    lw t1, 0(t0)          # t1 = current heap_ptr
+    
+    # Align: mask = a1 - 1
+    addi t2, a1, -1       # t2 = mask
+    add t1, t1, t2        # t1 = heap_ptr + mask
+    not t2, t2            # t2 = ~mask
+    and t1, t1, t2        # t1 = aligned heap_ptr
+    
+    la t3, heap_buffer
+    li t4, 1048576        # 1MB size limit
+    add t3, t3, t4        # t3 = heap_buffer + 1MB
+    
+    add t4, t1, a0        # t4 = new heap_ptr
+    bgtu t4, t3, .Loom
+    
+    # Update heap_ptr
+    sw t4, 0(t0)
+    # Return aligned address in a0
+    mv a0, t1
+    ret
+    
+.Loom:
+    # Exit with OutOfMemory code 11
+    li a0, 11
+    li a7, 93
+    ecall
+
+.section .data
+.align 4
+heap_ptr:
+    .word heap_buffer
+
+.section .bss
+.align 16
+heap_buffer:
+    .zero 1048576          # 1MB heap buffer
+"#,
+    );
+
+    // 3. Check for tools
+    let gcc_check = std::process::Command::new("riscv64-linux-gnu-gcc").arg("--version").output();
+    let qemu_check = std::process::Command::new("qemu-riscv32").arg("--version").output();
+    if gcc_check.is_err() || qemu_check.is_err() {
+        if !quiet {
+            println!("riscv64-linux-gnu-gcc or qemu-riscv32 is unavailable. Skipping RV32I verification.");
+        }
+        return Ok(false);
+    }
+
+    // 4. Write assembly and compile
+    let cur_dir = std::env::current_dir()?;
+    let input_name = Path::new(input_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("temp")
+        .replace('.', "_");
+    let s_path = cur_dir.join(format!("temp_mirtool_rv32_{}.s", input_name));
+    let bin_path = cur_dir.join(format!("temp_mirtool_rv32_{}", input_name));
+
+    std::fs::write(&s_path, full_asm)?;
+
+    let mut compile_cmd = std::process::Command::new("riscv64-linux-gnu-gcc");
+    compile_cmd
+        .arg("-mabi=ilp32")
+        .arg("-march=rv32im")
+        .arg("-static")
+        .arg("-nostdlib")
+        .arg("-o")
+        .arg(&bin_path)
+        .arg(&s_path);
+
+    let compile_output = compile_cmd.output();
+    if !keep_temp {
+        let _ = std::fs::remove_file(&s_path);
+    }
+
+    match compile_output {
+        Ok(output) => {
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if !quiet {
+                    println!("FAIL: RV32I compilation failed:\n{}", stderr);
+                }
+                return Ok(false);
+            }
+        }
+        Err(err) => {
+            if !quiet {
+                println!("FAIL: Failed to run riscv64-linux-gnu-gcc: {}", err);
+            }
+            return Ok(false);
+        }
+    }
+
+    // 5. Run under QEMU
+    let run_output = std::process::Command::new("qemu-riscv32")
+        .arg(&bin_path)
+        .output();
+
+    if !keep_temp {
+        let _ = std::fs::remove_file(&bin_path);
+    }
+
+    let output = match run_output {
+        Ok(o) => o,
+        Err(err) => {
+            if !quiet {
+                println!("FAIL: Failed to run qemu-riscv32: {}", err);
+            }
+            return Ok(false);
+        }
+    };
+
+    let exit_code = if let Some(code) = output.status.code() {
+        code
+    } else if let Some(sig) = output.status.signal() {
+        128 + sig
+    } else {
+        255
+    };
+
+    // 6. Compare outcomes
+    let is_pass = match expected {
+        DiffOutcome::Success(expected_val) => {
+            let expected_code = match expected_val {
+                None | Some(mirsem::Value::Void) => 0,
+                Some(mirsem::Value::I32(v)) => v,
+                Some(mirsem::Value::U32(v)) => v as i32,
+                Some(mirsem::Value::Addr32(v)) => v as i32,
+                Some(mirsem::Value::I64(v)) => v as i32,
+            };
+            let expected_exit_status = (expected_code & 0xff) as i32;
+            let actual_exit_status = exit_code & 0xff;
+            if actual_exit_status == expected_exit_status {
+                if !quiet {
+                    println!("PASS");
+                }
+                true
+            } else {
+                if !quiet {
+                    println!(
+                        "FAIL: Result mismatch. Expected exit code {} (masked: {}), got {}",
+                        expected_code, expected_exit_status, actual_exit_status
+                    );
+                }
+                false
+            }
+        }
+        DiffOutcome::Trap(_) => {
+            let actual_exit_status = exit_code & 0xff;
+            // On RV32I QEMU, execution traps (ebreak or memory faults)
+            // trigger a SIGSEGV (signal 11) or SIGTRAP (signal 5), returning exit status 139 or 133.
+            if actual_exit_status == 139 || actual_exit_status == 133 {
+                if !quiet {
+                    println!("PASS");
+                }
+                true
+            } else {
+                if !quiet {
+                    println!(
+                        "FAIL: Trap mismatch. Expected exit status to match trap (139 or 133), got {}",
+                        actual_exit_status
+                    );
+                }
+                false
+            }
+        }
+    };
+
+    Ok(is_pass)
+}
+
 pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
     let fixtures_dir = match find_fixtures_dir() {
         Some(dir) => dir,
@@ -1541,12 +1771,17 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
     let mir_bin_run_path = "/home/john/project/mir-preservation/git/mir-restored/mir-bin-run";
     let upstream_available = std::path::Path::new(m2b_path).exists() && std::path::Path::new(mir_bin_run_path).exists();
 
-    println!("==================================================");
-    println!("   MIR-RETRODOC REGRESSION & DIFFERENTIAL TESTS   ");
-    println!("==================================================");
+    let gcc_check = std::process::Command::new("riscv64-linux-gnu-gcc").arg("--version").output();
+    let qemu_check = std::process::Command::new("qemu-riscv32").arg("--version").output();
+    let rv32_available = gcc_check.is_ok() && qemu_check.is_ok();
+
+    println!("=====================================================================");
+    println!("           MIR-RETRODOC REGRESSION & DIFFERENTIAL TESTS              ");
+    println!("=====================================================================");
     println!("C Transpiler Diff (cc):   {}", if cc_available { "ENABLED" } else { "DISABLED" });
     println!("Upstream MIR Diff (m2b):  {}", if upstream_available { "ENABLED" } else { "DISABLED" });
-    println!("==================================================\n");
+    println!("RV32I QEMU Diff (gcc):    {}", if rv32_available { "ENABLED" } else { "DISABLED" });
+    println!("=====================================================================\n");
 
     let mut paths = Vec::new();
     for entry in std::fs::read_dir(fixtures_dir)? {
@@ -1568,8 +1803,8 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
     let mut fail_count = 0;
     let mut skip_count = 0;
 
-    println!("{:<40} | {:<12} | {:<12} | {:<12}", "Fixture Name", "Interpreter", "C Transpiler", "Upstream MIR");
-    println!("{:-<40}-+-{:-<12}-+-{:-<12}-+-{:-<12}", "", "", "", "");
+    println!("{:<40} | {:<12} | {:<12} | {:<12} | {:<12}", "Fixture Name", "Interpreter", "C Transpiler", "Upstream MIR", "RV32I QEMU");
+    println!("{:-<40}-+-{:-<12}-+-{:-<12}-+-{:-<12}-+-{:-<12}", "", "", "", "", "");
 
     for path in paths {
         let name = path.file_name().unwrap().to_string_lossy().to_string();
@@ -1623,23 +1858,39 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
             }
         }
 
-        let is_failed = interp_status == "FAIL" || !c_passed || !upstream_passed;
+        // 4. RV32I check
+        let mut rv32_status = "SKIP";
+        let mut rv32_passed = true;
+        if rv32_available {
+            match cmd_diff_rv32i(&path_str, None, keep_temp, optimize, true) {
+                Ok(passed) => {
+                    rv32_passed = passed;
+                    rv32_status = if passed { "PASS" } else { "FAIL" };
+                }
+                Err(_) => {
+                    rv32_passed = false;
+                    rv32_status = "FAIL";
+                }
+            }
+        }
+
+        let is_failed = interp_status == "FAIL" || !c_passed || !upstream_passed || !rv32_passed;
         if is_failed {
             fail_count += 1;
         } else {
-            if c_status == "SKIP" && upstream_status == "SKIP" {
+            if c_status == "SKIP" && upstream_status == "SKIP" && rv32_status == "SKIP" {
                 skip_count += 1;
             } else {
                 pass_count += 1;
             }
         }
 
-        println!("{:<40} | {:<12} | {:<12} | {:<12}", name, interp_status, c_status, upstream_status);
+        println!("{:<40} | {:<12} | {:<12} | {:<12} | {:<12}", name, interp_status, c_status, upstream_status, rv32_status);
     }
 
-    println!("\n==================================================");
+    println!("\n=====================================================================");
     println!("Summary: {} Passed, {} Failed, {} Skipped", pass_count, fail_count, skip_count);
-    println!("==================================================");
+    println!("=====================================================================");
 
     if fail_count > 0 {
         return Err(CliError::Generic(format!("{} tests failed", fail_count)));
