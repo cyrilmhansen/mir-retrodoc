@@ -12,6 +12,7 @@ struct Args {
     force: bool,
     keep_temp: bool,
     iterations: u32,
+    optimize: bool,
 }
 
 fn show_help() -> String {
@@ -50,6 +51,9 @@ fn show_help() -> String {
     s.push_str(
         "  --iterations <n>                          Set benchmark iterations (default: 1000).\n",
     );
+    s.push_str(
+        "  --optimize, -O                            Enable optimization passes on the lowered plan.\n",
+    );
     s
 }
 
@@ -67,6 +71,7 @@ fn parse_args() -> Result<Args, String> {
     let mut force = false;
     let mut keep_temp = false;
     let mut iterations = 1000;
+    let mut optimize = false;
 
     let mut positional = Vec::new();
 
@@ -75,6 +80,7 @@ fn parse_args() -> Result<Args, String> {
             "--trace" => trace = true,
             "--force" => force = true,
             "--keep-temp" => keep_temp = true,
+            "--optimize" | "-O" => optimize = true,
             "--iterations" => {
                 let val = args_iter
                     .next()
@@ -167,6 +173,7 @@ fn parse_args() -> Result<Args, String> {
         force,
         keep_temp,
         iterations,
+        optimize,
     })
 }
 
@@ -187,7 +194,7 @@ fn main() {
         "decode" | "dump" => commands::cmd_decode(&args.input, args.format.as_deref()),
         "run" => commands::cmd_run(&args.input, args.format.as_deref(), entry_name, args.trace),
         "plan" => commands::cmd_plan(&args.input, args.format.as_deref()),
-        "lower" => commands::cmd_lower(&args.input, args.format.as_deref()),
+        "lower" => commands::cmd_lower(&args.input, args.format.as_deref(), args.optimize),
         "bench-load" => {
             commands::cmd_bench_load(&args.input, args.format.as_deref(), args.iterations)
         }
@@ -196,18 +203,21 @@ fn main() {
             args.output.as_ref().unwrap(),
             args.format.as_deref(),
             entry_name,
+            args.optimize,
         ),
         "diff" => commands::cmd_diff(
             &args.input,
             args.format.as_deref(),
             entry_name,
             args.keep_temp,
+            args.optimize,
         ),
         "diff-upstream" => commands::cmd_diff_upstream(
             &args.input,
             args.format.as_deref(),
             entry_name,
             args.keep_temp,
+            args.optimize,
         ),
         _ => unreachable!(),
     };

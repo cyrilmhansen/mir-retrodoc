@@ -15,10 +15,13 @@ const CONST_RETURN_FIXTURE: &str =
 const SIEVE_FIXTURE: &str =
     include_str!("../../../mircap/tests/fixtures/valid_sieve_32_u32.mircap.txt");
 
-fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<String, String> {
+fn compile_function_to_bin(image: &ModuleImage, test_name: &str, optimize: bool) -> Result<String, String> {
     let space = mirspace::ProgramSpace::from_module_image(image).map_err(|e| format!("{:?}", e))?;
     let plan = build_compile_plan(&space);
-    let lowered = lower_compile_plan(&plan);
+    let mut lowered = lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
 
     let backend = C11Backend::new("main");
     let c_code = backend.compile(&lowered).map_err(|e| e.to_string())?;
@@ -58,11 +61,15 @@ fn compile_and_run_c_bench(
     image: &ModuleImage,
     test_name: &str,
     opt_level: &str,
+    optimize: bool,
     iterations: u32,
 ) -> Result<u128, String> {
     let space = mirspace::ProgramSpace::from_module_image(image).map_err(|e| format!("{:?}", e))?;
     let plan = build_compile_plan(&space);
-    let lowered = lower_compile_plan(&plan);
+    let mut lowered = lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
 
     let backend = C11Backend::new("main");
     let compiled_c = backend.compile(&lowered).map_err(|e| e.to_string())?;
@@ -283,7 +290,7 @@ fn run_pedagogical_demo() -> Result<(), Box<dyn Error>> {
     let mut context_eager = JitContext::new(image.clone(), ExecutionProfile::default());
     context_eager
         .set_eager_compile(|img, _| {
-            compile_function_to_bin(img, "demo_eager").map_err(|e| {
+            compile_function_to_bin(img, "demo_eager", true).map_err(|e| {
                 Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
                     as Box<dyn Error + Send + Sync>
             })
@@ -313,7 +320,7 @@ fn run_pedagogical_demo() -> Result<(), Box<dyn Error>> {
     let counter_clone = compile_counter.clone();
     let compile_hook = Arc::new(move |img: &ModuleImage, _| {
         *counter_clone.lock().unwrap() += 1;
-        compile_function_to_bin(img, "demo_lazy").map_err(|e| {
+        compile_function_to_bin(img, "demo_lazy", true).map_err(|e| {
             Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
                 as Box<dyn Error + Send + Sync>
         })
@@ -374,20 +381,25 @@ fn run_performance_benchmarks() -> Result<(), Box<dyn Error>> {
 
     // 3. JIT C Compiled -O0
     let cc_check = Command::new("cc").arg("--version").output();
-    let (c_o0_ns, c_o3_ns) = if cc_check.is_ok() {
-        print!("Running JIT Compiled C (-O0) benchmark... ");
-        let o0_ns = compile_and_run_c_bench(&image, "sieve", "-O0", iterations)
+    let (c_o0_ns, c_o0_opt_ns, c_o3_ns) = if cc_check.is_ok() {
+        print!("Running JIT Compiled C (-O0, No Opts) benchmark... ");
+        let o0_ns = compile_and_run_c_bench(&image, "sieve", "-O0", false, iterations)
             .map_err(|e| e.to_string())?;
         println!("{:.3} ms", (o0_ns as f64) / 1_000_000.0);
 
-        print!("Running JIT Compiled C (-O3) benchmark... ");
-        let o3_ns = compile_and_run_c_bench(&image, "sieve", "-O3", iterations)
+        print!("Running JIT Compiled C (-O0, with Plan Opts) benchmark... ");
+        let o0_opt_ns = compile_and_run_c_bench(&image, "sieve", "-O0", true, iterations)
+            .map_err(|e| e.to_string())?;
+        println!("{:.3} ms", (o0_opt_ns as f64) / 1_000_000.0);
+
+        print!("Running JIT Compiled C (-O3, with Plan Opts) benchmark... ");
+        let o3_ns = compile_and_run_c_bench(&image, "sieve", "-O3", true, iterations)
             .map_err(|e| e.to_string())?;
         println!("{:.3} ms", (o3_ns as f64) / 1_000_000.0);
-        (Some(o0_ns), Some(o3_ns))
+        (Some(o0_ns), Some(o0_opt_ns), Some(o3_ns))
     } else {
         println!("cc compiler is not available. Skipping JIT Compiled C benchmarks.");
-        (None, None)
+        (None, None, None)
     };
 
     println!("\n================================================================\n");
@@ -412,14 +424,21 @@ fn run_performance_benchmarks() -> Result<(), Box<dyn Error>> {
     );
     if let Some(o0_ns) = c_o0_ns {
         println!(
-            " JIT Compiled C (-O0)       | {:>15.3} | {:>12.2}x ",
+            " JIT Compiled C (-O0, Raw)  | {:>15.3} | {:>12.2}x ",
             (o0_ns as f64) / 1_000_000.0,
             (base_ns as f64) / (o0_ns as f64)
         );
     }
+    if let Some(o0_opt_ns) = c_o0_opt_ns {
+        println!(
+            " JIT Compiled C (-O0, Opt)  | {:>15.3} | {:>12.2}x ",
+            (o0_opt_ns as f64) / 1_000_000.0,
+            (base_ns as f64) / (o0_opt_ns as f64)
+        );
+    }
     if let Some(o3_ns) = c_o3_ns {
         println!(
-            " JIT Compiled C (-O3)       | {:>15.3} | {:>12.2}x (Host Max)",
+            " JIT Compiled C (-O3, Opt)  | {:>15.3} | {:>12.2}x (Host Max)",
             (o3_ns as f64) / 1_000_000.0,
             (base_ns as f64) / (o3_ns as f64)
         );
@@ -449,10 +468,11 @@ fn run_riscv32_demo() -> Result<(), Box<dyn Error>> {
         mirspace::ProgramSpace::from_module_image(&image).map_err(|e| format!("{:?}", e))?;
     let plan = build_compile_plan(&space);
     let lowered = lower_compile_plan(&plan);
+    let optimized_lowered = mirplan::optimize_program(lowered);
 
-    println!("Compiling lowered plan to RV32I assembly via Riscv32Backend...");
+    println!("Compiling optimized lowered plan to RV32I assembly via Riscv32Backend...");
     let backend = mirrv32::Riscv32Backend;
-    let generated_asm = backend.compile(&lowered).map_err(|e| e.to_string())?;
+    let generated_asm = backend.compile(&optimized_lowered).map_err(|e| e.to_string())?;
 
     // Append our custom baremetal stub and mir_alloc
     let mut full_asm = String::new();

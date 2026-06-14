@@ -140,12 +140,15 @@ pub fn cmd_plan(input_path: &str, format_opt: Option<&str>) -> Result<(), CliErr
     Ok(())
 }
 
-pub fn cmd_lower(input_path: &str, format_opt: Option<&str>) -> Result<(), CliError> {
+pub fn cmd_lower(input_path: &str, format_opt: Option<&str>, optimize: bool) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
     let space = mirspace::ProgramSpace::from_module_image(&image)
         .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
     let plan = mirplan::build_compile_plan(&space);
-    let lowered = mirplan::lower_compile_plan(&plan);
+    let mut lowered = mirplan::lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
     print!("{}", mirplan::format_lowered(&lowered));
     Ok(())
 }
@@ -203,12 +206,16 @@ pub fn cmd_compile_c(
     output_path: &str,
     format_opt: Option<&str>,
     entry_name: &str,
+    optimize: bool,
 ) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
     let space = mirspace::ProgramSpace::from_module_image(&image)
         .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
     let plan = mirplan::build_compile_plan(&space);
-    let lowered = mirplan::lower_compile_plan(&plan);
+    let mut lowered = mirplan::lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
 
     use mirplan::Backend;
     let backend = mirc0::C11Backend::new(entry_name);
@@ -229,6 +236,7 @@ pub fn cmd_diff(
     format_opt: Option<&str>,
     entry_name: &str,
     keep_temp: bool,
+    optimize: bool,
 ) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
 
@@ -252,7 +260,10 @@ pub fn cmd_diff(
     let space = mirspace::ProgramSpace::from_module_image(&image)
         .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
     let plan = mirplan::build_compile_plan(&space);
-    let lowered = mirplan::lower_compile_plan(&plan);
+    let mut lowered = mirplan::lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
 
     use mirplan::Backend;
     let backend = mirc0::C11Backend::new(entry_name);
@@ -563,6 +574,7 @@ pub fn cmd_diff_upstream(
     format_opt: Option<&str>,
     entry_name: &str,
     keep_temp: bool,
+    optimize: bool,
 ) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
 
@@ -586,7 +598,10 @@ pub fn cmd_diff_upstream(
     let space = mirspace::ProgramSpace::from_module_image(&image)
         .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
     let plan = mirplan::build_compile_plan(&space);
-    let lowered = mirplan::lower_compile_plan(&plan);
+    let mut lowered = mirplan::lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
 
     let mir_code = translate_to_upstream_mir(&lowered, entry_name);
 
