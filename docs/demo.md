@@ -105,8 +105,9 @@ The demo shows the current project boundary:
 
 The future direction shown at the end is intentionally conservative:
 
-- expand experimental lowered C coverage;
-- decide whether `mirc0` should eventually consume `LoweredProgram` by default;
-- add a backend trait after the lowered contract stabilizes;
-- only then choose a first target-facing backend direction;
-- defer `i64`, floats, host ABI, optimization, and runtime replacement.
+- complete C and differential coverage for the already-started `f32`/`f64`
+  arithmetic subset;
+- show float results in a deterministic, bit-pattern-friendly way;
+- decide RV32FD versus soft-float only after the C/oracle path is stable;
+- keep host ABI, varargs, aggregates, lazy versioning, and runtime replacement
+  out of the demo-critical path.

@@ -16,10 +16,22 @@ accepted.
 - stable IDs;
 - explicit functions, blocks, instructions, and operands;
 - conservative validation;
+- deterministic interpreter/oracle;
+- C backend and differential tests;
+- indexed analysis view;
+- deterministic compile-plan and lowered artifacts;
+- local lowered-plan optimization;
+- RV32I backend experiments;
+- dynamic JIT demo path;
 - fixture-based tests.
 
-## Out Of Scope
+## Current Boundaries
 
-Interpreter, compiler, optimizer, RISC-V32 backend, runtime tracing, code
-replacement, and ECS workspace conversion are future modules.
+The rewrite remains intentionally much smaller than upstream MIR. Host C ABI
+coverage, varargs, aggregates, indirect calls, long double, lazy basic-block
+versioning, full runtime code replacement, and ECS workspace conversion remain
+out of scope.
 
+Floating point has started but is partial: `f32` and `f64` constants and
+arithmetic are validated and executable in `mirsem`; C/RV32/JIT float emission,
+comparisons, conversions, and float memory operations are still future work.

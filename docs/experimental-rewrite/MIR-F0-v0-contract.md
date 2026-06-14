@@ -7,7 +7,10 @@ MIR-F0 v0 supports the following primitive types:
 - `void`
 - `i32` (signed 32-bit integer)
 - `u32` (unsigned 32-bit integer)
+- `i64` (signed 64-bit integer)
 - `addr32` (linear memory address pointer)
+- `f32` (single-precision float)
+- `f64` (double-precision float)
 
 *Note: Booleans are represented using a `u32` integer convention (zero is false, non-zero is true).*
 
@@ -16,11 +19,17 @@ MIR-F0 v0 supports the following primitive types:
 - All dynamic execution states, register values, call stack frames, heap pointers, linear memory buffers, execution traces, and profile statistics remain completely separate from the `ModuleImage`.
 
 ## 3. Supported Opcodes
-- **Constants & Copying**: `const_i32`, `const_u32`, `copy`
+- **Constants & Copying**: `const_i32`, `const_u32`, `const_i64`, `const_f32`, `const_f64`, `copy`
 - **Signed Arithmetic & Comparisons**: `add_i32`, `sub_i32`, `mul_i32`, `eq_i32`, `ne_i32`, `lt_i32`
 - **Unsigned Arithmetic & Comparisons**: `add_u32`, `sub_u32`, `mul_u32`, `eq_u32`, `ne_u32`, `lt_u32`, `le_u32`, `gt_u32`, `ge_u32`
-- **Memory Operations**: `alloc`, `load_i32`, `load_u32`, `load_u8`, `store_i32`, `store_u32`, `store_u8`, `addr_add`, `data_addr`
+- **64-bit Integer Operations**: `add_i64`, `sub_i64`, `mul_i64`, `eq_i64`, `ne_i64`, `lt_i64`
+- **Float Oracle Operations**: `add_f32`, `sub_f32`, `mul_f32`, `div_f32`, `neg_f32`, `add_f64`, `sub_f64`, `mul_f64`, `div_f64`, `neg_f64`
+- **Memory Operations**: `alloc`, `load_i32`, `load_u32`, `load_i64`, `load_u8`, `store_i32`, `store_u32`, `store_i64`, `store_u8`, `addr_add`, `data_addr`
 - **Control Flow & Execution**: `branch`, `branch_if`, `call`, `ret`, `trap`
+
+Float support is partial. Float constants and arithmetic are part of validation
+and `mirsem`; float comparisons, conversions, memory operations, C emission,
+RV32 emission, and JIT FFI are still unsupported.
 
 ## 4. Execution Traps
 When an execution trap is triggered, execution halts immediately. 
@@ -50,7 +59,7 @@ The mapping of exit codes and stderr names is defined as:
   - Data segments loaded at static offsets near the start of memory.
   - Heap starts immediately following the data segments and grows upward.
   - Stack starts at the top of linear memory (`MEMORY_SIZE - STACK_SIZE`) and grows downward.
-- **Alignment**: `load_i32`, `load_u32`, `store_i32`, and `store_u32` require their address to be a multiple of 4. Byte operations (`load_u8`, `store_u8`) have no alignment restrictions.
+- **Alignment**: `load_i32`, `load_u32`, `store_i32`, and `store_u32` require their address to be a multiple of 4. `load_i64` and `store_i64` require 8-byte alignment. Byte operations (`load_u8`, `store_u8`) have no alignment restrictions.
 - **Allocation**: `alloc(size, align)` increments the heap pointer, checking alignment and stack/heap collision. Alignment must be a power of two.
 
 ## 6. Data Segment Model & Mutability
@@ -81,7 +90,9 @@ The mapping of exit codes and stderr names is defined as:
 
 ### Arithmetic
 - Signed `i32` arithmetic avoids undefined behavior by performing wrapping arithmetic as unsigned operations and casting back.
+- Signed `i64` arithmetic uses wrapping semantics and is lowered through supported interpreter, C, upstream-diff, and RV32I paths.
 - Unsigned `u32` arithmetic operates with wrapping semantics.
+- Float arithmetic uses Rust `f32`/`f64` behavior in `mirsem` and stores results as exact IEEE-754 bit patterns. The current float contract deliberately excludes exception flags and backend emission.
 
 ### Branch Semantics
 - `branch_if(cond, true_target, false_target)` branches depending on whether `cond` is non-zero (true) or zero (false). Both targets must be explicit; fallthrough is not assumed.
@@ -91,7 +102,7 @@ The mapping of exit codes and stderr names is defined as:
 - Direct calls must match callee signature parameter and result counts.
 
 ## 8. Validation Rules
-The static validator (`mircap`) checks structural correctness, unique IDs, terminator existence, parameter types, matching value_types counts, and strict type constraints. Unsupported types like `i64` and features like indirect calls are rejected.
+The static validator (`mircap`) checks structural correctness, unique IDs, terminator existence, parameter types, matching value_types counts, and strict type constraints. Unsupported features like indirect calls, reserved float comparison/conversion opcodes, and legacy upstream-only float markers are rejected.
 
 ## 9. Roles in Differential Testing
 - **`mirsem` Oracle**: Executes the validated `ModuleImage` directly as the semantic oracle.
@@ -100,4 +111,5 @@ The static validator (`mircap`) checks structural correctness, unique IDs, termi
     - `void` returns print `Result: void`
     - `i32` returns print `Result: <signed decimal>`
     - `u32` / `addr32` returns print `Result: <unsigned decimal>`
-- **Differential Testing**: Valid images are compiled using `cc -std=c11 -Wall -Wextra -Werror -O0` and run. Their result (value or exact trap identity) must match `mirsem`'s result exactly.
+    - `i64` returns print `Result: i64 <signed decimal>`
+- **Differential Testing**: Valid integer/address/memory images are compiled using `cc -std=c11 -Wall -Wextra -Werror -O0` and run. Their result (value or exact trap identity) must match `mirsem`'s result exactly. Float fixtures currently run in `mirsem` only and are skipped by `diff-all` until float C emission exists.

@@ -22,11 +22,12 @@ The crate contains:
 - a first validation pass;
 - a minimal MIR-F0 linear-memory image model with data segments and memory
   instruction validation;
+- `i64`, byte-memory, and partial `f32`/`f64` constant/arithmetic validation;
+- Cap'n Proto encode/decode roundtrip support;
 - text fixtures used by tests.
 
-Generated Cap'n Proto bindings are not wired yet. The current tests load a small
-line-oriented `.mircap.txt` fixture format into the same Rust `ModuleImage`
-model that Cap'n Proto decoding should later populate.
+The current tests load a small line-oriented `.mircap.txt` fixture format into
+the same Rust `ModuleImage` model used by Cap'n Proto decoding.
 
 ## Non-Goals
 

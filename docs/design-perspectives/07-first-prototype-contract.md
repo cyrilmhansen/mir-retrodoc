@@ -4,6 +4,11 @@
 
 Hypothesis: This file defines a provisional first experiment, not a final architecture.
 
+Status note: this is a historical design-perspective document. The implemented
+workspace has since added `i64`, byte-memory, RV32I, optimization, JIT-demo
+workflows, and partial `f32`/`f64` oracle support. The current normative status
+lives in `../../ROADMAP.md` and `../experimental-rewrite/`.
+
 Rule: MIR-F0 is not full MIR. MIR-F0 compatibility means compatibility with the explicitly documented subset only. Unsupported MIR features must not be silently accepted. A program accepted by upstream MIR is not necessarily accepted by MIR-F0. A program accepted by MIR-F0 should either be valid MIR or explicitly marked as a MIR-inspired extension.
 
 ## MIR-F0 Scope

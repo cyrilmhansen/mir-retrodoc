@@ -10,15 +10,17 @@ only. Unsupported upstream MIR features must not be silently accepted.
 - `void`
 - `i32`
 - `u32`
+- `i64`
 - `addr32` as a reserved address type
+- `f32`
+- `f64`
 
 Boolean values use an integer convention. They are not currently a separate
 runtime type.
 
 ## Unsupported Types
 
-- `i64`: `reject-at-load-time`
-- floating point: `out-of-scope`
+- legacy upstream `float` marker type: `reject-at-load-time`
 - `long double`: `out-of-scope`
 - C aggregates: `out-of-scope`
 - varargs: `out-of-scope`
@@ -28,6 +30,9 @@ runtime type.
 
 - `const_i32`
 - `const_u32`
+- `const_i64`
+- `const_f32`
+- `const_f64`
 - `copy`
 - `add_i32`
 - `sub_i32`
@@ -44,6 +49,22 @@ runtime type.
 - `le_u32`
 - `gt_u32`
 - `ge_u32`
+- `add_i64`
+- `sub_i64`
+- `mul_i64`
+- `eq_i64`
+- `ne_i64`
+- `lt_i64`
+- `add_f32`
+- `sub_f32`
+- `mul_f32`
+- `div_f32`
+- `neg_f32`
+- `add_f64`
+- `sub_f64`
+- `mul_f64`
+- `div_f64`
+- `neg_f64`
 - `branch`
 - `branch_if`
 - `call`
@@ -52,9 +73,11 @@ runtime type.
 - `alloc`
 - `load_i32`
 - `load_u32`
+- `load_i64`
 - `load_u8`
 - `store_i32`
 - `store_u32`
+- `store_i64`
 - `store_u8`
 - `addr_add`
 - `data_addr`
@@ -67,14 +90,16 @@ two at execution time. Allocation failure is an execution trap, not a
 module-image validation error.
 
 `load_i32(addr32) -> i32` and `load_u32(addr32) -> u32` read four bytes from
-linear memory using little-endian layout.
+linear memory using little-endian layout. `load_i64(addr32) -> i64` reads eight
+bytes from linear memory using little-endian layout.
 
 `load_u8(addr32) -> u32` reads a single byte from linear memory and zero-extends
 it to a `u32`.
 
 `store_i32(addr32, i32) -> void` and `store_u32(addr32, u32) -> void` write four
-bytes using little-endian layout. `store_u32` is separate from `store_i32` to
-avoid ambiguity in static validation.
+bytes using little-endian layout. `store_i64(addr32, i64) -> void` writes eight
+bytes. `store_u32` is separate from `store_i32` to avoid ambiguity in static
+validation.
 
 `store_u8(addr32, u32) -> void` writes a single byte to linear memory, masking
 the input value to its lowest 8 bits (`value & 0xFF`).
@@ -105,9 +130,9 @@ flow must be explicit.
 ## Unsupported Opcodes
 
 - indirect calls: `reject-at-load-time`
-- i64 memory operations: `reject-at-load-time`
 - lazy basic-block versioning: `out-of-scope`
-- floating-point operations: `out-of-scope`
+- float comparisons, conversions, memory operations, C emission, RV32 emission,
+  and JIT FFI bridge: deferred
 - exception handling: `out-of-scope`
 - SSA phi nodes: `out-of-scope`
 - host C ABI constructs: `out-of-scope`

@@ -19,53 +19,75 @@ Status:
 - exploratory future-design notes live under `docs/design-perspectives/`;
 - this repository does not vendor the upstream MIR source tree.
 
-## Phase 1: MIR-F0 v0
+## Phase 1: MIR-F0 v0 And Post-F0 Extensions
 
 Purpose: freeze a small, explicit MIR-inspired subset with deterministic
 validation, execution, C output, and CLI workflows.
 
 Status:
 
-- implemented as the current frozen subset;
+- implemented as the original frozen subset, then extended experimentally;
 - documented in `docs/experimental-rewrite/MIR-F0-v0-contract.md`;
 - tracked operationally in `docs/experimental-rewrite/F0-status.md`;
-- covered by the `mircap`, `mirsem`, `mirc0`, `mirtool`, and `mirspace` test
-  suites.
+- covered by the `mircap`, `mirsem`, `mirc0`, `mirtool`, `mirspace`,
+  `mirplan`, `mirrv32`, and `mirjit` test suites.
 
-F0 remains intentionally narrow. Unsupported upstream MIR features are rejected
-or documented explicitly.
+The currently implemented language surface includes integer, address, memory,
+control-flow, direct-call, return, trap, `i64`, and byte-memory operations.
+Floating-point support has started: `f32` and `f64` constants and arithmetic are
+validated and executable in `mirsem`, but are not yet emitted by the C, RV32, or
+JIT backends.
 
-## Phase 2: MIR-F1 Analysis And Planning
+Unsupported upstream MIR features are rejected or documented explicitly.
+
+## Phase 2: MIR-F1 Analysis, Planning, And Backends
 
 Purpose: prepare a compiler-facing internal representation before expanding the
 language surface or adding new targets.
 
-Current F1 direction:
+Status:
 
-- use `mirspace::ProgramSpace` as the indexed analysis view;
-- keep `mirsem` as the semantic oracle;
-- keep `mirc0` differential testing as the correctness discipline;
-- use `mirplan` to produce deterministic compile-plan artifacts;
-- use `mirplan` lowering projections as backend-facing, target-neutral input,
-  including module data segment summaries;
-- prove that input through an experimental `mirc0::compile_lowered` path while
-  preserving the stable `ModuleImage` C compiler path;
-- expose inspection through `mirtool plan` and `mirtool lower`.
+- `mirspace::ProgramSpace` is the indexed analysis view;
+- `mirplan` produces deterministic compile-plan and lowered artifacts;
+- lowered C emission is implemented while preserving the stable `ModuleImage`
+  C compiler path;
+- optimization exists for local constant propagation/folding and dead-code
+  elimination on lowered plans;
+- `mirtool plan`, `mirtool lower`, and `mirtool diff-all` expose inspection and
+  differential workflows;
+- `mirrv32` emits RV32I assembly for the supported integer/address/memory
+  subset, including `i64` lowering through register-pair style codegen;
+- `mirjit` demonstrates dynamic in-process execution through generated RV32I
+  artifacts and host loading.
 
 Detailed F1 scope and exit criteria live in
 `docs/experimental-rewrite/F1-roadmap.md`.
+
+## Current Recommended Next Step
+
+The best next demo-facing step is to complete the first floating-point
+differential path:
+
+- add `mirc0` C output for `f32` and `f64` constants and arithmetic;
+- print float results in a deterministic bit-pattern-friendly form;
+- include the float fixtures in `mirtool diff` and `mirtool diff-all` instead
+  of skipping them;
+- extend the demo to show the float oracle and C backend agreeing.
+
+This keeps the project easy to demonstrate while postponing the harder RV32FD
+or soft-float backend decision.
 
 ## Deferred Work
 
 The following remain out of early F1 until the analysis and planning boundary is
 stable:
 
-- `i64` helper lowering;
-- floating point;
 - host C ABI and varargs;
 - aggregate lowering;
-- RISC-V32 or fantasy-computer target work;
-- optimization;
+- float comparisons and integer/float conversions;
+- float C/RV32/JIT coverage beyond constants and arithmetic;
+- RV32FD hardware floating-point or soft-float helper design;
+- fantasy-computer target work;
 - lazy basic-block versioning;
 - runtime code replacement or deoptimization.
 

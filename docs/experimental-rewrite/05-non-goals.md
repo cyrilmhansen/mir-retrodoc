@@ -6,15 +6,16 @@ The experimental rewrite does not currently attempt:
 - MIR source parsing;
 - C2MIR support;
 - host C ABI support;
-- interpreter execution;
-- compiler implementation;
-- optimizer implementation;
-- RISC-V32 backend implementation;
+- full upstream interpreter execution;
+- full production compiler implementation;
+- production optimizer implementation;
+- production RISC-V backend implementation;
 - runtime tracing;
 - code replacement;
 - lazy BBV;
 - ECS/live IDE workspace integration.
 
-The first module exists to make the immutable loaded image and validation rules
-reviewable before runtime behavior is implemented.
-
+The first module existed to make the immutable loaded image and validation rules
+reviewable before runtime behavior. The workspace now has interpreter, C,
+optimization, RV32I, and JIT-demo prototypes, but the production-grade versions
+above remain out of scope.

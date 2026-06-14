@@ -8,7 +8,7 @@ The project has two deliberately separate tracks:
 - retrospective documentation of upstream MIR behavior, based on preserved
   source and project material;
 - MIR-inspired experiments that define and test a small, explicit subset called
-  MIR-F0.
+  MIR-F0, then build compiler-facing F1 prototypes on top of it.
 
 This repository is not upstream MIR, and MIR-F0 is not full MIR. Unsupported
 upstream MIR behavior is rejected or documented explicitly instead of being
@@ -37,22 +37,25 @@ snapshot is tracked in `RELEASE-NOTES.md`.
 - `experiment/mirsem`: deterministic MIR-F0 interpreter/oracle with trace
   snapshots and execution traps.
 - `experiment/mirc0`: C11 backend tested differentially against `mirsem`.
-- `experiment/mirtool`: developer CLI for validate/run/encode/decode/compile/diff
-  flows.
+- `experiment/mirtool`: developer CLI for
+  validate/run/encode/decode/compile/diff/plan/lower/RV32I flows.
 - `experiment/mirspace`: dense indexed analysis view over validated
   `mircap::ModuleImage` values.
 - `experiment/mirplan`: deterministic compile-plan artifacts consumed from
   `mirspace`, used to stabilize future compiler inputs before code generation.
+- `experiment/mirrv32`: experimental RV32I backend over lowered plans.
+- `experiment/mirjit`: experimental dynamic execution path for generated code.
 
 ## Current Milestone
 
-MIR-F0 v0 is the current frozen subset. It supports a small set of integer,
-address, memory, control-flow, direct-call, return, and trap operations. The
-project roadmap is tracked in `ROADMAP.md`, and the F0 status gate is tracked in
-`docs/experimental-rewrite/F0-status.md`.
+MIR-F0 v0 is the baseline frozen subset. The current workspace has moved into
+post-F0/F1 prototype territory: it supports integer, address, memory,
+control-flow, direct-call, return, trap, `i64`, byte-memory, lowered-plan,
+optimization, RV32I, JIT-demo, and differential-test workflows.
 
-F1 work starts from `mirspace`: it adds compiler-facing analysis structures
-without expanding the language surface first.
+Floating point is underway. `f32` and `f64` constants and arithmetic are
+validated and executable in `mirsem`, but C/RV32/JIT float emission is still the
+next implementation target.
 
 ## Quick Demo
 
@@ -95,6 +98,8 @@ cd ../mirc0 && cargo test
 cd ../mirtool && cargo test
 cd ../mirspace && cargo test
 cd ../mirplan && cargo test
+cd ../mirrv32 && cargo test
+cd ../mirjit && cargo test
 ```
 
 The `mirc0` and `mirtool` differential tests use the host C compiler `cc` when

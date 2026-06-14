@@ -7,12 +7,20 @@ The long-term project plan lives in `ROADMAP.md`.
 
 ## Current Public State
 
-- `MIR-F0 v0` is implemented and documented.
-- `mircap`, `mirsem`, `mirc0`, `mirtool`, `mirspace`, and `mirplan` all have
-  passing test suites in the current workspace state.
+- `MIR-F0 v0` is implemented and documented as the baseline subset.
+- The workspace now includes post-F0/F1 prototypes for lowered plans,
+  optimization, RV32I assembly, dynamic JIT execution, and broader differential
+  testing.
+- `mircap`, `mirsem`, `mirc0`, `mirtool`, `mirspace`, `mirplan`, `mirrv32`, and
+  `mirjit` all have passing test suites in the current workspace state.
 - `mirspace` provides the indexed analysis layer used by `mirplan`.
 - `mirplan` provides deterministic compile-plan artifacts and text rendering.
-- `mirtool plan` exposes the plan artifact through the CLI.
+- `mirtool plan`, `mirtool lower`, and `mirtool diff-all` expose analysis,
+  lowered, and differential workflows through the CLI.
+- `i64` operations and byte memory operations are implemented across the
+  interpreter and supported backend paths.
+- `f32` and `f64` constants and arithmetic are implemented in `mircap` and
+  `mirsem`; C/RV32/JIT float emission remains pending.
 - GitHub Actions CI runs `./scripts/test-all.sh` and
   `./scripts/fmt-all.sh --check`.
 
@@ -25,10 +33,11 @@ The long-term project plan lives in `ROADMAP.md`.
 
 ## F0 / F1 Boundary
 
-- F0 is the frozen validated subset.
-- F1 begins with `mirspace` analysis and `mirplan` compile-plan artifacts.
-- F1 work is intentionally conservative and does not expand the language
-  surface first.
+- F0 is the frozen validated baseline subset.
+- F1 now includes `mirspace`, `mirplan`, lowered C, optimization, RV32I, JIT
+  demo execution, and differential tooling.
+- The next recommended demo-facing feature is the C/differential path for
+  `f32` and `f64` constants and arithmetic.
 
 ## Validation Commands
 

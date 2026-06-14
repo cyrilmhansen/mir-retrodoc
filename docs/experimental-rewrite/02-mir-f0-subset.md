@@ -9,11 +9,14 @@ MIR-F0 is a minimal MIR-inspired subset for the first experiment.
 - stable IDs;
 - explicit basic blocks;
 - instruction lists;
-- `void`, `i32`, `u32`, reserved `addr32`;
-- integer constants;
+- `void`, `i32`, `u32`, `i64`, `addr32`, `f32`, and `f64`;
+- integer and float constants;
 - copy;
 - `i32` add/sub/mul;
+- `i64` add/sub/mul;
+- `f32` and `f64` add/sub/mul/div/neg in `mirsem`;
 - `i32` comparisons;
+- `i64` comparisons;
 - unconditional branch;
 - conditional branch;
 - direct call;
@@ -23,14 +26,20 @@ MIR-F0 is a minimal MIR-inspired subset for the first experiment.
   - `alloc`;
   - `load_i32`;
   - `load_u32`;
+  - `load_i64`;
+  - `load_u8`;
   - `store_i32`;
   - `store_u32`;
+  - `store_i64`;
+  - `store_u8`;
   - `addr_add`.
 
 ## Deferred Or Unsupported
 
-- `i64`: `reject-at-load-time`;
-- floating point: `out-of-scope`;
+- float comparisons: deferred;
+- integer/float conversions: deferred;
+- float memory operations: deferred;
+- float C/RV32/JIT emission: deferred;
 - `long double`: `out-of-scope`;
 - C aggregates: `out-of-scope`;
 - varargs: `out-of-scope`;
@@ -38,7 +47,7 @@ MIR-F0 is a minimal MIR-inspired subset for the first experiment.
 - indirect calls: `reject-at-load-time`;
 - lazy BBV: `out-of-scope`;
 - function redefinition: `out-of-scope`;
-- byte load/store: deferred.
+- runtime code replacement and deoptimization: `out-of-scope`.
 
 MIR-F0 memory is bounded 32-bit linear memory. `addr32` is an offset into that
 memory, not a host pointer. Runtime bounds, alignment, allocation failure, and

@@ -29,6 +29,7 @@ module image.
 - value type table length matches `value_count`;
 - parameter types match the leading value table entries;
 - integer opcode operand/result types are checked;
+- float constant and arithmetic operand/result types are checked;
 - memory opcode operand/result types are checked;
 - data segments reference data symbols and have non-overflowing static ranges.
 
@@ -39,14 +40,15 @@ Static validation checks malformed memory instructions:
 - `alloc` has one `addr32` result and two integer/immediate operands;
 - `load_i32` has one `i32` result and one `addr32` operand;
 - `load_u32` has one `u32` result and one `addr32` operand;
+- `load_i64` has one `i64` result and one `addr32` operand;
 - `load_u8` has one `u32` result and one `addr32` operand;
 - `store_i32` has no result, one `addr32` address, and one `i32` value;
 - `store_u32` has no result, one `addr32` address, and one `u32` value;
+- `store_i64` has no result, one `addr32` address, and one `i64` value;
 - `store_u8` has no result, one `addr32` address, and one `u32` value;
 - `addr_add` has one `addr32` result, one `addr32` base operand, and one `u32`
   offset operand;
 - `data_addr` has one `addr32` result, one Symbol operand (referencing a Data symbol in a declared DataSegment), and one `u32` offset operand (immediate `ImmU32` or value `U32`). If the offset operand is a static immediate `ImmU32` constant, it must not exceed the referenced segment's length (bytes size + zero fill); otherwise, it is a validation error.
-- i64 memory forms are rejected through unsupported type/opcode validation.
 
 `branch_if` validation requires one `u32` condition operand and two explicit
 same-function block targets. There is no implicit false-target fallthrough.
@@ -59,6 +61,20 @@ Static type safety checks enforce the following:
 - `add_u32`, `sub_u32`, `mul_u32` require two `u32` input operands and one `u32` result.
 - `eq_u32`, `ne_u32`, `lt_u32`, `le_u32`, `gt_u32`, `ge_u32` require two `u32` input operands and one `u32` result (representing 0 or 1).
 - No implicit casting is permitted between `i32`, `u32`, and `addr32`.
+
+## Float Validation
+
+Static type safety checks enforce the following:
+
+- `const_f32` and `const_f64` write one result of the matching type;
+- `add_f32`, `sub_f32`, `mul_f32`, and `div_f32` require two `f32` inputs and
+  one `f32` result;
+- `neg_f32` requires one `f32` input and one `f32` result;
+- `add_f64`, `sub_f64`, `mul_f64`, and `div_f64` require two `f64` inputs and
+  one `f64` result;
+- `neg_f64` requires one `f64` input and one `f64` result;
+- float comparisons, conversions, and memory operations are reserved but not
+  executable yet.
 
 ## Error Model
 

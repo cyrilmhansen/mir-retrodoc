@@ -1,12 +1,12 @@
 # MIR-F1 Roadmap
 
-MIR-F1 is the next practical subset after MIR-F0 v0. Its purpose is to move from
-"validated execution model" to "compiler-ready internal representation" without
-expanding the MIR-F0 language surface prematurely.
+MIR-F1 is the practical subset after MIR-F0 v0. Its purpose is to move from
+"validated execution model" to "compiler-ready internal representation" and
+then prove that representation through backend and differential workflows.
 
 ## F1 Direction
 
-F1 should strengthen the middle layer:
+F1 strengthens the middle layer:
 
 - use `mirspace::ProgramSpace` as the canonical analysis view over
   `mircap::ModuleImage`;
@@ -15,9 +15,9 @@ F1 should strengthen the middle layer:
 - produce deterministic analysis and planning artifacts before adding new
   execution targets.
 
-## First Technical Axis
+## Implemented Technical Axis
 
-The first F1 axis is `mirspace` analysis:
+The first F1 axis, `mirspace` plus `mirplan`, is implemented:
 
 - def-use indexing for values;
 - stable block and instruction traversal utilities;
@@ -31,35 +31,53 @@ The first F1 axis is `mirspace` analysis:
 - experimental backend validation through `mirc0::compile_lowered`, while
   keeping the stable `ModuleImage` compiler path unchanged.
 
-## Deferred From Early F1
+F1 has also grown beyond analysis:
 
-These remain intentionally deferred until the analysis layer is firmer:
+- local optimization over lowered programs;
+- `mirtool diff-all` for native, upstream MIR, and RV32I differential checks;
+- RV32I assembly generation in `mirrv32`;
+- dynamic execution demonstration in `mirjit`;
+- `i64` support across validation, interpretation, C, RV32I, and upstream diff
+  paths.
 
-- `i64` helper lowering;
-- floating point;
+## Deferred Or Partial From F1
+
+These remain intentionally deferred or partial:
+
+- float C emission and differential testing;
+- float comparisons, conversions, memory operations, and backend strategy;
 - host C ABI support;
-- RISC-V32 backend work;
-- optimization;
+- RV32FD or soft-float backend work;
 - runtime replacement, deoptimization, or lazy basic-block versioning.
 
 ## F1 Milestones
 
-1. Add value def-use indexing in `mirspace`.
+1. Add value def-use indexing in `mirspace`. Done.
 2. Add a simple deterministic block traversal suitable for compiler planning.
+   Done.
 3. Add a compile-plan artifact that lists functions, blocks, values, calls, and
    memory operations without generating code.
+   Done.
 4. Add a backend-facing projection over the compile plan without choosing a
    target, register model, or optimizer.
+   Done.
 5. Differentially verify that planning does not mutate `ModuleImage` and stays
    stable across text and Cap'n Proto load paths.
+   Done.
 6. Expose planning and lowering artifacts through read-only CLI inspection.
+   Done.
 7. Prove the lowered contract with an experimental C backend path before
    choosing a new target.
-8. Only then choose the first target-facing F1 feature.
+   Done for the integer/address/memory subset.
+8. Choose the first target-facing F1 feature.
+   Done for RV32I.
+9. Complete the first float differential path.
+   Current recommended next milestone.
 
 ## Exit Criteria
 
-F1 is ready to move toward target work when:
+The original F1 target-readiness gate is satisfied for integer/address/memory
+work when:
 
 - `mirspace` exposes tested analysis views for values, instructions, blocks, and
   calls;
@@ -74,3 +92,7 @@ F1 is ready to move toward target work when:
 - all analysis output is deterministic;
 - all F0 tests remain green;
 - the planned baseline compiler input is documented and covered by fixtures.
+
+The remaining F1 readiness gap is float parity. `f32` and `f64` constants and
+arithmetic already validate and execute in `mirsem`; they should next be
+emitted by `mirc0`, compared by `mirtool diff`, and included in `diff-all`.

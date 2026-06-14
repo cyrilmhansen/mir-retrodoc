@@ -4,7 +4,10 @@ This compliance matrix lists all stable test fixtures located under `experiment/
 
 ## 1. Valid/Success Fixtures
 
-These fixtures represent valid MIR-F0 v0 images that should load, validate, transpile, compile, and execute to completion.
+These fixtures represent stable valid images. Most load, validate, transpile,
+compile, and execute to completion. Float fixtures currently validate and run in
+`mirsem`, but are intentionally skipped by C/RV32/upstream differential paths
+until backend float emission exists.
 
 | Fixture Path | `mircap` Load / Validate | `mirsem` Execution Result | `mirc0` Transpiled Execution Result | Strict C11 Compile | Differential Match |
 |---|---|---|---|---|---|
@@ -23,6 +26,9 @@ These fixtures represent valid MIR-F0 v0 images that should load, validate, tran
 | `valid_sieve_32_u32.mircap.txt` | Accepts | `U32(11)` | `Result: 11` | Passes | Yes |
 | `valid_data_segment_load.mircap.txt` | Accepts | `U32(43)` | `Result: 43` | Passes | Yes |
 | `valid_load_store_u8.mircap.txt` | Accepts | `U32(171)` | `Result: 171` | Passes | Yes |
+| `valid_i64_ops.mircap.txt` | Accepts | `I32(42)` | `Result: 42` | Passes | Yes |
+| `valid_float_constants.mircap.txt` | Accepts | `F32(1.5), F64(-0.25)` | N/A | N/A | Skipped |
+| `valid_float_arithmetic.mircap.txt` | Accepts | `F32(-16.0), F64(-16.0)` | N/A | N/A | Skipped |
 
 ---
 
@@ -48,14 +54,12 @@ These fixtures contain deliberate structural or type violations and must be reje
 | `invalid_missing_block.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_wrong_call_arity.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_return_type_mismatch.mircap.txt` | Rejects (ValidationError) | N/A |
-| `invalid_unsupported_i64.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_instruction_after_terminator.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_block_without_terminator.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_load_non_addr32.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_store_wrong_value_type.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_alloc_wrong_result_type.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_malformed_data_segment.mircap.txt` | Rejects (ValidationError) | N/A |
-| `invalid_unsupported_i64_memory.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_addr_add_wrong_offset_type.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_addr_add_wrong_base_type.mircap.txt` | Rejects (ValidationError) | N/A |
 | `invalid_addr_add_addr32_offset.mircap.txt` | Rejects (ValidationError) | N/A |
