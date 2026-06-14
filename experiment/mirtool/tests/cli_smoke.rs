@@ -209,6 +209,19 @@ fn test_diff_valid_sieve_32_u32() {
 }
 
 #[test]
+fn test_diff_valid_i64_ops() {
+    let cc_check = std::process::Command::new("cc").arg("--version").output();
+    if cc_check.is_ok() {
+        let path = fixture_path("valid_i64_ops.mircap.txt");
+        let output = run_mirtool(&["diff", &path]);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout.trim(), "PASS");
+    }
+}
+
+
+#[test]
 fn test_run_trap_load_oob() {
     let path = fixture_path("trap_load_oob.mircap.txt");
     let output = run_mirtool(&["run", &path]);
@@ -352,6 +365,20 @@ fn test_diff_upstream_trap_load_oob() {
         assert_eq!(stdout.trim(), "PASS");
     }
 }
+
+#[test]
+fn test_diff_upstream_valid_i64_ops() {
+    let m2b_check =
+        std::path::Path::new("/home/john/project/mir-preservation/git/mir-restored/m2b").exists();
+    if m2b_check {
+        let path = fixture_path("valid_i64_ops.mircap.txt");
+        let output = run_mirtool(&["diff-upstream", &path]);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout.trim(), "PASS");
+    }
+}
+
 
 #[test]
 fn test_compile_rv32i_valid_const_return() {

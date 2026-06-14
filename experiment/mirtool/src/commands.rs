@@ -309,8 +309,13 @@ pub fn cmd_diff(
 
     // 4. Write C source code and compile
     let cur_dir = std::env::current_dir()?;
-    let c_path = cur_dir.join("temp_mirtool_diff.c");
-    let bin_path = cur_dir.join("temp_mirtool_diff");
+    let input_name = Path::new(input_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("temp")
+        .replace('.', "_");
+    let c_path = cur_dir.join(format!("temp_mirtool_diff_{}.c", input_name));
+    let bin_path = cur_dir.join(format!("temp_mirtool_diff_{}", input_name));
 
     std::fs::write(&c_path, c_code)?;
 
@@ -754,6 +759,7 @@ fn map_type(kind: mircap::TypeKind) -> &'static str {
         mircap::TypeKind::I32 => "i32",
         mircap::TypeKind::U32 => "u32",
         mircap::TypeKind::Addr32 => "p",
+        mircap::TypeKind::I64 => "i64",
         _ => "i64",
     }
 }
@@ -890,7 +896,9 @@ pub fn translate_to_upstream_mir(program: &LoweredProgram, entry_name: &str) -> 
     out.push('\n');
 
     // Translate functions
-    for func in &program.functions {
+    let mut sorted_functions: Vec<_> = program.functions.iter().collect();
+    sorted_functions.sort_by_key(|f| f.name == entry_name);
+    for func in sorted_functions {
         let name = if func.name == entry_name {
             "main"
         } else {
@@ -1008,6 +1016,7 @@ fn translate_instruction(
             LoweredOperand::Value(val) => format!("v_{}", val.id.0),
             LoweredOperand::ImmI32(imm) => imm.to_string(),
             LoweredOperand::ImmU32(imm) => imm.to_string(),
+            LoweredOperand::ImmI64(imm) => imm.to_string(),
             LoweredOperand::Block(lbl) => format!("L_{}", lbl.id.0),
             LoweredOperand::Function(f) => {
                 let name = if f.name == entry_name {
@@ -1023,7 +1032,7 @@ fn translate_instruction(
     };
 
     match insn.opcode {
-        Opcode::ConstI32 | Opcode::ConstU32 => {
+        Opcode::ConstI32 | Opcode::ConstU32 | Opcode::ConstI64 => {
             let val = format_op(&insn.operands[0]);
             format!("mov {}, {}", dest_str, val)
         }
@@ -1220,6 +1229,48 @@ fn translate_instruction(
                 dest_str, ds.offset, offset, ds_len
             )
         }
+        Opcode::AddI64 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("add {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::SubI64 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("sub {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::MulI64 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("mul {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::EqI64 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("eq {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::NeI64 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("ne {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::LtI64 => {
+            let lhs = format_op(&insn.operands[0]);
+            let rhs = format_op(&insn.operands[1]);
+            format!("lt {}, {}, {}", dest_str, lhs, rhs)
+        }
+        Opcode::LoadI64 => {
+            let addr = format_op(&insn.operands[0]);
+            format!(
+                "call proto_mir_load_i64, mir_load_i64, {}, {}",
+                dest_str, addr
+            )
+        }
+        Opcode::StoreI64 => {
+            let addr = format_op(&insn.operands[0]);
+            let val = format_op(&insn.operands[1]);
+            format!("call proto_mir_store_i64, mir_store_i64, {}, {}", addr, val)
+        }
         _ => String::new(),
     }
 }
@@ -1232,6 +1283,8 @@ proto_mir_store_i32: proto i64:addr, i64:val
 proto_mir_store_u32: proto i64:addr, i64:val
 proto_mir_load_u8: proto i64, i64:addr
 proto_mir_store_u8: proto i64:addr, i64:val
+proto_mir_load_i64: proto i64, i64:addr
+proto_mir_store_i64: proto i64:addr, i64:val
 proto_mir_data_addr: proto i64, i64:base, i64:offset, i64:len
 
 mir_trap: func i64:code
@@ -1373,6 +1426,40 @@ L_bounds_ok2_store_u8:
               mov u8:0(mem_addr), val
               ret
               endfunc
+
+mir_load_i64: func i64, i64:addr
+              local i64:rem, i64:mem_addr, i64:val
+              mod rem, addr, 8
+              beq L_align_ok_load_i64, rem, 0
+              call proto_exit, exit, 15
+L_align_ok_load_i64:
+              ubgt L_bounds_ok_load_i64, addr, 1048568
+              jmp L_bounds_ok2_load_i64
+L_bounds_ok_load_i64:
+              call proto_exit, exit, 13
+L_bounds_ok2_load_i64:
+              mov mem_addr, g_memory
+              add mem_addr, mem_addr, addr
+              mov val, i64:0(mem_addr)
+              ret val
+              endfunc
+
+mir_store_i64: func i64:addr, i64:val
+               local i64:rem, i64:mem_addr
+               mod rem, addr, 8
+               beq L_align_ok_store_i64, rem, 0
+               call proto_exit, exit, 16
+L_align_ok_store_i64:
+               ubgt L_bounds_ok_store_i64, addr, 1048568
+               jmp L_bounds_ok2_store_i64
+L_bounds_ok_store_i64:
+               call proto_exit, exit, 14
+L_bounds_ok2_store_i64:
+               mov mem_addr, g_memory
+               add mem_addr, mem_addr, addr
+               mov i64:0(mem_addr), val
+               ret
+               endfunc
 
 mir_data_addr: func i64, i64:base, i64:offset, i64:len
                local i64:limit, i64:res
