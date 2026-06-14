@@ -266,7 +266,8 @@ pub fn cmd_diff(
     entry_name: &str,
     keep_temp: bool,
     optimize: bool,
-) -> Result<(), CliError> {
+    quiet: bool,
+) -> Result<bool, CliError> {
     let image = load_image(input_path, format_opt)?;
 
     // 1. Run interpreter
@@ -301,10 +302,12 @@ pub fn cmd_diff(
     // 3. Check for C compiler
     let cc_check = std::process::Command::new("cc").arg("--version").output();
     if cc_check.is_err() {
-        println!(
-            "Host C compiler 'cc' is unavailable. Skipping differential execution verification."
-        );
-        return Ok(());
+        if !quiet {
+            println!(
+                "Host C compiler 'cc' is unavailable. Skipping differential execution verification."
+            );
+        }
+        return Ok(false);
     }
 
     // 4. Write C source code and compile
@@ -338,16 +341,20 @@ pub fn cmd_diff(
                 if !keep_temp {
                     let _ = std::fs::remove_file(&c_path);
                 }
-                println!("FAIL: C compilation failed:\n{}", stderr);
-                return Ok(());
+                if !quiet {
+                    println!("FAIL: C compilation failed:\n{}", stderr);
+                }
+                return Ok(false);
             }
         }
         Err(err) => {
             if !keep_temp {
                 let _ = std::fs::remove_file(&c_path);
             }
-            println!("FAIL: Failed to run C compiler: {}", err);
-            return Ok(());
+            if !quiet {
+                println!("FAIL: Failed to run C compiler: {}", err);
+            }
+            return Ok(false);
         }
     }
 
@@ -361,20 +368,24 @@ pub fn cmd_diff(
     let output = match run_output {
         Ok(o) => o,
         Err(err) => {
-            println!("FAIL: Failed to execute compiled binary: {}", err);
-            return Ok(());
+            if !quiet {
+                println!("FAIL: Failed to execute compiled binary: {}", err);
+            }
+            return Ok(false);
         }
     };
 
     // 6. Compare results
-    match expected {
+    let is_pass = match expected {
         DiffOutcome::Success(expected_val) => {
             if output.status.code() != Some(0) {
-                println!(
-                    "FAIL: Expected exit code 0 for normal return, got status {:?}",
-                    output.status
-                );
-                return Ok(());
+                if !quiet {
+                    println!(
+                        "FAIL: Expected exit code 0 for normal return, got status {:?}",
+                        output.status
+                    );
+                }
+                return Ok(false);
             }
             let stdout_str = String::from_utf8_lossy(&output.stdout);
             let result_line = stdout_str.lines().find(|l| l.starts_with("Result: "));
@@ -386,44 +397,61 @@ pub fn cmd_diff(
                 Some(mirsem::Value::I64(v)) => format!("Result: i64 {}", v),
             };
             if result_line == Some(expected_str.as_str()) {
-                println!("PASS");
+                if !quiet {
+                    println!("PASS");
+                }
+                true
             } else {
-                println!(
-                    "FAIL: Result mismatch. Expected '{}', got '{:?}'",
-                    expected_str, result_line
-                );
+                if !quiet {
+                    println!(
+                        "FAIL: Result mismatch. Expected '{}', got '{:?}'",
+                        expected_str, result_line
+                    );
+                }
+                false
             }
         }
         DiffOutcome::Trap(expected_code) => {
             if output.status.code() != Some(expected_code as i32) {
-                println!(
-                    "FAIL: Expected exit status to match trap code {}, got status {:?}",
-                    expected_code, output.status
-                );
-                return Ok(());
+                if !quiet {
+                    println!(
+                        "FAIL: Expected exit status to match trap code {}, got status {:?}",
+                        expected_code, output.status
+                    );
+                }
+                return Ok(false);
             }
             let stderr_str = String::from_utf8_lossy(&output.stderr);
             let trap_line = stderr_str.lines().find(|l| l.starts_with("Trap: "));
             if let Some(line) = trap_line {
                 let expected_line = format!("Trap: {} {}", expected_code, trap_name(expected_code));
                 if line == expected_line.as_str() {
-                    println!("PASS");
+                    if !quiet {
+                        println!("PASS");
+                    }
+                    true
                 } else {
-                    println!(
-                        "FAIL: Trap line mismatch. Expected '{}', got '{}'",
-                        expected_line, line
-                    );
+                    if !quiet {
+                        println!(
+                            "FAIL: Trap line mismatch. Expected '{}', got '{}'",
+                            expected_line, line
+                        );
+                    }
+                    false
                 }
             } else {
-                println!(
-                    "FAIL: Expected stderr to contain 'Trap: ' line. Stderr:\n{}",
-                    stderr_str
-                );
+                if !quiet {
+                    println!(
+                        "FAIL: Expected stderr to contain 'Trap: ' line. Stderr:\n{}",
+                        stderr_str
+                    );
+                }
+                false
             }
         }
-    }
+    };
 
-    Ok(())
+    Ok(is_pass)
 }
 
 fn print_trace_summary(snapshot: &mirsem::TraceSnapshot) {
@@ -619,7 +647,8 @@ pub fn cmd_diff_upstream(
     entry_name: &str,
     keep_temp: bool,
     optimize: bool,
-) -> Result<(), CliError> {
+    quiet: bool,
+) -> Result<bool, CliError> {
     let image = load_image(input_path, format_opt)?;
 
     // 1. Run interpreter
@@ -677,8 +706,10 @@ pub fn cmd_diff_upstream(
                     let _ = std::fs::remove_file(&mir_path);
                     let _ = std::fs::remove_file(&bmir_path);
                 }
-                println!("FAIL: m2b compilation failed:\n{}", stderr);
-                return Ok(());
+                if !quiet {
+                    println!("FAIL: m2b compilation failed:\n{}", stderr);
+                }
+                return Ok(false);
             }
         }
         Err(err) => {
@@ -686,8 +717,10 @@ pub fn cmd_diff_upstream(
                 let _ = std::fs::remove_file(&mir_path);
                 let _ = std::fs::remove_file(&bmir_path);
             }
-            println!("FAIL: Failed to run m2b compiler: {}", err);
-            return Ok(());
+            if !quiet {
+                println!("FAIL: Failed to run m2b compiler: {}", err);
+            }
+            return Ok(false);
         }
     }
 
@@ -705,18 +738,20 @@ pub fn cmd_diff_upstream(
     let output = match run_output {
         Ok(o) => o,
         Err(err) => {
-            println!(
-                "FAIL: Failed to execute compiled binary under mir-bin-run: {}",
-                err
-            );
-            return Ok(());
+            if !quiet {
+                println!(
+                    "FAIL: Failed to execute compiled binary under mir-bin-run: {}",
+                    err
+                );
+            }
+            return Ok(false);
         }
     };
 
     let exit_code = output.status.code();
 
     // 5. Compare exit codes
-    match expected {
+    let is_pass = match expected {
         DiffOutcome::Success(expected_val) => {
             let expected_code = match expected_val {
                 None | Some(mirsem::Value::Void) => 0,
@@ -728,29 +763,41 @@ pub fn cmd_diff_upstream(
             let expected_exit_status = (expected_code & 0xff) as i32;
             let actual_exit_status = exit_code.map(|c| c & 0xff);
             if actual_exit_status == Some(expected_exit_status) {
-                println!("PASS");
+                if !quiet {
+                    println!("PASS");
+                }
+                true
             } else {
-                println!(
-                    "FAIL: Result mismatch. Expected exit code {} (masked: {}), got {:?}",
-                    expected_code, expected_exit_status, exit_code
-                );
+                if !quiet {
+                    println!(
+                        "FAIL: Result mismatch. Expected exit code {} (masked: {}), got {:?}",
+                        expected_code, expected_exit_status, exit_code
+                    );
+                }
+                false
             }
         }
         DiffOutcome::Trap(expected_trap_code) => {
             let expected_exit_status = (expected_trap_code & 0xff) as i32;
             let actual_exit_status = exit_code.map(|c| c & 0xff);
             if actual_exit_status == Some(expected_exit_status) {
-                println!("PASS");
+                if !quiet {
+                    println!("PASS");
+                }
+                true
             } else {
-                println!(
-                    "FAIL: Trap mismatch. Expected exit status to match trap code {} (masked: {}), got {:?}",
-                    expected_trap_code, expected_exit_status, exit_code
-                );
+                if !quiet {
+                    println!(
+                        "FAIL: Trap mismatch. Expected exit status to match trap code {} (masked: {}), got {:?}",
+                        expected_trap_code, expected_exit_status, exit_code
+                    );
+                }
+                false
             }
         }
-    }
+    };
 
-    Ok(())
+    Ok(is_pass)
 }
 
 fn map_type(kind: mircap::TypeKind) -> &'static str {
@@ -1481,3 +1528,135 @@ L_overflow_ok_data_addr:
                endfunc
 
 "#;
+
+pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
+    let fixtures_dir = match find_fixtures_dir() {
+        Some(dir) => dir,
+        None => return Err(CliError::Generic("Failed to find fixtures directory".to_string())),
+    };
+
+    let cc_available = std::process::Command::new("cc").arg("--version").output().is_ok();
+
+    let m2b_path = "/home/john/project/mir-preservation/git/mir-restored/m2b";
+    let mir_bin_run_path = "/home/john/project/mir-preservation/git/mir-restored/mir-bin-run";
+    let upstream_available = std::path::Path::new(m2b_path).exists() && std::path::Path::new(mir_bin_run_path).exists();
+
+    println!("==================================================");
+    println!("   MIR-RETRODOC REGRESSION & DIFFERENTIAL TESTS   ");
+    println!("==================================================");
+    println!("C Transpiler Diff (cc):   {}", if cc_available { "ENABLED" } else { "DISABLED" });
+    println!("Upstream MIR Diff (m2b):  {}", if upstream_available { "ENABLED" } else { "DISABLED" });
+    println!("==================================================\n");
+
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir(fixtures_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("valid_") || name.starts_with("trap_") {
+                    if name.ends_with(".mircap.txt") {
+                        paths.push(path);
+                    }
+                }
+            }
+        }
+    }
+    paths.sort();
+
+    let mut pass_count = 0;
+    let mut fail_count = 0;
+    let mut skip_count = 0;
+
+    println!("{:<40} | {:<12} | {:<12} | {:<12}", "Fixture Name", "Interpreter", "C Transpiler", "Upstream MIR");
+    println!("{:-<40}-+-{:-<12}-+-{:-<12}-+-{:-<12}", "", "", "", "");
+
+    for path in paths {
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        let path_str = path.to_string_lossy();
+
+        // 1. Interpreter check
+        let mut interp_status = "PASS";
+        let image = load_image(&path_str, None)?;
+        let runner = Runner::new(image, mirsem::ExecutionProfile::default());
+        if runner.is_err() {
+            interp_status = "FAIL";
+        } else {
+            let mut r = runner.unwrap();
+            match r.run_entry_by_name("main", &[]) {
+                Ok(_) | Err(mirsem::RunError::Trap(_)) => {}
+                _ => {
+                    interp_status = "FAIL";
+                }
+            }
+        }
+
+        // 2. C Transpiler check
+        let mut c_status = "SKIP";
+        let mut c_passed = true;
+        if cc_available {
+            match cmd_diff(&path_str, None, "main", keep_temp, optimize, true) {
+                Ok(passed) => {
+                    c_passed = passed;
+                    c_status = if passed { "PASS" } else { "FAIL" };
+                }
+                Err(_) => {
+                    c_passed = false;
+                    c_status = "FAIL";
+                }
+            }
+        }
+
+        // 3. Upstream MIR check
+        let mut upstream_status = "SKIP";
+        let mut upstream_passed = true;
+        if upstream_available {
+            match cmd_diff_upstream(&path_str, None, "main", keep_temp, optimize, true) {
+                Ok(passed) => {
+                    upstream_passed = passed;
+                    upstream_status = if passed { "PASS" } else { "FAIL" };
+                }
+                Err(_) => {
+                    upstream_passed = false;
+                    upstream_status = "FAIL";
+                }
+            }
+        }
+
+        let is_failed = interp_status == "FAIL" || !c_passed || !upstream_passed;
+        if is_failed {
+            fail_count += 1;
+        } else {
+            if c_status == "SKIP" && upstream_status == "SKIP" {
+                skip_count += 1;
+            } else {
+                pass_count += 1;
+            }
+        }
+
+        println!("{:<40} | {:<12} | {:<12} | {:<12}", name, interp_status, c_status, upstream_status);
+    }
+
+    println!("\n==================================================");
+    println!("Summary: {} Passed, {} Failed, {} Skipped", pass_count, fail_count, skip_count);
+    println!("==================================================");
+
+    if fail_count > 0 {
+        return Err(CliError::Generic(format!("{} tests failed", fail_count)));
+    }
+    Ok(())
+}
+
+fn find_fixtures_dir() -> Option<std::path::PathBuf> {
+    let mut path = std::env::current_dir().ok()?;
+    loop {
+        let fixtures = path.join("experiment/mircap/tests/fixtures");
+        if fixtures.exists() && fixtures.is_dir() {
+            return Some(fixtures);
+        }
+        if !path.pop() {
+            break;
+        }
+    }
+    None
+}

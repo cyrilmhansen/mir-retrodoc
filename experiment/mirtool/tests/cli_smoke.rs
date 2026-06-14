@@ -393,3 +393,13 @@ fn test_compile_rv32i_valid_const_return() {
 
     let _ = std::fs::remove_file(temp_asm);
 }
+
+#[test]
+fn test_diff_all() {
+    let output = run_mirtool(&["diff-all"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Summary:"));
+    assert!(stdout.contains("Passed"));
+}
+

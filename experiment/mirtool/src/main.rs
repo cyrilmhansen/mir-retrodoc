@@ -38,7 +38,8 @@ fn show_help() -> String {
         "  compile-rv32i <input_file> <output_file>  Compiles a module image to RV32I assembly.\n",
     );
     s.push_str("  diff <input_file>                         Runs differential execution comparison between mirsem and compiled C.\n");
-    s.push_str("  diff-upstream <input_file>                Runs differential execution comparison between mirsem and original MIR.\n\n");
+    s.push_str("  diff-upstream <input_file>                Runs differential execution comparison between mirsem and original MIR.\n");
+    s.push_str("  diff-all                                  Runs differential tests on all valid/trap fixtures.\n\n");
     s.push_str("Options:\n");
     s.push_str(
         "  --format <text|binary>                    Explicitly specify input file format.\n",
@@ -139,6 +140,16 @@ fn parse_args() -> Result<Args, String> {
             }
             (positional[0].clone(), None)
         }
+        "diff-all" => {
+            if !positional.is_empty() {
+                return Err(format!(
+                    "Command '{}' does not accept positional arguments.\n\n{}",
+                    command,
+                    show_help()
+                ));
+            }
+            (String::new(), None)
+        }
         "encode" | "compile-c" | "compile-rv32i" => {
             if positional.len() < 2 {
                 return Err(format!(
@@ -214,20 +225,41 @@ fn main() {
             args.format.as_deref(),
             args.optimize,
         ),
-        "diff" => commands::cmd_diff(
-            &args.input,
-            args.format.as_deref(),
-            entry_name,
-            args.keep_temp,
-            args.optimize,
-        ),
-        "diff-upstream" => commands::cmd_diff_upstream(
-            &args.input,
-            args.format.as_deref(),
-            entry_name,
-            args.keep_temp,
-            args.optimize,
-        ),
+        "diff" => {
+            let passed = commands::cmd_diff(
+                &args.input,
+                args.format.as_deref(),
+                entry_name,
+                args.keep_temp,
+                args.optimize,
+                false,
+            );
+            match passed {
+                Ok(true) => Ok(()),
+                Ok(false) => {
+                    std::process::exit(1);
+                }
+                Err(err) => Err(err),
+            }
+        }
+        "diff-upstream" => {
+            let passed = commands::cmd_diff_upstream(
+                &args.input,
+                args.format.as_deref(),
+                entry_name,
+                args.keep_temp,
+                args.optimize,
+                false,
+            );
+            match passed {
+                Ok(true) => Ok(()),
+                Ok(false) => {
+                    std::process::exit(1);
+                }
+                Err(err) => Err(err),
+            }
+        }
+        "diff-all" => commands::cmd_diff_all(args.keep_temp, args.optimize),
         _ => unreachable!(),
     };
 
