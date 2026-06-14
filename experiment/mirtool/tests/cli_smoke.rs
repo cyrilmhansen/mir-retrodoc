@@ -231,6 +231,18 @@ fn test_diff_valid_i64_ops() {
 }
 
 #[test]
+fn test_diff_valid_float_arithmetic() {
+    let cc_check = std::process::Command::new("cc").arg("--version").output();
+    if cc_check.is_ok() {
+        let path = fixture_path("valid_float_arithmetic.mircap.txt");
+        let output = run_mirtool(&["diff", &path]);
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout.trim(), "PASS");
+    }
+}
+
+#[test]
 fn test_run_trap_load_oob() {
     let path = fixture_path("trap_load_oob.mircap.txt");
     let output = run_mirtool(&["run", &path]);

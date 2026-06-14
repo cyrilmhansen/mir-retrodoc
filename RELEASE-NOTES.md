@@ -19,8 +19,9 @@ The long-term project plan lives in `ROADMAP.md`.
   lowered, and differential workflows through the CLI.
 - `i64` operations and byte memory operations are implemented across the
   interpreter and supported backend paths.
-- `f32` and `f64` constants and arithmetic are implemented in `mircap` and
-  `mirsem`; C/RV32/JIT float emission remains pending.
+- `f32` and `f64` constants and arithmetic are implemented in `mircap`,
+  `mirsem`, `mirc0`, and the C differential path; RV32/JIT float emission
+  remains pending.
 - GitHub Actions CI runs `./scripts/test-all.sh` and
   `./scripts/fmt-all.sh --check`.
 
@@ -36,8 +37,8 @@ The long-term project plan lives in `ROADMAP.md`.
 - F0 is the frozen validated baseline subset.
 - F1 now includes `mirspace`, `mirplan`, lowered C, optimization, RV32I, JIT
   demo execution, and differential tooling.
-- The next recommended demo-facing feature is the C/differential path for
-  `f32` and `f64` constants and arithmetic.
+- The next recommended demo-facing feature is a deliberate float comparison and
+  conversion spec, followed by an RV32FD versus soft-float backend decision.
 
 ## Validation Commands
 

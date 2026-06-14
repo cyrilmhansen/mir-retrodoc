@@ -263,7 +263,7 @@ pub fn cmd_compile_rv32i(
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum DiffOutcome {
-    Success(Option<mirsem::Value>),
+    Success(Vec<mirsem::Value>),
     Trap(u32),
 }
 
@@ -280,7 +280,7 @@ pub fn cmd_diff(
     // 1. Run interpreter
     let mut runner = Runner::new(image.clone(), mirsem::ExecutionProfile::default())?;
     let expected = match runner.run_entry_by_name(entry_name, &[]) {
-        Ok(res) => DiffOutcome::Success(res.values.first().cloned()),
+        Ok(res) => DiffOutcome::Success(res.values),
         Err(mirsem::RunError::Trap(trap)) => {
             let (code, _) = trap_info(&trap);
             DiffOutcome::Trap(code)
@@ -384,7 +384,7 @@ pub fn cmd_diff(
 
     // 6. Compare results
     let is_pass = match expected {
-        DiffOutcome::Success(expected_val) => {
+        DiffOutcome::Success(expected_values) => {
             if output.status.code() != Some(0) {
                 if !quiet {
                     println!(
@@ -395,21 +395,13 @@ pub fn cmd_diff(
                 return Ok(false);
             }
             let stdout_str = String::from_utf8_lossy(&output.stdout);
-            let result_line = stdout_str.lines().find(|l| l.starts_with("Result: "));
-            let expected_str = match expected_val {
-                None | Some(mirsem::Value::Void) => "Result: void".to_string(),
-                Some(mirsem::Value::I32(v)) => format!("Result: i32 {}", v),
-                Some(mirsem::Value::U32(v)) => format!("Result: u32 {}", v),
-                Some(mirsem::Value::Addr32(v)) => format!("Result: addr32 {}", v),
-                Some(mirsem::Value::I64(v)) => format!("Result: i64 {}", v),
-                Some(mirsem::Value::F32(bits)) => {
-                    format!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(bits))
-                }
-                Some(mirsem::Value::F64(bits)) => {
-                    format!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(bits))
-                }
-            };
-            if result_line == Some(expected_str.as_str()) {
+            let result_lines = stdout_str
+                .lines()
+                .filter(|line| line.starts_with("Result: "))
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            let expected_lines = expected_result_lines(&expected_values);
+            if result_lines == expected_lines {
                 if !quiet {
                     println!("PASS");
                 }
@@ -417,8 +409,8 @@ pub fn cmd_diff(
             } else {
                 if !quiet {
                     println!(
-                        "FAIL: Result mismatch. Expected '{}', got '{:?}'",
-                        expected_str, result_line
+                        "FAIL: Result mismatch. Expected {:?}, got {:?}",
+                        expected_lines, result_lines
                     );
                 }
                 false
@@ -465,6 +457,41 @@ pub fn cmd_diff(
     };
 
     Ok(is_pass)
+}
+
+fn expected_result_lines(values: &[mirsem::Value]) -> Vec<String> {
+    if values.is_empty() {
+        return vec!["Result: void".to_string()];
+    }
+    values.iter().map(expected_value_line).collect()
+}
+
+fn expected_value_line(value: &mirsem::Value) -> String {
+    match value {
+        mirsem::Value::Void => "Result: void".to_string(),
+        mirsem::Value::I32(v) => format!("Result: i32 {}", v),
+        mirsem::Value::U32(v) => format!("Result: u32 {}", v),
+        mirsem::Value::Addr32(v) => format!("Result: addr32 {}", v),
+        mirsem::Value::I64(v) => format!("Result: i64 {}", v),
+        mirsem::Value::F32(bits) => {
+            format!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(*bits))
+        }
+        mirsem::Value::F64(bits) => {
+            format!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(*bits))
+        }
+    }
+}
+
+fn first_result_exit_code(values: &[mirsem::Value]) -> i32 {
+    match values.first() {
+        None | Some(mirsem::Value::Void) => 0,
+        Some(mirsem::Value::I32(v)) => *v,
+        Some(mirsem::Value::U32(v)) => *v as i32,
+        Some(mirsem::Value::Addr32(v)) => *v as i32,
+        Some(mirsem::Value::I64(v)) => *v as i32,
+        Some(mirsem::Value::F32(bits)) => *bits as i32,
+        Some(mirsem::Value::F64(bits)) => *bits as i32,
+    }
 }
 
 fn print_trace_summary(snapshot: &mirsem::TraceSnapshot) {
@@ -701,7 +728,7 @@ pub fn cmd_diff_upstream(
     // 1. Run interpreter
     let mut runner = Runner::new(image.clone(), mirsem::ExecutionProfile::default())?;
     let expected = match runner.run_entry_by_name(entry_name, &[]) {
-        Ok(res) => DiffOutcome::Success(res.values.first().cloned()),
+        Ok(res) => DiffOutcome::Success(res.values),
         Err(mirsem::RunError::Trap(trap)) => {
             let (code, _) = trap_info(&trap);
             DiffOutcome::Trap(code)
@@ -799,16 +826,8 @@ pub fn cmd_diff_upstream(
 
     // 5. Compare exit codes
     let is_pass = match expected {
-        DiffOutcome::Success(expected_val) => {
-            let expected_code = match expected_val {
-                None | Some(mirsem::Value::Void) => 0,
-                Some(mirsem::Value::I32(v)) => v,
-                Some(mirsem::Value::U32(v)) => v as i32,
-                Some(mirsem::Value::Addr32(v)) => v as i32,
-                Some(mirsem::Value::I64(v)) => v as i32,
-                Some(mirsem::Value::F32(bits)) => bits as i32,
-                Some(mirsem::Value::F64(bits)) => bits as i32,
-            };
+        DiffOutcome::Success(expected_values) => {
+            let expected_code = first_result_exit_code(&expected_values);
             let expected_exit_status = (expected_code & 0xff) as i32;
             let actual_exit_status = exit_code.map(|c| c & 0xff);
             if actual_exit_status == Some(expected_exit_status) {
@@ -1592,7 +1611,7 @@ pub fn cmd_diff_rv32i(
     // 1. Run interpreter
     let mut runner = Runner::new(image.clone(), mirsem::ExecutionProfile::default())?;
     let expected = match runner.run_entry_by_name("main", &[]) {
-        Ok(res) => DiffOutcome::Success(res.values.first().cloned()),
+        Ok(res) => DiffOutcome::Success(res.values),
         Err(mirsem::RunError::Trap(trap)) => {
             let (code, _) = trap_info(&trap);
             DiffOutcome::Trap(code)
@@ -1764,16 +1783,8 @@ heap_buffer:
 
     // 6. Compare outcomes
     let is_pass = match expected {
-        DiffOutcome::Success(expected_val) => {
-            let expected_code = match expected_val {
-                None | Some(mirsem::Value::Void) => 0,
-                Some(mirsem::Value::I32(v)) => v,
-                Some(mirsem::Value::U32(v)) => v as i32,
-                Some(mirsem::Value::Addr32(v)) => v as i32,
-                Some(mirsem::Value::I64(v)) => v as i32,
-                Some(mirsem::Value::F32(bits)) => bits as i32,
-                Some(mirsem::Value::F64(bits)) => bits as i32,
-            };
+        DiffOutcome::Success(expected_values) => {
+            let expected_code = first_result_exit_code(&expected_values);
             let expected_exit_status = (expected_code & 0xff) as i32;
             let actual_exit_status = exit_code & 0xff;
             if actual_exit_status == expected_exit_status {
@@ -1901,15 +1912,7 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
         let name = path.file_name().unwrap().to_string_lossy().to_string();
         let path_str = path.to_string_lossy();
         let image = load_image(&path_str, None)?;
-
-        if module_uses_float(&image) {
-            println!(
-                "{:<40} | {:<12} | {:<12} | {:<12} | {:<12}",
-                name, "VALIDATE", "SKIP", "SKIP", "SKIP"
-            );
-            skip_count += 1;
-            continue;
-        }
+        let uses_float = module_uses_float(&image);
 
         // 1. Interpreter check
         let mut interp_status = "PASS";
@@ -1945,7 +1948,9 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
         // 3. Upstream MIR check
         let mut upstream_status = "SKIP";
         let mut upstream_passed = true;
-        if upstream_available {
+        if uses_float {
+            upstream_status = "SKIP";
+        } else if upstream_available {
             match cmd_diff_upstream(&path_str, None, "main", keep_temp, optimize, true) {
                 Ok(passed) => {
                     upstream_passed = passed;
@@ -1961,7 +1966,9 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
         // 4. RV32I check
         let mut rv32_status = "SKIP";
         let mut rv32_passed = true;
-        if rv32_available {
+        if uses_float {
+            rv32_status = "SKIP";
+        } else if rv32_available {
             match cmd_diff_rv32i(&path_str, None, keep_temp, optimize, true) {
                 Ok(passed) => {
                     rv32_passed = passed;

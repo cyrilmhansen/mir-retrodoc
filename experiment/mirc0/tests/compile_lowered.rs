@@ -16,27 +16,34 @@ fn lowered_from_image(image: &ModuleImage) -> mirplan::LoweredProgram {
     lower_compile_plan(&plan)
 }
 
-fn expected_result_line(image: &ModuleImage) -> String {
+fn expected_result_lines(image: &ModuleImage) -> Vec<String> {
     let mut runner = Runner::new(image.clone(), ExecutionProfile::default()).expect("runner");
     let result = runner
         .run_entry_by_name("main", &[])
         .expect("fixture should return normally");
-    match result.values.first() {
-        None | Some(Value::Void) => "Result: void".to_string(),
-        Some(Value::I32(value)) => format!("Result: i32 {value}"),
-        Some(Value::U32(value)) => format!("Result: u32 {value}"),
-        Some(Value::Addr32(value)) => format!("Result: addr32 {value}"),
-        Some(Value::I64(value)) => format!("Result: i64 {value}"),
-        Some(Value::F32(bits)) => {
+    if result.values.is_empty() {
+        return vec!["Result: void".to_string()];
+    }
+    result.values.iter().map(expected_value_line).collect()
+}
+
+fn expected_value_line(value: &Value) -> String {
+    match value {
+        Value::Void => "Result: void".to_string(),
+        Value::I32(value) => format!("Result: i32 {value}"),
+        Value::U32(value) => format!("Result: u32 {value}"),
+        Value::Addr32(value) => format!("Result: addr32 {value}"),
+        Value::I64(value) => format!("Result: i64 {value}"),
+        Value::F32(bits) => {
             format!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(*bits))
         }
-        Some(Value::F64(bits)) => {
+        Value::F64(bits) => {
             format!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(*bits))
         }
     }
 }
 
-fn compile_and_run_c(test_name: &str, c_code: &str) -> Option<String> {
+fn compile_and_run_c(test_name: &str, c_code: &str) -> Option<Vec<String>> {
     let cc_check = Command::new("cc").arg("--version").output();
     if cc_check.is_err() {
         return None;
@@ -79,9 +86,9 @@ fn compile_and_run_c(test_name: &str, c_code: &str) -> Option<String> {
     Some(
         String::from_utf8_lossy(&output.stdout)
             .lines()
-            .find(|line| line.starts_with("Result: "))
-            .expect("result line")
-            .to_string(),
+            .filter(|line| line.starts_with("Result: "))
+            .map(str::to_string)
+            .collect(),
     )
 }
 
@@ -99,8 +106,8 @@ fn check_lowered_fixture(test_name: &str, text: &str) {
         lowered_c.contains("init_data_segments")
     );
 
-    if let Some(result_line) = compile_and_run_c(test_name, &lowered_c) {
-        assert_eq!(result_line, expected_result_line(&image));
+    if let Some(result_lines) = compile_and_run_c(test_name, &lowered_c) {
+        assert_eq!(result_lines, expected_result_lines(&image));
     }
 }
 
@@ -133,5 +140,21 @@ fn compile_lowered_data_segment_load() {
     check_lowered_fixture(
         "data_segment_load",
         include_str!("../../mircap/tests/fixtures/valid_data_segment_load.mircap.txt"),
+    );
+}
+
+#[test]
+fn compile_lowered_float_constants() {
+    check_lowered_fixture(
+        "float_constants",
+        include_str!("../../mircap/tests/fixtures/valid_float_constants.mircap.txt"),
+    );
+}
+
+#[test]
+fn compile_lowered_float_arithmetic() {
+    check_lowered_fixture(
+        "float_arithmetic",
+        include_str!("../../mircap/tests/fixtures/valid_float_arithmetic.mircap.txt"),
     );
 }

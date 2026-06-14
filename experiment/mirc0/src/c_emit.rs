@@ -8,6 +8,8 @@ pub fn emit_type(kind: TypeKind) -> Result<&'static str, CompileError> {
         TypeKind::U32 => Ok("uint32_t"),
         TypeKind::Addr32 => Ok("uint32_t"),
         TypeKind::I64 => Ok("int64_t"),
+        TypeKind::F32 => Ok("float"),
+        TypeKind::F64 => Ok("double"),
         _ => Err(CompileError::UnsupportedType(kind)),
     }
 }

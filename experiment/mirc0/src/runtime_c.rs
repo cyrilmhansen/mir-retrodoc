@@ -11,10 +11,40 @@ pub const RUNTIME_HEADER: &str = r#"#include <stdint.h>
 #define STACK_SIZE (64 * 1024)
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define MIR_UNUSED __attribute__((unused))
+#else
+#define MIR_UNUSED
+#endif
+
 uint32_t g_memory_aligned[MEMORY_SIZE / 4];
 #define g_memory ((uint8_t*)g_memory_aligned)
 uint32_t g_heap_ptr = 0;
 uint32_t g_stack_base = MEMORY_SIZE - STACK_SIZE;
+
+static MIR_UNUSED float mir_f32_from_bits(uint32_t bits) {
+    union { uint32_t bits; float value; } u;
+    u.bits = bits;
+    return u.value;
+}
+
+static MIR_UNUSED uint32_t mir_f32_to_bits(float value) {
+    union { float value; uint32_t bits; } u;
+    u.value = value;
+    return u.bits;
+}
+
+static MIR_UNUSED double mir_f64_from_bits(uint64_t bits) {
+    union { uint64_t bits; double value; } u;
+    u.bits = bits;
+    return u.value;
+}
+
+static MIR_UNUSED uint64_t mir_f64_to_bits(double value) {
+    union { double value; uint64_t bits; } u;
+    u.value = value;
+    return u.bits;
+}
 
 void mir_trap(int code) {
     const char *name = "Unknown";

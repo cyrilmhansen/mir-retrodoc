@@ -7,18 +7,22 @@ support without changing the current integer-first backend contract too early.
 
 Target: `mircap`
 
+Status: implemented.
+
 - Add `f32` and `f64` type identifiers to the text and Cap'n Proto formats.
 - Add immediate operands for IEEE-754 single and double precision values.
 - Validate `const_f32` and `const_f64` instructions.
 - Round-trip float constants through text -> `ModuleImage` -> Cap'n Proto ->
   `ModuleImage`.
 
-This phase deliberately does not make float arithmetic executable. It only
-establishes the serialized contract and validation surface.
+This phase established the serialized contract and validation surface before
+float arithmetic was made executable.
 
 ## Phase 2: Semantic Oracle
 
 Target: `mirsem`
+
+Status: implemented for constants and arithmetic.
 
 - Extend interpreter values with `F32` and `F64` bit-pattern values.
 - Execute `const_f32`, `const_f64`, and basic arithmetic.
@@ -29,10 +33,14 @@ Target: `mirsem`
 
 Target: `mirc0`
 
+Status: implemented for constants and arithmetic.
+
 - Map `f32` to C `float`.
 - Map `f64` to C `double`.
 - Emit float constants and arithmetic.
 - Differentially verify C execution against `mirsem`.
+- Print float results with both decimal text and exact IEEE-754 bits.
+- Include float fixtures in `mirtool diff` and the C column of `diff-all`.
 
 ## Phase 4: Comparisons And Conversions
 

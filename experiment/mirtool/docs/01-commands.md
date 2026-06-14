@@ -35,6 +35,9 @@ Executes the target entry function using the `mirsem` reference interpreter.
   - `Result: i32 <value>`
   - `Result: u32 <value>`
   - `Result: addr32 <value>`
+  - `Result: i64 <value>`
+  - `Result: f32 <value> bits=0x<bits>`
+  - `Result: f64 <value> bits=0x<bits>`
   - `Result: void`
   - `Trap: <code> <name>` (e.g. `Trap: 13 OutOfBoundsLoad`)
 

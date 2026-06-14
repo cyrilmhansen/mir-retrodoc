@@ -6,7 +6,7 @@ use std::process::Command;
 
 #[derive(Debug)]
 enum ExpectedOutcome {
-    Success(Option<Value>),
+    Success(Vec<Value>),
     Trap(u32),
 }
 
@@ -45,10 +45,7 @@ fn trap_name(code: u32) -> &'static str {
 fn run_mirsem(image: &ModuleImage, profile: ExecutionProfile) -> ExpectedOutcome {
     let mut runner = Runner::new(image.clone(), profile).expect("runner new");
     match runner.run_entry_by_name("main", &[]) {
-        Ok(res) => {
-            let val = res.values.first().cloned();
-            ExpectedOutcome::Success(val)
-        }
+        Ok(res) => ExpectedOutcome::Success(res.values),
         Err(RunError::Trap(trap)) => ExpectedOutcome::Trap(map_mirsem_trap(&trap)),
         Err(e) => {
             panic!("Unexpected mirsem execution error: {:?}", e);
@@ -118,7 +115,7 @@ fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
 
     // Compare results
     match expected {
-        ExpectedOutcome::Success(expected_val) => {
+        ExpectedOutcome::Success(expected_values) => {
             assert_eq!(
                 output.status.code(),
                 Some(0),
@@ -128,41 +125,12 @@ fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
             );
 
             let stdout_str = String::from_utf8_lossy(&output.stdout);
-            let result_line = stdout_str.lines().find(|l| l.starts_with("Result: "));
-            match expected_val {
-                None => {
-                    assert_eq!(result_line, Some("Result: void"));
-                }
-                Some(Value::Void) => {
-                    assert_eq!(result_line, Some("Result: void"));
-                }
-                Some(Value::I32(val)) => {
-                    let expected_line = format!("Result: i32 {}", val);
-                    assert_eq!(result_line, Some(expected_line.as_str()));
-                }
-                Some(Value::U32(val)) => {
-                    let expected_line = format!("Result: u32 {}", val);
-                    assert_eq!(result_line, Some(expected_line.as_str()));
-                }
-                Some(Value::Addr32(val)) => {
-                    let expected_line = format!("Result: addr32 {}", val);
-                    assert_eq!(result_line, Some(expected_line.as_str()));
-                }
-                Some(Value::I64(val)) => {
-                    let expected_line = format!("Result: i64 {}", val);
-                    assert_eq!(result_line, Some(expected_line.as_str()));
-                }
-                Some(Value::F32(bits)) => {
-                    let expected_line =
-                        format!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(bits));
-                    assert_eq!(result_line, Some(expected_line.as_str()));
-                }
-                Some(Value::F64(bits)) => {
-                    let expected_line =
-                        format!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(bits));
-                    assert_eq!(result_line, Some(expected_line.as_str()));
-                }
-            }
+            let result_lines = stdout_str
+                .lines()
+                .filter(|line| line.starts_with("Result: "))
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            assert_eq!(result_lines, expected_result_lines(&expected_values));
         }
         ExpectedOutcome::Trap(expected_code) => {
             // Must have exited with the trap code
@@ -192,6 +160,29 @@ fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
                 expected_line,
                 trap_content
             );
+        }
+    }
+}
+
+fn expected_result_lines(values: &[Value]) -> Vec<String> {
+    if values.is_empty() {
+        return vec!["Result: void".to_string()];
+    }
+    values.iter().map(expected_value_line).collect()
+}
+
+fn expected_value_line(value: &Value) -> String {
+    match value {
+        Value::Void => "Result: void".to_string(),
+        Value::I32(val) => format!("Result: i32 {}", val),
+        Value::U32(val) => format!("Result: u32 {}", val),
+        Value::Addr32(val) => format!("Result: addr32 {}", val),
+        Value::I64(val) => format!("Result: i64 {}", val),
+        Value::F32(bits) => {
+            format!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(*bits))
+        }
+        Value::F64(bits) => {
+            format!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(*bits))
         }
     }
 }
@@ -462,6 +453,24 @@ fn diff_load_store_u8() {
     run_differential(
         "load_store_u8",
         include_str!("../../mircap/tests/fixtures/valid_load_store_u8.mircap.txt"),
+        ExecutionProfile::default(),
+    );
+}
+
+#[test]
+fn diff_float_constants() {
+    run_differential(
+        "float_constants",
+        include_str!("../../mircap/tests/fixtures/valid_float_constants.mircap.txt"),
+        ExecutionProfile::default(),
+    );
+}
+
+#[test]
+fn diff_float_arithmetic() {
+    run_differential(
+        "float_arithmetic",
+        include_str!("../../mircap/tests/fixtures/valid_float_arithmetic.mircap.txt"),
         ExecutionProfile::default(),
     );
 }

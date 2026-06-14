@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 MIRTOOL_MANIFEST="$ROOT_DIR/experiment/mirtool/Cargo.toml"
 FIXTURE="$ROOT_DIR/experiment/mircap/tests/fixtures/valid_data_segment_load.mircap.txt"
+FLOAT_FIXTURE="$ROOT_DIR/experiment/mircap/tests/fixtures/valid_float_arithmetic.mircap.txt"
 TRAP_FIXTURE="$ROOT_DIR/experiment/mircap/tests/fixtures/trap_load_oob.mircap.txt"
 NO_CC=0
 PAUSE=1
@@ -242,14 +243,28 @@ else
 fi
 pause
 
-section "Step 9: inspect and run a trap case"
+section "Step 9: float arithmetic C differential path"
+explain "The current float slice supports f32/f64 constants and arithmetic in mircap validation, mirsem execution, and mirc0 C differential testing."
+explain "Results include both decimal text and the exact IEEE-754 bit pattern, which keeps the demo deterministic while comparisons/conversions remain unspecified."
+cat_file "$FLOAT_FIXTURE"
+run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- run "$FLOAT_FIXTURE"
+if [ "$NO_CC" -eq 1 ]; then
+    explain "Skipping float C differential check because --no-cc was passed."
+elif have_cc; then
+    run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- diff "$FLOAT_FIXTURE"
+else
+    explain "Skipping float C differential check because 'cc' is not available."
+fi
+pause
+
+section "Step 10: inspect and run a trap case"
 explain "F0 traps are part of the contract. This fixture validates structurally, then traps at runtime with an out-of-bounds load."
 cat_file "$TRAP_FIXTURE"
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- validate "$TRAP_FIXTURE"
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- run "$TRAP_FIXTURE"
 pause
 
-section "Step 10: compile to RISC-V 32-bit Assembly (MIR-F1 candidate RV32I backend)"
+section "Step 11: compile to RISC-V 32-bit Assembly (MIR-F1 candidate RV32I backend)"
 explain "mirtool compile-rv32i compiles the module image to RISC-V assembly using the newly integrated RV32I backend with linear scan register allocation and spill handling."
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- compile-rv32i "$FIXTURE" "$TMP_DIR/demo.s"
 printf '\n%s\n' "Generated RISC-V Assembly preview (first 40 lines):"
@@ -284,8 +299,8 @@ pause
 section "Completed work & current status"
 explain "The MIR-F1 experimental pipeline has successfully achieved:"
 printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap, mirsem, mirc0, mirrv32, mirjit, and mirtool"
+printf '%s\n' "- f32/f64 constants and arithmetic validated in mircap, executed in mirsem, emitted by mirc0, and checked with C differential tests"
 printf '%s\n' "- linear scan register allocation with callee-saved register spill handling in the RV32I backend"
 printf '%s\n' "- target-neutral lowering and projection, tested using differential checks"
 
 section "demo complete"
-

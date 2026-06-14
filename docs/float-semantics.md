@@ -43,12 +43,20 @@ Supported in `mirsem` execution:
 - `add_f32`, `sub_f32`, `mul_f32`, `div_f32`, `neg_f32`
 - `add_f64`, `sub_f64`, `mul_f64`, `div_f64`, `neg_f64`
 
+Supported in `mirc0` C differential execution:
+
+- `const_f32`
+- `const_f64`
+- `add_f32`, `sub_f32`, `mul_f32`, `div_f32`, `neg_f32`
+- `add_f64`, `sub_f64`, `mul_f64`, `div_f64`, `neg_f64`
+- multi-result entry functions through generated C out-parameters
+- deterministic result printing as decimal text plus exact IEEE-754 bits
+
 Reserved but not executable yet:
 
 - float comparisons
 - integer/float conversions
 - float memory load/store
-- float C emission
 - float RV32 code generation
 
 ## Edge-Case Policy

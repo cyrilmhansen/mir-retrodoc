@@ -105,9 +105,8 @@ The demo shows the current project boundary:
 
 The future direction shown at the end is intentionally conservative:
 
-- complete C and differential coverage for the already-started `f32`/`f64`
-  arithmetic subset;
-- show float results in a deterministic, bit-pattern-friendly way;
-- decide RV32FD versus soft-float only after the C/oracle path is stable;
+- specify float comparisons and conversions before expanding the float opcode
+  surface;
+- decide RV32FD versus soft-float now that the C/oracle path is stable;
 - keep host ABI, varargs, aggregates, lazy versioning, and runtime replacement
   out of the demo-critical path.

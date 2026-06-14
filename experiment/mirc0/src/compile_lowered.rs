@@ -56,12 +56,16 @@ fn validate_entry_signature(function: &LoweredFunction) -> Result<(), CompileErr
         ));
     }
     if function.results.len() > 1 {
-        return Err(CompileError::InvalidEntrySignature(
-            "Entry function must have at most 1 result".to_string(),
-        ));
-    }
-    if let Some(ret_ty) = function.results.first() {
-        if !matches!(ret_ty, TypeKind::I32 | TypeKind::U32 | TypeKind::Addr32) {
+        for ret_ty in &function.results {
+            if !is_printable_entry_type(*ret_ty) {
+                return Err(CompileError::InvalidEntrySignature(format!(
+                    "Unsupported entry function result type: {:?}",
+                    ret_ty
+                )));
+            }
+        }
+    } else if let Some(ret_ty) = function.results.first() {
+        if !is_printable_entry_type(*ret_ty) {
             return Err(CompileError::InvalidEntrySignature(format!(
                 "Unsupported entry function result type: {:?}",
                 ret_ty
@@ -69,6 +73,18 @@ fn validate_entry_signature(function: &LoweredFunction) -> Result<(), CompileErr
         }
     }
     Ok(())
+}
+
+fn is_printable_entry_type(kind: TypeKind) -> bool {
+    matches!(
+        kind,
+        TypeKind::I32
+            | TypeKind::U32
+            | TypeKind::Addr32
+            | TypeKind::I64
+            | TypeKind::F32
+            | TypeKind::F64
+    )
 }
 
 fn emit_data_segments(out: &mut String, segments: &[DataSegmentPlan]) {
@@ -127,29 +143,35 @@ fn emit_data_segments(out: &mut String, segments: &[DataSegmentPlan]) {
 
 fn emit_function_declaration(function: &LoweredFunction) -> Result<String, CompileError> {
     let ret_str = return_type(function)?;
-    let params = if function.params.is_empty() {
-        "void".to_string()
-    } else {
-        function
-            .params
-            .iter()
-            .map(|param| {
-                emit_type(param.type_kind).map(|type_str| format!("{} v{}", type_str, param.id.0))
-            })
-            .collect::<Result<Vec<_>, _>>()?
-            .join(", ")
-    };
+    let params = emit_function_params(function)?;
 
     Ok(format!("{} mir_fn_{}({})", ret_str, function.id.0, params))
 }
 
 fn return_type(function: &LoweredFunction) -> Result<&'static str, CompileError> {
-    if function.results.is_empty() {
+    if function.results.is_empty() || function.results.len() > 1 {
         Ok("void")
     } else if function.results.len() == 1 {
         emit_type(function.results[0])
     } else {
         Err(CompileError::MultipleResultsNotSupported)
+    }
+}
+
+fn emit_function_params(function: &LoweredFunction) -> Result<String, CompileError> {
+    let mut params = Vec::new();
+    for param in &function.params {
+        params.push(format!("{} v{}", emit_type(param.type_kind)?, param.id.0));
+    }
+    if function.results.len() > 1 {
+        for (idx, result_type) in function.results.iter().enumerate() {
+            params.push(format!("{} *out_{}", emit_type(*result_type)?, idx));
+        }
+    }
+    if params.is_empty() {
+        Ok("void".to_string())
+    } else {
+        Ok(params.join(", "))
     }
 }
 
@@ -172,6 +194,8 @@ fn emit_function_implementation(
         let init_val = match value.type_kind {
             TypeKind::I32 => "0",
             TypeKind::I64 => "0LL",
+            TypeKind::F32 => "0.0f",
+            TypeKind::F64 => "0.0",
             _ => "0u",
         };
         out.push_str(&format!(
@@ -182,6 +206,11 @@ fn emit_function_implementation(
 
     for param in &function.params {
         out.push_str(&format!("    (void)v{};\n", param.id.0));
+    }
+    if function.results.len() > 1 {
+        for idx in 0..function.results.len() {
+            out.push_str(&format!("    (void)out_{};\n", idx));
+        }
     }
     for value in locals.values() {
         out.push_str(&format!("    (void)v{};\n", value.id.0));
@@ -195,7 +224,7 @@ fn emit_function_implementation(
         for instruction in &block.instructions {
             out.push_str(&format!(
                 "    {}\n",
-                emit_lowered_instruction(instruction, data_segments)?
+                emit_lowered_instruction(instruction, function, data_segments)?
             ));
         }
     }
@@ -234,10 +263,16 @@ fn used_block_labels(function: &LoweredFunction) -> BTreeSet<u32> {
 
 fn emit_lowered_instruction(
     instruction: &LoweredInstruction,
+    function: &LoweredFunction,
     data_segments: &[DataSegmentPlan],
 ) -> Result<String, CompileError> {
     match instruction.opcode {
-        Opcode::ConstI32 | Opcode::ConstU32 | Opcode::ConstI64 | Opcode::Copy => {
+        Opcode::ConstI32
+        | Opcode::ConstU32
+        | Opcode::ConstI64
+        | Opcode::ConstF32
+        | Opcode::ConstF64
+        | Opcode::Copy => {
             let dest = one_write(instruction)?;
             let val = emit_operand(one_operand(instruction, 0)?);
             Ok(format!("v{} = {};", dest.id.0, val))
@@ -275,6 +310,25 @@ fn emit_lowered_instruction(
             let op = arithmetic_symbol(instruction.opcode)?;
             Ok(format!("v{} = {} {} {};", dest.id.0, lhs, op, rhs))
         }
+        Opcode::AddF32
+        | Opcode::SubF32
+        | Opcode::MulF32
+        | Opcode::DivF32
+        | Opcode::AddF64
+        | Opcode::SubF64
+        | Opcode::MulF64
+        | Opcode::DivF64 => {
+            let dest = one_write(instruction)?;
+            let lhs = emit_operand(one_operand(instruction, 0)?);
+            let rhs = emit_operand(one_operand(instruction, 1)?);
+            let op = arithmetic_symbol(instruction.opcode)?;
+            Ok(format!("v{} = {} {} {};", dest.id.0, lhs, op, rhs))
+        }
+        Opcode::NegF32 | Opcode::NegF64 => {
+            let dest = one_write(instruction)?;
+            let operand = emit_operand(one_operand(instruction, 0)?);
+            Ok(format!("v{} = -{};", dest.id.0, operand))
+        }
         Opcode::EqU32
         | Opcode::NeU32
         | Opcode::LtU32
@@ -301,7 +355,16 @@ fn emit_lowered_instruction(
                 .map(emit_operand)
                 .collect::<Vec<_>>()
                 .join(", ");
-            if instruction.writes.is_empty() {
+            if instruction.writes.len() > 1 {
+                let mut call_args = Vec::new();
+                if !args.is_empty() {
+                    call_args.push(args);
+                }
+                for write in &instruction.writes {
+                    call_args.push(format!("&v{}", write.id.0));
+                }
+                Ok(format!("{}({});", callee, call_args.join(", ")))
+            } else if instruction.writes.is_empty() {
                 Ok(format!("{}({});", callee, args))
             } else if instruction.writes.len() == 1 {
                 Ok(format!(
@@ -315,6 +378,16 @@ fn emit_lowered_instruction(
         Opcode::Ret => {
             if instruction.operands.is_empty() {
                 Ok("return;".to_string())
+            } else if function.results.len() > 1 {
+                if instruction.operands.len() != function.results.len() {
+                    return Err(CompileError::MultipleResultsNotSupported);
+                }
+                let mut lines = Vec::new();
+                for (idx, operand) in instruction.operands.iter().enumerate() {
+                    lines.push(format!("*out_{} = {};", idx, emit_operand(operand)));
+                }
+                lines.push("return;".to_string());
+                Ok(lines.join(" "))
             } else if instruction.operands.len() == 1 {
                 Ok(format!(
                     "return {};",
@@ -377,24 +450,12 @@ fn emit_lowered_instruction(
                 dest.id.0, segment.offset, offset, segment.length
             ))
         }
-        Opcode::ConstF32
-        | Opcode::ConstF64
-        | Opcode::AddF32
-        | Opcode::SubF32
-        | Opcode::MulF32
-        | Opcode::DivF32
-        | Opcode::NegF32
-        | Opcode::EqF32
+        Opcode::EqF32
         | Opcode::NeF32
         | Opcode::LtF32
         | Opcode::LeF32
         | Opcode::GtF32
         | Opcode::GeF32
-        | Opcode::AddF64
-        | Opcode::SubF64
-        | Opcode::MulF64
-        | Opcode::DivF64
-        | Opcode::NegF64
         | Opcode::EqF64
         | Opcode::NeF64
         | Opcode::LtF64
@@ -460,8 +521,8 @@ fn emit_operand(operand: &LoweredOperand) -> String {
                 format!("((int64_t){}LL)", value)
             }
         }
-        LoweredOperand::ImmF32(bits) => format!("/* f32 bits 0x{bits:08x} */"),
-        LoweredOperand::ImmF64(bits) => format!("/* f64 bits 0x{bits:016x} */"),
+        LoweredOperand::ImmF32(bits) => format!("mir_f32_from_bits(0x{bits:08x}u)"),
+        LoweredOperand::ImmF64(bits) => format!("mir_f64_from_bits(UINT64_C(0x{bits:016x}))"),
         LoweredOperand::Block(block) => format!("block_{}", block.id.0),
         LoweredOperand::Function(function) => format!("mir_fn_{}", function.id.0),
         LoweredOperand::Symbol { id, .. } => format!("sym_{}", id.0),
@@ -478,9 +539,16 @@ fn symbol_operand(operand: &LoweredOperand) -> Result<SymbolId, CompileError> {
 
 fn arithmetic_symbol(opcode: Opcode) -> Result<&'static str, CompileError> {
     match opcode {
-        Opcode::AddI32 | Opcode::AddU32 | Opcode::AddI64 => Ok("+"),
-        Opcode::SubI32 | Opcode::SubU32 | Opcode::SubI64 => Ok("-"),
-        Opcode::MulI32 | Opcode::MulU32 | Opcode::MulI64 => Ok("*"),
+        Opcode::AddI32 | Opcode::AddU32 | Opcode::AddI64 | Opcode::AddF32 | Opcode::AddF64 => {
+            Ok("+")
+        }
+        Opcode::SubI32 | Opcode::SubU32 | Opcode::SubI64 | Opcode::SubF32 | Opcode::SubF64 => {
+            Ok("-")
+        }
+        Opcode::MulI32 | Opcode::MulU32 | Opcode::MulI64 | Opcode::MulF32 | Opcode::MulF64 => {
+            Ok("*")
+        }
+        Opcode::DivF32 | Opcode::DivF64 => Ok("/"),
         _ => Err(CompileError::UnsupportedOpcode(opcode)),
     }
 }
@@ -506,36 +574,116 @@ fn emit_main(out: &mut String, entry_func: &LoweredFunction) -> Result<(), Compi
 
     out.push_str("int main(void) {\n");
     out.push_str("    init_data_segments();\n");
-    match entry_ret_type {
-        TypeKind::Void => {
-            out.push_str(&format!("    mir_fn_{}();\n", entry_func.id.0));
-            out.push_str("    printf(\"Result: void\\n\");\n");
-        }
-        TypeKind::I32 => {
+    if entry_func.results.len() > 1 {
+        let mut call_args = Vec::new();
+        for (idx, result_type) in entry_func.results.iter().enumerate() {
             out.push_str(&format!(
-                "    int32_t res = mir_fn_{}();\n",
-                entry_func.id.0
+                "    {} res_{} = {};\n",
+                emit_type(*result_type)?,
+                idx,
+                zero_value(*result_type)?
             ));
-            out.push_str("    printf(\"Result: i32 %\" PRId32 \"\\n\", res);\n");
+            call_args.push(format!("&res_{}", idx));
         }
-        TypeKind::U32 => {
-            out.push_str(&format!(
-                "    uint32_t res = mir_fn_{}();\n",
-                entry_func.id.0
-            ));
-            out.push_str("    printf(\"Result: u32 %\" PRIu32 \"\\n\", res);\n");
+        out.push_str(&format!(
+            "    mir_fn_{}({});\n",
+            entry_func.id.0,
+            call_args.join(", ")
+        ));
+        for (idx, result_type) in entry_func.results.iter().enumerate() {
+            emit_print_result(out, *result_type, &format!("res_{}", idx))?;
         }
-        TypeKind::Addr32 => {
-            out.push_str(&format!(
-                "    uint32_t res = mir_fn_{}();\n",
-                entry_func.id.0
-            ));
-            out.push_str("    printf(\"Result: addr32 %\" PRIu32 \"\\n\", res);\n");
+    } else {
+        match entry_ret_type {
+            TypeKind::Void => {
+                out.push_str(&format!("    mir_fn_{}();\n", entry_func.id.0));
+                out.push_str("    printf(\"Result: void\\n\");\n");
+            }
+            TypeKind::I32 => {
+                out.push_str(&format!(
+                    "    int32_t res = mir_fn_{}();\n",
+                    entry_func.id.0
+                ));
+                out.push_str("    printf(\"Result: i32 %\" PRId32 \"\\n\", res);\n");
+            }
+            TypeKind::U32 => {
+                out.push_str(&format!(
+                    "    uint32_t res = mir_fn_{}();\n",
+                    entry_func.id.0
+                ));
+                out.push_str("    printf(\"Result: u32 %\" PRIu32 \"\\n\", res);\n");
+            }
+            TypeKind::Addr32 => {
+                out.push_str(&format!(
+                    "    uint32_t res = mir_fn_{}();\n",
+                    entry_func.id.0
+                ));
+                out.push_str("    printf(\"Result: addr32 %\" PRIu32 \"\\n\", res);\n");
+            }
+            TypeKind::I64 => {
+                out.push_str(&format!(
+                    "    int64_t res = mir_fn_{}();\n",
+                    entry_func.id.0
+                ));
+                out.push_str("    printf(\"Result: i64 %\" PRId64 \"\\n\", res);\n");
+            }
+            TypeKind::F32 => {
+                out.push_str(&format!("    float res = mir_fn_{}();\n", entry_func.id.0));
+                emit_print_result(out, TypeKind::F32, "res")?;
+            }
+            TypeKind::F64 => {
+                out.push_str(&format!("    double res = mir_fn_{}();\n", entry_func.id.0));
+                emit_print_result(out, TypeKind::F64, "res")?;
+            }
+            _ => return Err(CompileError::UnsupportedType(entry_ret_type)),
         }
-        _ => return Err(CompileError::UnsupportedType(entry_ret_type)),
     }
     out.push_str("    return 0;\n");
     out.push_str("}\n");
+    Ok(())
+}
+
+fn zero_value(kind: TypeKind) -> Result<&'static str, CompileError> {
+    match kind {
+        TypeKind::I32 => Ok("0"),
+        TypeKind::I64 => Ok("0LL"),
+        TypeKind::F32 => Ok("0.0f"),
+        TypeKind::F64 => Ok("0.0"),
+        TypeKind::U32 | TypeKind::Addr32 => Ok("0u"),
+        TypeKind::Void => Ok("0"),
+        _ => Err(CompileError::UnsupportedType(kind)),
+    }
+}
+
+fn emit_print_result(out: &mut String, kind: TypeKind, expr: &str) -> Result<(), CompileError> {
+    match kind {
+        TypeKind::I32 => out.push_str(&format!(
+            "    printf(\"Result: i32 %\" PRId32 \"\\n\", {});\n",
+            expr
+        )),
+        TypeKind::U32 => out.push_str(&format!(
+            "    printf(\"Result: u32 %\" PRIu32 \"\\n\", {});\n",
+            expr
+        )),
+        TypeKind::Addr32 => out.push_str(&format!(
+            "    printf(\"Result: addr32 %\" PRIu32 \"\\n\", {});\n",
+            expr
+        )),
+        TypeKind::I64 => out.push_str(&format!(
+            "    printf(\"Result: i64 %\" PRId64 \"\\n\", {});\n",
+            expr
+        )),
+        TypeKind::F32 => out.push_str(&format!(
+            "    printf(\"Result: f32 %.9g bits=0x%08\" PRIx32 \"\\n\", (double){0}, mir_f32_to_bits({0}));\n",
+            expr
+        )),
+        TypeKind::F64 => out.push_str(&format!(
+            "    printf(\"Result: f64 %.17g bits=0x%016\" PRIx64 \"\\n\", {0}, mir_f64_to_bits({0}));\n",
+            expr
+        )),
+        TypeKind::Void => out.push_str("    printf(\"Result: void\\n\");\n"),
+        _ => return Err(CompileError::UnsupportedType(kind)),
+    }
     Ok(())
 }
 

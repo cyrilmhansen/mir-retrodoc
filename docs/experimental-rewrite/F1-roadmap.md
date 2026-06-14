@@ -48,6 +48,8 @@ These remain intentionally deferred or partial:
 - float comparisons, conversions, memory operations, and backend strategy;
 - host C ABI support;
 - RV32FD or soft-float backend work;
+- advanced reflection, metaprogramming, function-effect contracts, termination
+  proofs, and symbolic/empirical complexity analysis;
 - runtime replacement, deoptimization, or lazy basic-block versioning.
 
 ## F1 Milestones
@@ -96,3 +98,18 @@ work when:
 The remaining F1 readiness gap is float parity. `f32` and `f64` constants and
 arithmetic already validate and execute in `mirsem`; they should next be
 emitted by `mirc0`, compared by `mirtool diff`, and included in `diff-all`.
+
+## F2 Handoff: Runtime Intelligence
+
+After F1 has stable lowered plans and differential backends, the next research
+track is not just more opcodes. F2 should use the existing deterministic IR as a
+base for runtime intelligence:
+
+- static effect summaries: purity, memory reads/writes, allocation behavior,
+  trap behavior, call behavior, and obvious non-termination risks;
+- `mirsem` trace validation for those summaries, separating proven properties
+  from observations gathered during one execution;
+- symbolic cost summaries for simple CFGs and statically bounded loops;
+- empirical complexity measurement over generated input-size families;
+- reflective `mirtool` output that exposes these facts in a machine-readable
+  form for tests, demos, and future tooling.

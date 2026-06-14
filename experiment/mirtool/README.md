@@ -77,7 +77,7 @@ Executes the entry function using the `mirsem` interpreter.
 ```bash
 mirtool run <input_file> [--format text|binary] [--entry <name>] [--trace]
 ```
-Outputs the execution results in scriptable format (e.g. `Result: i32 42` or `Trap: 13 OutOfBoundsLoad`). If `--trace` is provided, prints a summary of executed instructions, maximum call depth, and allocator profiling stats.
+Outputs the execution results in scriptable format (e.g. `Result: i32 42`, `Result: f32 -16 bits=0xc1800000`, or `Trap: 13 OutOfBoundsLoad`). If `--trace` is provided, prints a summary of executed instructions, maximum call depth, and allocator profiling stats.
 
 ### `plan`
 Prints the deterministic MIR-F1 compile-plan text for a module image.
