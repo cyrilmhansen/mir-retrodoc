@@ -54,6 +54,17 @@ The demo then prints the first lines of:
 - `mirtool lower`: the MIR-F1 backend-facing lowered projection.
 
 It also encodes the fixture to Cap'n Proto binary and validates the binary path.
+For the size and loading comparison, the script then generates a larger
+temporary MIR-F0 module by unrolling a `u32` summation loop until the text
+representation is about 20 KiB. The guided demo shows:
+
+- text file size vs binary file size;
+- the first text lines beside a hex dump of the binary bytes;
+- an in-process loading benchmark for text and binary inputs.
+
+Depending on the module shape, Cap'n Proto schema and framing overhead can still
+make the binary larger than text. The useful demo signal is the structured
+binary representation on a non-trivial module and the load-time comparison.
 
 When `cc` is available, the demo generates C and runs:
 

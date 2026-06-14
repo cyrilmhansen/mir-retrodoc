@@ -170,6 +170,18 @@ fn test_lower_binary_input() {
 }
 
 #[test]
+fn test_bench_load_text() {
+    let path = fixture_path("valid_data_segment_load.mircap.txt");
+    let output = run_mirtool(&["bench-load", &path, "--iterations", "3"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("format: text"));
+    assert!(stdout.contains("iterations: 3"));
+    assert!(stdout.contains("avg_ns:"));
+    assert!(stdout.contains("checksum:"));
+}
+
+#[test]
 fn test_compile_c_valid_sieve_32_u32() {
     let path = fixture_path("valid_sieve_32_u32.mircap.txt");
     let temp_c = "temp_smoke_sieve.c";

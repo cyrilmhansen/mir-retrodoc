@@ -45,7 +45,7 @@ graph TD
 A line-oriented, human-readable format defining the schema name, module metadata, types, symbols, functions, blocks, instructions, operands, and static data segments. Useful for writing tests and inspecting program structure.
 
 ### Binary Format (`.mircap`)
-The canonical, compiled serialization format of the MIR-F0 bytecode, powered by Cap'n Proto. It uses a flat range-based layout to optimize load times, validation scans, and binary size. It is the intended immutable format for loaded bytecode.
+The canonical, compiled serialization format of the MIR-F0 bytecode, powered by Cap'n Proto. It uses a flat range-based layout to support stable structured loading and faster repeated tool loads. For tiny fixtures, Cap'n Proto framing can be larger than the text fixture; compactness is workload-dependent.
 
 ---
 
@@ -92,6 +92,13 @@ Prints the deterministic MIR-F1 lowered-plan text for a module image.
 mirtool lower <input_file> [--format text|binary]
 ```
 This command is read-only. It validates the image, constructs `mirspace::ProgramSpace`, builds a `mirplan::CompilePlan`, projects it into `mirplan::LoweredProgram`, and renders explicit value reads, value writes, branch targets, direct calls, and memory operations.
+
+### `bench-load`
+Measures repeated in-process module loading without repeated file I/O or Cargo startup.
+```bash
+mirtool bench-load <input_file> [--format text|binary] [--iterations <n>]
+```
+This command is intended for local demos and rough comparisons between text and Cap'n Proto load paths, not for rigorous benchmarking.
 
 ### `compile-c`
 Transpiles the module image into portable C11 code.

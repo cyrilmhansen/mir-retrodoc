@@ -1,9 +1,11 @@
 use crate::error::CliError;
-use crate::io::load_image;
+use crate::io::{detect_format, load_image, FileFormat};
 use mircap::image::ModuleImage;
 use mirsem::runner::Runner;
 use mirsem::trap::ExecutionTrap;
+use std::hint::black_box;
 use std::path::Path;
+use std::time::Instant;
 
 fn trap_info(trap: &ExecutionTrap) -> (u32, &'static str) {
     match trap {
@@ -144,6 +146,54 @@ pub fn cmd_lower(input_path: &str, format_opt: Option<&str>) -> Result<(), CliEr
     let lowered = mirplan::lower_compile_plan(&plan);
     print!("{}", mirplan::format_lowered(&lowered));
     Ok(())
+}
+
+pub fn cmd_bench_load(
+    input_path: &str,
+    format_opt: Option<&str>,
+    iterations: u32,
+) -> Result<(), CliError> {
+    let format = detect_format(input_path, format_opt)?;
+    let start = Instant::now();
+    let mut checksum = 0usize;
+
+    match format {
+        FileFormat::Text => {
+            let text = std::fs::read_to_string(input_path)?;
+            for _ in 0..iterations {
+                let image = ModuleImage::from_text(&text)?;
+                checksum = checksum
+                    .wrapping_add(image.module.name.len())
+                    .wrapping_add(image.functions.len())
+                    .wrapping_add(image.instructions.len());
+                black_box(&image);
+            }
+            print_bench_result("text", iterations, start.elapsed().as_nanos(), checksum);
+        }
+        FileFormat::Binary => {
+            let bytes = std::fs::read(input_path)?;
+            for _ in 0..iterations {
+                let image = ModuleImage::from_capnp_bytes(&bytes)?;
+                checksum = checksum
+                    .wrapping_add(image.module.name.len())
+                    .wrapping_add(image.functions.len())
+                    .wrapping_add(image.instructions.len());
+                black_box(&image);
+            }
+            print_bench_result("binary", iterations, start.elapsed().as_nanos(), checksum);
+        }
+    }
+
+    Ok(())
+}
+
+fn print_bench_result(format: &str, iterations: u32, total_ns: u128, checksum: usize) {
+    let avg_ns = total_ns / u128::from(iterations);
+    println!("format: {format}");
+    println!("iterations: {iterations}");
+    println!("total_ns: {total_ns}");
+    println!("avg_ns: {avg_ns}");
+    println!("checksum: {checksum}");
 }
 
 pub fn cmd_compile_c(

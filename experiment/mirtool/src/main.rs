@@ -11,6 +11,7 @@ struct Args {
     trace: bool,
     force: bool,
     keep_temp: bool,
+    iterations: u32,
 }
 
 fn show_help() -> String {
@@ -28,6 +29,7 @@ fn show_help() -> String {
     s.push_str(
         "  lower <input_file>                        Prints deterministic MIR-F1 lowered-plan text.\n",
     );
+    s.push_str("  bench-load <input_file>                   Measures repeated in-process module loading.\n");
     s.push_str(
         "  compile-c <input_file> <output_file>      Transpiles a module image to portable C11.\n",
     );
@@ -44,6 +46,9 @@ fn show_help() -> String {
     );
     s.push_str("  --force                                   Overwrite encode output file if it already exists.\n");
     s.push_str("  --keep-temp                               Retain temporary files during differential verification.\n");
+    s.push_str(
+        "  --iterations <n>                          Set benchmark iterations (default: 1000).\n",
+    );
     s
 }
 
@@ -60,6 +65,7 @@ fn parse_args() -> Result<Args, String> {
     let mut trace = false;
     let mut force = false;
     let mut keep_temp = false;
+    let mut iterations = 1000;
 
     let mut positional = Vec::new();
 
@@ -68,6 +74,17 @@ fn parse_args() -> Result<Args, String> {
             "--trace" => trace = true,
             "--force" => force = true,
             "--keep-temp" => keep_temp = true,
+            "--iterations" => {
+                let val = args_iter
+                    .next()
+                    .ok_or("Expected value after --iterations option")?;
+                iterations = val
+                    .parse::<u32>()
+                    .map_err(|_| "Iterations must be a positive integer".to_string())?;
+                if iterations == 0 {
+                    return Err("Iterations must be greater than zero".to_string());
+                }
+            }
             "--format" => {
                 let val = args_iter
                     .next()
@@ -93,7 +110,7 @@ fn parse_args() -> Result<Args, String> {
     }
 
     let (input, output) = match command.as_str() {
-        "validate" | "decode" | "dump" | "run" | "plan" | "lower" | "diff" => {
+        "validate" | "decode" | "dump" | "run" | "plan" | "lower" | "bench-load" | "diff" => {
             if positional.is_empty() {
                 return Err(format!(
                     "Command '{}' requires an input file path.\n\n{}",
@@ -147,6 +164,7 @@ fn parse_args() -> Result<Args, String> {
         trace,
         force,
         keep_temp,
+        iterations,
     })
 }
 
@@ -168,6 +186,9 @@ fn main() {
         "run" => commands::cmd_run(&args.input, args.format.as_deref(), entry_name, args.trace),
         "plan" => commands::cmd_plan(&args.input, args.format.as_deref()),
         "lower" => commands::cmd_lower(&args.input, args.format.as_deref()),
+        "bench-load" => {
+            commands::cmd_bench_load(&args.input, args.format.as_deref(), args.iterations)
+        }
         "compile-c" => commands::cmd_compile_c(
             &args.input,
             args.output.as_ref().unwrap(),
