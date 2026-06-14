@@ -112,6 +112,12 @@ pub fn cmd_run(
                         mirsem::Value::U32(v) => println!("Result: u32 {}", v),
                         mirsem::Value::Addr32(v) => println!("Result: addr32 {}", v),
                         mirsem::Value::I64(v) => println!("Result: i64 {}", v),
+                        mirsem::Value::F32(bits) => {
+                            println!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(bits))
+                        }
+                        mirsem::Value::F64(bits) => {
+                            println!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(bits))
+                        }
                     }
                 }
             }
@@ -396,6 +402,12 @@ pub fn cmd_diff(
                 Some(mirsem::Value::U32(v)) => format!("Result: u32 {}", v),
                 Some(mirsem::Value::Addr32(v)) => format!("Result: addr32 {}", v),
                 Some(mirsem::Value::I64(v)) => format!("Result: i64 {}", v),
+                Some(mirsem::Value::F32(bits)) => {
+                    format!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(bits))
+                }
+                Some(mirsem::Value::F64(bits)) => {
+                    format!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(bits))
+                }
             };
             if result_line == Some(expected_str.as_str()) {
                 if !quiet {
@@ -794,6 +806,8 @@ pub fn cmd_diff_upstream(
                 Some(mirsem::Value::U32(v)) => v as i32,
                 Some(mirsem::Value::Addr32(v)) => v as i32,
                 Some(mirsem::Value::I64(v)) => v as i32,
+                Some(mirsem::Value::F32(bits)) => bits as i32,
+                Some(mirsem::Value::F64(bits)) => bits as i32,
             };
             let expected_exit_status = (expected_code & 0xff) as i32;
             let actual_exit_status = exit_code.map(|c| c & 0xff);
@@ -1757,6 +1771,8 @@ heap_buffer:
                 Some(mirsem::Value::U32(v)) => v as i32,
                 Some(mirsem::Value::Addr32(v)) => v as i32,
                 Some(mirsem::Value::I64(v)) => v as i32,
+                Some(mirsem::Value::F32(bits)) => bits as i32,
+                Some(mirsem::Value::F64(bits)) => bits as i32,
             };
             let expected_exit_status = (expected_code & 0xff) as i32;
             let actual_exit_status = exit_code & 0xff;

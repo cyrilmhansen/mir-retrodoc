@@ -159,6 +159,8 @@ impl Runner {
                 Opcode::ConstI32 => self.exec_const_i32(&mut stack, &insn)?,
                 Opcode::ConstU32 => self.exec_const_u32(&mut stack, &insn)?,
                 Opcode::ConstI64 => self.exec_const_i64(&mut stack, &insn)?,
+                Opcode::ConstF32 => self.exec_const_f32(&mut stack, &insn)?,
+                Opcode::ConstF64 => self.exec_const_f64(&mut stack, &insn)?,
                 Opcode::Copy => self.exec_copy(&mut stack, &insn)?,
                 Opcode::AddI32
                 | Opcode::SubI32
@@ -181,6 +183,14 @@ impl Runner {
                 | Opcode::EqI64
                 | Opcode::NeI64
                 | Opcode::LtI64 => self.exec_i64_binop(&mut stack, &insn)?,
+                Opcode::AddF32 | Opcode::SubF32 | Opcode::MulF32 | Opcode::DivF32 => {
+                    self.exec_f32_binop(&mut stack, &insn)?
+                }
+                Opcode::NegF32 => self.exec_f32_unop(&mut stack, &insn)?,
+                Opcode::AddF64 | Opcode::SubF64 | Opcode::MulF64 | Opcode::DivF64 => {
+                    self.exec_f64_binop(&mut stack, &insn)?
+                }
+                Opcode::NegF64 => self.exec_f64_unop(&mut stack, &insn)?,
                 Opcode::Branch => self.exec_branch(&mut stack, &insn)?,
                 Opcode::BranchIf => self.exec_branch_if(&mut stack, &insn)?,
                 Opcode::Call => self.exec_call(&mut stack, &insn)?,
@@ -209,24 +219,12 @@ impl Runner {
                 Opcode::StoreU8 => self.exec_store_u8(&mut stack, &insn)?,
                 Opcode::AddrAdd => self.exec_addr_add(&mut stack, &insn)?,
                 Opcode::DataAddr => self.exec_data_addr(&mut stack, &insn)?,
-                Opcode::ConstF32
-                | Opcode::ConstF64
-                | Opcode::AddF32
-                | Opcode::SubF32
-                | Opcode::MulF32
-                | Opcode::DivF32
-                | Opcode::NegF32
-                | Opcode::EqF32
+                Opcode::EqF32
                 | Opcode::NeF32
                 | Opcode::LtF32
                 | Opcode::LeF32
                 | Opcode::GtF32
                 | Opcode::GeF32
-                | Opcode::AddF64
-                | Opcode::SubF64
-                | Opcode::MulF64
-                | Opcode::DivF64
-                | Opcode::NegF64
                 | Opcode::EqF64
                 | Opcode::NeF64
                 | Opcode::LtF64
@@ -314,6 +312,32 @@ impl Runner {
         self.write_result_and_advance(stack, insn, value)
     }
 
+    fn exec_const_f32(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let value = match insn.operands.first() {
+            Some(Operand::ImmF32(bits)) => Value::F32(*bits),
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, value)
+    }
+
+    fn exec_const_f64(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let value = match insn.operands.first() {
+            Some(Operand::ImmF64(bits)) => Value::F64(*bits),
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, value)
+    }
+
     fn exec_copy(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
         let source = self.value_operand(stack, insn, 0)?;
         self.write_result_and_advance(stack, insn, source)
@@ -347,6 +371,100 @@ impl Runner {
             }
         };
         self.write_result_and_advance(stack, insn, value)
+    }
+
+    fn exec_f32_binop(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let lhs =
+            self.value_operand(stack, insn, 0)?
+                .as_f32()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let rhs =
+            self.value_operand(stack, insn, 1)?
+                .as_f32()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let result = match insn.opcode {
+            Opcode::AddF32 => lhs + rhs,
+            Opcode::SubF32 => lhs - rhs,
+            Opcode::MulF32 => lhs * rhs,
+            Opcode::DivF32 => lhs / rhs,
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, Value::F32(result.to_bits()))
+    }
+
+    fn exec_f32_unop(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let operand =
+            self.value_operand(stack, insn, 0)?
+                .as_f32()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let result = match insn.opcode {
+            Opcode::NegF32 => -operand,
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, Value::F32(result.to_bits()))
+    }
+
+    fn exec_f64_binop(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let lhs =
+            self.value_operand(stack, insn, 0)?
+                .as_f64()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let rhs =
+            self.value_operand(stack, insn, 1)?
+                .as_f64()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let result = match insn.opcode {
+            Opcode::AddF64 => lhs + rhs,
+            Opcode::SubF64 => lhs - rhs,
+            Opcode::MulF64 => lhs * rhs,
+            Opcode::DivF64 => lhs / rhs,
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, Value::F64(result.to_bits()))
+    }
+
+    fn exec_f64_unop(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let operand =
+            self.value_operand(stack, insn, 0)?
+                .as_f64()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let result = match insn.opcode {
+            Opcode::NegF64 => -operand,
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, Value::F64(result.to_bits()))
     }
 
     fn exec_branch(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {

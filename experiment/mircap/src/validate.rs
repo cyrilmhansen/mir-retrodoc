@@ -503,22 +503,24 @@ impl Validator<'_> {
             }
             Opcode::LoadI64 => self.check_load(current_function, insn, functions, TypeKind::I64),
             Opcode::StoreI64 => self.check_store(current_function, insn, functions, TypeKind::I64),
-            Opcode::AddF32
-            | Opcode::SubF32
-            | Opcode::MulF32
-            | Opcode::DivF32
-            | Opcode::NegF32
-            | Opcode::EqF32
+            Opcode::AddF32 | Opcode::SubF32 | Opcode::MulF32 | Opcode::DivF32 => {
+                self.check_float_binop(current_function, insn, functions, TypeKind::F32);
+            }
+            Opcode::NegF32 => {
+                self.check_float_unop(current_function, insn, functions, TypeKind::F32);
+            }
+            Opcode::AddF64 | Opcode::SubF64 | Opcode::MulF64 | Opcode::DivF64 => {
+                self.check_float_binop(current_function, insn, functions, TypeKind::F64);
+            }
+            Opcode::NegF64 => {
+                self.check_float_unop(current_function, insn, functions, TypeKind::F64);
+            }
+            Opcode::EqF32
             | Opcode::NeF32
             | Opcode::LtF32
             | Opcode::LeF32
             | Opcode::GtF32
             | Opcode::GeF32
-            | Opcode::AddF64
-            | Opcode::SubF64
-            | Opcode::MulF64
-            | Opcode::DivF64
-            | Opcode::NegF64
             | Opcode::EqF64
             | Opcode::NeF64
             | Opcode::LtF64
@@ -542,6 +544,33 @@ impl Validator<'_> {
             }
             Opcode::UnsupportedIndirectCall => {}
         }
+    }
+
+    fn check_float_binop(
+        &mut self,
+        current_function: FunctionId,
+        insn: &crate::image::Instruction,
+        functions: &BTreeMap<FunctionId, &crate::image::Function>,
+        type_kind: TypeKind,
+    ) {
+        self.expect_results(insn, 1);
+        self.expect_operands(insn, 2);
+        self.expect_operand_type(current_function, insn, functions, 0, type_kind);
+        self.expect_operand_type(current_function, insn, functions, 1, type_kind);
+        self.expect_result_type(current_function, insn, functions, 0, type_kind);
+    }
+
+    fn check_float_unop(
+        &mut self,
+        current_function: FunctionId,
+        insn: &crate::image::Instruction,
+        functions: &BTreeMap<FunctionId, &crate::image::Function>,
+        type_kind: TypeKind,
+    ) {
+        self.expect_results(insn, 1);
+        self.expect_operands(insn, 1);
+        self.expect_operand_type(current_function, insn, functions, 0, type_kind);
+        self.expect_result_type(current_function, insn, functions, 0, type_kind);
     }
 
     fn check_alloc(

@@ -138,6 +138,34 @@ fn runs_load_store_u8() {
 }
 
 #[test]
+fn runs_float_constants() {
+    let values = run_fixture(include_str!(
+        "../../mircap/tests/fixtures/valid_float_constants.mircap.txt"
+    ));
+    assert_eq!(
+        values,
+        vec![
+            Value::F32(1.5f32.to_bits()),
+            Value::F64((-0.25f64).to_bits())
+        ]
+    );
+}
+
+#[test]
+fn runs_float_arithmetic() {
+    let values = run_fixture(include_str!(
+        "../../mircap/tests/fixtures/valid_float_arithmetic.mircap.txt"
+    ));
+    assert_eq!(
+        values,
+        vec![
+            Value::F32((-16.0f32).to_bits()),
+            Value::F64((-16.0f64).to_bits())
+        ]
+    );
+}
+
+#[test]
 fn runs_sieve_32_u32_capnp() {
     let original = ModuleImage::from_text(include_str!(
         "../../mircap/tests/fixtures/valid_sieve_32_u32.mircap.txt"

@@ -152,6 +152,16 @@ fn run_differential(test_name: &str, text: &str, profile: ExecutionProfile) {
                     let expected_line = format!("Result: i64 {}", val);
                     assert_eq!(result_line, Some(expected_line.as_str()));
                 }
+                Some(Value::F32(bits)) => {
+                    let expected_line =
+                        format!("Result: f32 {} bits=0x{bits:08x}", f32::from_bits(bits));
+                    assert_eq!(result_line, Some(expected_line.as_str()));
+                }
+                Some(Value::F64(bits)) => {
+                    let expected_line =
+                        format!("Result: f64 {} bits=0x{bits:016x}", f64::from_bits(bits));
+                    assert_eq!(result_line, Some(expected_line.as_str()));
+                }
             }
         }
         ExpectedOutcome::Trap(expected_code) => {

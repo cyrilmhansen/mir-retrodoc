@@ -284,6 +284,11 @@ impl JitContext {
                     arg_vals.push((*v & 0xFFFFFFFF) as u32);
                     arg_vals.push(((*v >> 32) & 0xFFFFFFFF) as u32);
                 }
+                Value::F32(_) | Value::F64(_) => {
+                    return Err(JitError::Compile(
+                        "float arguments are not supported by the JIT FFI bridge yet".to_string(),
+                    ));
+                }
             }
         }
 

@@ -20,7 +20,7 @@ establishes the serialized contract and validation surface.
 
 Target: `mirsem`
 
-- Extend interpreter values with `F32` and `F64`.
+- Extend interpreter values with `F32` and `F64` bit-pattern values.
 - Execute `const_f32`, `const_f64`, and basic arithmetic.
 - Add fixtures that return float values and compare exact bit patterns where
   appropriate.

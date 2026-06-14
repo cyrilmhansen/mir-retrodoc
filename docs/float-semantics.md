@@ -32,11 +32,19 @@ Supported in `mircap` validation:
 
 - `const_f32`
 - `const_f64`
+- `add_f32`, `sub_f32`, `mul_f32`, `div_f32`, `neg_f32`
+- `add_f64`, `sub_f64`, `mul_f64`, `div_f64`, `neg_f64`
 - return, call, and copy type checking over `f32`/`f64` values
+
+Supported in `mirsem` execution:
+
+- `const_f32`
+- `const_f64`
+- `add_f32`, `sub_f32`, `mul_f32`, `div_f32`, `neg_f32`
+- `add_f64`, `sub_f64`, `mul_f64`, `div_f64`, `neg_f64`
 
 Reserved but not executable yet:
 
-- float arithmetic
 - float comparisons
 - integer/float conversions
 - float memory load/store

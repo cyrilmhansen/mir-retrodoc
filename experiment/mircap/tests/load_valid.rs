@@ -138,3 +138,10 @@ fn valid_float_constants_loads() {
         .validate()
         .expect("valid fixture");
 }
+
+#[test]
+fn valid_float_arithmetic_loads() {
+    load_fixture("valid_float_arithmetic.mircap.txt")
+        .validate()
+        .expect("valid fixture");
+}

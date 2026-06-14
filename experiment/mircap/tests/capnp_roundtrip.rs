@@ -82,3 +82,8 @@ fn roundtrip_trap_load_oob() {
 fn roundtrip_valid_float_constants() {
     check_fixture_roundtrip("valid_float_constants.mircap.txt");
 }
+
+#[test]
+fn roundtrip_valid_float_arithmetic() {
+    check_fixture_roundtrip("valid_float_arithmetic.mircap.txt");
+}

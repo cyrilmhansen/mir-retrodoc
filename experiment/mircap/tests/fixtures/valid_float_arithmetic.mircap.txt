@@ -1,0 +1,30 @@
+mircap mircap
+version 0
+module 1 float_arithmetic
+type 1 f32
+type 2 f64
+symbol 1 main function
+function 1 1 - 1,2 20 0 1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2
+func_block 1 1
+block 1 1 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21
+insn 1 const_f32 r:0 f32:7.0
+insn 2 const_f32 r:1 f32:2.0
+insn 3 sub_f32 r:2 v:0 v:1
+insn 4 const_f32 r:3 f32:3.0
+insn 5 add_f32 r:4 v:2 v:3
+insn 6 const_f32 r:5 f32:4.0
+insn 7 mul_f32 r:6 v:4 v:5
+insn 8 const_f32 r:7 f32:2.0
+insn 9 div_f32 r:8 v:6 v:7
+insn 10 neg_f32 r:9 v:8
+insn 11 const_f64 r:10 f64:7.0
+insn 12 const_f64 r:11 f64:2.0
+insn 13 sub_f64 r:12 v:10 v:11
+insn 14 const_f64 r:13 f64:3.0
+insn 15 add_f64 r:14 v:12 v:13
+insn 16 const_f64 r:15 f64:4.0
+insn 17 mul_f64 r:16 v:14 v:15
+insn 18 const_f64 r:17 f64:2.0
+insn 19 div_f64 r:18 v:16 v:17
+insn 20 neg_f64 r:19 v:18
+insn 21 ret v:9 v:19

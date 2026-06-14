@@ -96,6 +96,16 @@ fn test_run_valid_sieve_32_u32() {
 }
 
 #[test]
+fn test_run_valid_float_arithmetic() {
+    let path = fixture_path("valid_float_arithmetic.mircap.txt");
+    let output = run_mirtool(&["run", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Result: f32 -16 bits=0xc1800000"));
+    assert!(stdout.contains("Result: f64 -16 bits=0xc030000000000000"));
+}
+
+#[test]
 fn test_run_trace_summary() {
     let path = fixture_path("valid_sieve_32_u32.mircap.txt");
     let output = run_mirtool(&["run", &path, "--trace"]);
