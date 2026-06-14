@@ -54,6 +54,10 @@ fn plan_and_lowering_are_stable_across_text_and_capnp_load_paths() {
         let text_lowered = lower_compile_plan(&text_plan);
         let binary_lowered = lower_compile_plan(&binary_plan);
         assert_eq!(
+            text_lowered.data_segments, text_plan.data_segments,
+            "LoweredProgram must preserve data segment summaries for {fixture}"
+        );
+        assert_eq!(
             text_lowered, binary_lowered,
             "LoweredProgram must be stable across load paths for {fixture}"
         );

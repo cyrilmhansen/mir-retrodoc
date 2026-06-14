@@ -71,3 +71,11 @@ fn formats_lowered_memory_loop() {
         .contains("memory addr_add writes=[v2#2:addr32] reads=[v2#2:addr32, v1#1:u32] op=address"));
     assert!(output.contains("memory load_i32 writes=[v8#8:i32] reads=[v2#2:addr32] op=load"));
 }
+
+#[test]
+fn formats_lowered_data_segments() {
+    let output = formatted_lowered_fixture("valid_data_segment_load.mircap.txt");
+    assert!(output.contains("lowered module data_segment_load"));
+    assert!(output.contains("data:\n  symbol#2 global0 offset=100 length=4\nfunctions:"));
+    assert!(output.contains("memory data_addr writes=[v0#0:addr32]"));
+}

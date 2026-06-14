@@ -119,3 +119,13 @@ fn lowers_memory_loop_operations() {
     assert_eq!(load.writes[0].type_kind, TypeKind::I32);
     assert_eq!(load.reads[0].type_kind, TypeKind::Addr32);
 }
+
+#[test]
+fn lowers_data_segment_summaries() {
+    let lowered = lowered_fixture("valid_data_segment_load.mircap.txt");
+
+    assert_eq!(lowered.data_segments.len(), 1);
+    assert_eq!(lowered.data_segments[0].name, "global0");
+    assert_eq!(lowered.data_segments[0].offset, 100);
+    assert_eq!(lowered.data_segments[0].length, 4);
+}

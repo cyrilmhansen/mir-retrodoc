@@ -30,6 +30,17 @@ pub fn format_plan(plan: &CompilePlan) -> String {
 pub fn format_lowered(program: &LoweredProgram) -> String {
     let mut out = String::new();
     out.push_str(&format!("lowered module {}\n", program.module_name));
+
+    if !program.data_segments.is_empty() {
+        out.push_str("data:\n");
+        for segment in &program.data_segments {
+            out.push_str(&format!(
+                "  symbol#{} {} offset={} length={}\n",
+                segment.symbol.0, segment.name, segment.offset, segment.length
+            ));
+        }
+    }
+
     out.push_str("functions:\n");
 
     for function in &program.functions {

@@ -1,10 +1,11 @@
-use crate::{BlockEdgePlan, CompilePlan, FunctionPlan, OperandPlan, ValuePlan};
+use crate::{BlockEdgePlan, CompilePlan, DataSegmentPlan, FunctionPlan, OperandPlan, ValuePlan};
 use mircap::{BlockId, FunctionId, InstructionId, Opcode, TypeKind, ValueId};
 use mirspace::{BlockIx, EdgeKind, FunctionIx, InstructionIx, ValueIx};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoweredProgram {
     pub module_name: String,
+    pub data_segments: Vec<DataSegmentPlan>,
     pub functions: Vec<LoweredFunction>,
 }
 
@@ -83,6 +84,7 @@ pub enum LoweredMemoryOp {
 pub fn lower_compile_plan(plan: &CompilePlan) -> LoweredProgram {
     LoweredProgram {
         module_name: plan.module_name.clone(),
+        data_segments: plan.data_segments.clone(),
         functions: plan.functions.iter().map(lower_function).collect(),
     }
 }

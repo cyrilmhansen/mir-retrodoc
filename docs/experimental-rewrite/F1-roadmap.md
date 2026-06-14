@@ -25,7 +25,8 @@ The first F1 axis is `mirspace` analysis:
 - deterministic compile-plan data structures in `experiment/mirplan` that can
   be tested before code generation exists;
 - a target-neutral lowering projection that makes value reads, value writes,
-  branches, calls, and memory operations explicit without generating code;
+  data segments, branches, calls, and memory operations explicit without
+  generating code;
 - CLI inspection through `mirtool plan` and `mirtool lower`.
 
 ## Deferred From Early F1
@@ -60,7 +61,8 @@ F1 is ready to move toward target work when:
   calls;
 - `mirplan` produces deterministic planning artifacts over representative F0
   fixtures;
-- `mirplan` exposes a tested target-neutral lowering projection;
+- `mirplan` exposes a tested target-neutral lowering projection with module data
+  segment summaries;
 - `mirplan` artifacts are identical across text and Cap'n Proto load paths;
 - `mirtool` exposes both plan and lower inspection paths;
 - all analysis output is deterministic;

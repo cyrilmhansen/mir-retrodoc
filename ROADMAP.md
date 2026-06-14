@@ -46,7 +46,8 @@ Current F1 direction:
 - keep `mirsem` as the semantic oracle;
 - keep `mirc0` differential testing as the correctness discipline;
 - use `mirplan` to produce deterministic compile-plan artifacts;
-- use `mirplan` lowering projections as backend-facing, target-neutral input;
+- use `mirplan` lowering projections as backend-facing, target-neutral input,
+  including module data segment summaries;
 - expose inspection through `mirtool plan` and `mirtool lower`.
 
 Detailed F1 scope and exit criteria live in
