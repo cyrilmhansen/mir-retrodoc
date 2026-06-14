@@ -158,6 +158,7 @@ impl Runner {
             match insn.opcode {
                 Opcode::ConstI32 => self.exec_const_i32(&mut stack, &insn)?,
                 Opcode::ConstU32 => self.exec_const_u32(&mut stack, &insn)?,
+                Opcode::ConstI64 => self.exec_const_i64(&mut stack, &insn)?,
                 Opcode::Copy => self.exec_copy(&mut stack, &insn)?,
                 Opcode::AddI32
                 | Opcode::SubI32
@@ -174,6 +175,12 @@ impl Runner {
                 | Opcode::LeU32
                 | Opcode::GtU32
                 | Opcode::GeU32 => self.exec_u32_binop(&mut stack, &insn)?,
+                Opcode::AddI64
+                | Opcode::SubI64
+                | Opcode::MulI64
+                | Opcode::EqI64
+                | Opcode::NeI64
+                | Opcode::LtI64 => self.exec_i64_binop(&mut stack, &insn)?,
                 Opcode::Branch => self.exec_branch(&mut stack, &insn)?,
                 Opcode::BranchIf => self.exec_branch_if(&mut stack, &insn)?,
                 Opcode::Call => self.exec_call(&mut stack, &insn)?,
@@ -194,13 +201,15 @@ impl Runner {
                 Opcode::Alloc => self.exec_alloc(&mut stack, &insn)?,
                 Opcode::LoadI32 => self.exec_load_i32(&mut stack, &insn)?,
                 Opcode::LoadU32 => self.exec_load_u32(&mut stack, &insn)?,
+                Opcode::LoadI64 => self.exec_load_i64(&mut stack, &insn)?,
                 Opcode::StoreI32 => self.exec_store_i32(&mut stack, &insn)?,
                 Opcode::StoreU32 => self.exec_store_u32(&mut stack, &insn)?,
+                Opcode::StoreI64 => self.exec_store_i64(&mut stack, &insn)?,
                 Opcode::LoadU8 => self.exec_load_u8(&mut stack, &insn)?,
                 Opcode::StoreU8 => self.exec_store_u8(&mut stack, &insn)?,
                 Opcode::AddrAdd => self.exec_addr_add(&mut stack, &insn)?,
                 Opcode::DataAddr => self.exec_data_addr(&mut stack, &insn)?,
-                Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {
+                Opcode::UnsupportedIndirectCall => {
                     return Err(ExecutionTrap::UnsupportedInstruction {
                         instruction: insn.id,
                         opcode: format!("{:?}", insn.opcode),
@@ -710,6 +719,68 @@ impl Runner {
             }
         };
         self.memory.store_u8(addr, (value & 0xFF) as u8)?;
+        self.current_frame_mut(stack)?.instruction_position += 1;
+        Ok(())
+    }
+
+    fn exec_const_i64(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let value = match insn.operands.first() {
+            Some(Operand::ImmI64(value)) => Value::I64(*value),
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, value)
+    }
+
+    fn exec_i64_binop(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let lhs =
+            self.value_operand(stack, insn, 0)?
+                .as_i64()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let rhs =
+            self.value_operand(stack, insn, 1)?
+                .as_i64()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        let value = match insn.opcode {
+            Opcode::AddI64 => Value::I64(lhs.wrapping_add(rhs)),
+            Opcode::SubI64 => Value::I64(lhs.wrapping_sub(rhs)),
+            Opcode::MulI64 => Value::I64(lhs.wrapping_mul(rhs)),
+            Opcode::EqI64 => Value::I32((lhs == rhs) as i32),
+            Opcode::NeI64 => Value::I32((lhs != rhs) as i32),
+            Opcode::LtI64 => Value::I32((lhs < rhs) as i32),
+            _ => {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into())
+            }
+        };
+        self.write_result_and_advance(stack, insn, value)
+    }
+
+    fn exec_load_i64(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let addr = self.addr_operand(stack, insn, 0)?;
+        let value = self.memory.load_i64(addr)?;
+        self.write_result_and_advance(stack, insn, Value::I64(value))
+    }
+
+    fn exec_store_i64(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let addr = self.addr_operand(stack, insn, 0)?;
+        let value =
+            self.value_operand(stack, insn, 1)?
+                .as_i64()
+                .ok_or(ExecutionTrap::UnsupportedType {
+                    function: self.current_frame(stack)?.function,
+                })?;
+        self.memory.store_i64(addr, value)?;
         self.current_frame_mut(stack)?.instruction_position += 1;
         Ok(())
     }

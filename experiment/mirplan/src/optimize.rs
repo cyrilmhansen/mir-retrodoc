@@ -61,7 +61,13 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                 | Opcode::LtU32
                 | Opcode::LeU32
                 | Opcode::GtU32
-                | Opcode::GeU32 => {
+                | Opcode::GeU32
+                | Opcode::AddI64
+                | Opcode::SubI64
+                | Opcode::MulI64
+                | Opcode::EqI64
+                | Opcode::NeI64
+                | Opcode::LtI64 => {
                     if insn.operands.len() >= 2 {
                         let folded =
                             fold_binary_op(insn.opcode, &insn.operands[0], &insn.operands[1]);
@@ -69,6 +75,7 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                             insn.opcode = match folded_op {
                                 LoweredOperand::ImmI32(_) => Opcode::ConstI32,
                                 LoweredOperand::ImmU32(_) => Opcode::ConstU32,
+                                LoweredOperand::ImmI64(_) => Opcode::ConstI64,
                                 _ => unreachable!(),
                             };
                             insn.operands = vec![folded_op.clone()];
@@ -81,7 +88,7 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                         }
                     }
                 }
-                Opcode::ConstI32 | Opcode::ConstU32 => {
+                Opcode::ConstI32 | Opcode::ConstU32 | Opcode::ConstI64 => {
                     if let Some(dest) = insn.writes.first() {
                         is_folded_constant = true;
                         folded_val = Some((dest.id, insn.operands[0].clone()));
@@ -91,7 +98,7 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                     if let Some(dest) = insn.writes.first() {
                         if matches!(
                             insn.operands[0],
-                            LoweredOperand::ImmI32(_) | LoweredOperand::ImmU32(_)
+                            LoweredOperand::ImmI32(_) | LoweredOperand::ImmU32(_) | LoweredOperand::ImmI64(_)
                         ) {
                             is_folded_constant = true;
                             folded_val = Some((dest.id, insn.operands[0].clone()));
@@ -197,6 +204,15 @@ fn fold_binary_op(
             Opcode::GeU32 => Some(LoweredOperand::ImmU32(if a >= b { 1 } else { 0 })),
             _ => None,
         },
+        (LoweredOperand::ImmI64(a), LoweredOperand::ImmI64(b)) => match opcode {
+            Opcode::AddI64 => Some(LoweredOperand::ImmI64(a.wrapping_add(*b))),
+            Opcode::SubI64 => Some(LoweredOperand::ImmI64(a.wrapping_sub(*b))),
+            Opcode::MulI64 => Some(LoweredOperand::ImmI64(a.wrapping_mul(*b))),
+            Opcode::EqI64 => Some(LoweredOperand::ImmI32(if a == b { 1 } else { 0 })),
+            Opcode::NeI64 => Some(LoweredOperand::ImmI32(if a != b { 1 } else { 0 })),
+            Opcode::LtI64 => Some(LoweredOperand::ImmI32(if a < b { 1 } else { 0 })),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -245,6 +261,7 @@ fn has_side_effects(opcode: Opcode) -> bool {
         opcode,
         Opcode::ConstI32
             | Opcode::ConstU32
+            | Opcode::ConstI64
             | Opcode::Copy
             | Opcode::AddI32
             | Opcode::SubI32
@@ -261,5 +278,11 @@ fn has_side_effects(opcode: Opcode) -> bool {
             | Opcode::LeU32
             | Opcode::GtU32
             | Opcode::GeU32
+            | Opcode::AddI64
+            | Opcode::SubI64
+            | Opcode::MulI64
+            | Opcode::EqI64
+            | Opcode::NeI64
+            | Opcode::LtI64
     )
 }

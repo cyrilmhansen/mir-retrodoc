@@ -249,12 +249,43 @@ run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- validate "$TRAP_FIX
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- run "$TRAP_FIXTURE"
 pause
 
-section "Future direction"
-explain "Near-term F1 work should keep proving the lowered contract before adding new semantics."
-printf '%s\n' "- make the experimental lowered C path cover more F0 fixtures"
-printf '%s\n' "- decide whether mirc0 should eventually consume LoweredProgram by default"
-printf '%s\n' "- add a small backend trait once the lowered contract stops moving"
-printf '%s\n' "- only then choose the first target-facing feature, such as RISC-V32 or a fantasy-computer backend"
-printf '%s\n' "- defer i64 helpers, floats, host ABI, optimization, and runtime replacement until the backend boundary is stable"
+section "Step 10: compile to RISC-V 32-bit Assembly (MIR-F1 candidate RV32I backend)"
+explain "mirtool compile-rv32i compiles the module image to RISC-V assembly using the newly integrated RV32I backend with linear scan register allocation and spill handling."
+run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- compile-rv32i "$FIXTURE" "$TMP_DIR/demo.s"
+printf '\n%s\n' "Generated RISC-V Assembly preview (first 40 lines):"
+printf '%s\n' "$ head -n 40 $TMP_DIR/demo.s"
+head -n 40 "$TMP_DIR/demo.s"
+pause
+
+explain "The RV32I backend also features full 64-bit integer (i64) lowering, splitting 64-bit operations to 32-bit register carry math and spilling 64-bit values to stack offsets."
+DEMO_I64="$TMP_DIR/demo_i64.mircap.txt"
+cat << 'EOF' > "$DEMO_I64"
+mircap mircap
+version 0
+module 1 demo_i64
+type 1 i32
+type 2 i64
+symbol 1 main function
+function 1 1 - 2 3 0 2,2,2
+func_block 1 1
+block 1 1 1 2 3 4
+insn 1 const_i64 r:0 l:100000000000
+insn 2 const_i64 r:1 l:200000000000
+insn 3 add_i64 r:2 v:0 v:1
+insn 4 ret v:2
+EOF
+cat_file "$DEMO_I64"
+run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- compile-rv32i "$DEMO_I64" "$TMP_DIR/demo_i64.s"
+printf '\n%s\n' "Generated 64-bit RISC-V Assembly:"
+printf '%s\n' "$ cat $TMP_DIR/demo_i64.s"
+cat "$TMP_DIR/demo_i64.s"
+pause
+
+section "Completed work & current status"
+explain "The MIR-F1 experimental pipeline has successfully achieved:"
+printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap, mirsem, mirc0, mirrv32, mirjit, and mirtool"
+printf '%s\n' "- linear scan register allocation with callee-saved register spill handling in the RV32I backend"
+printf '%s\n' "- target-neutral lowering and projection, tested using differential checks"
 
 section "demo complete"
+

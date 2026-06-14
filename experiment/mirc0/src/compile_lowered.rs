@@ -169,10 +169,10 @@ fn emit_function_implementation(
     let locals = collect_locals(function, &param_ids);
     for value in locals.values() {
         let type_str = emit_type(value.type_kind)?;
-        let init_val = if value.type_kind == TypeKind::I32 {
-            "0"
-        } else {
-            "0u"
+        let init_val = match value.type_kind {
+            TypeKind::I32 => "0",
+            TypeKind::I64 => "0LL",
+            _ => "0u",
         };
         out.push_str(&format!(
             "    {} v{} = {};\n",
@@ -237,7 +237,7 @@ fn emit_lowered_instruction(
     data_segments: &[DataSegmentPlan],
 ) -> Result<String, CompileError> {
     match instruction.opcode {
-        Opcode::ConstI32 | Opcode::ConstU32 | Opcode::Copy => {
+        Opcode::ConstI32 | Opcode::ConstU32 | Opcode::ConstI64 | Opcode::Copy => {
             let dest = one_write(instruction)?;
             let val = emit_operand(one_operand(instruction, 0)?);
             Ok(format!("v{} = {};", dest.id.0, val))
@@ -252,7 +252,19 @@ fn emit_lowered_instruction(
                 dest.id.0, lhs, op, rhs
             ))
         }
-        Opcode::EqI32 | Opcode::NeI32 | Opcode::LtI32 => emit_compare(instruction, true),
+        Opcode::AddI64 | Opcode::SubI64 | Opcode::MulI64 => {
+            let dest = one_write(instruction)?;
+            let lhs = emit_operand(one_operand(instruction, 0)?);
+            let rhs = emit_operand(one_operand(instruction, 1)?);
+            let op = arithmetic_symbol(instruction.opcode)?;
+            Ok(format!(
+                "v{} = (int64_t)((uint64_t){} {} (uint64_t){});",
+                dest.id.0, lhs, op, rhs
+            ))
+        }
+        Opcode::EqI32 | Opcode::NeI32 | Opcode::LtI32 | Opcode::EqI64 | Opcode::NeI64 | Opcode::LtI64 => {
+            emit_compare(instruction, true)
+        }
         Opcode::AddU32 | Opcode::SubU32 | Opcode::MulU32 => {
             let dest = one_write(instruction)?;
             let lhs = emit_operand(one_operand(instruction, 0)?);
@@ -316,24 +328,26 @@ fn emit_lowered_instruction(
             let align = emit_operand(one_operand(instruction, 1)?);
             Ok(format!("v{} = mir_alloc({}, {});", dest.id.0, size, align))
         }
-        Opcode::LoadI32 | Opcode::LoadU32 | Opcode::LoadU8 => {
+        Opcode::LoadI32 | Opcode::LoadU32 | Opcode::LoadU8 | Opcode::LoadI64 => {
             let dest = one_write(instruction)?;
             let addr = emit_operand(one_operand(instruction, 0)?);
             let helper = match instruction.opcode {
                 Opcode::LoadI32 => "mir_load_i32",
                 Opcode::LoadU32 => "mir_load_u32",
                 Opcode::LoadU8 => "mir_load_u8",
+                Opcode::LoadI64 => "mir_load_i64",
                 _ => unreachable!(),
             };
             Ok(format!("v{} = {}({});", dest.id.0, helper, addr))
         }
-        Opcode::StoreI32 | Opcode::StoreU32 | Opcode::StoreU8 => {
+        Opcode::StoreI32 | Opcode::StoreU32 | Opcode::StoreU8 | Opcode::StoreI64 => {
             let addr = emit_operand(one_operand(instruction, 0)?);
             let val = emit_operand(one_operand(instruction, 1)?);
             let helper = match instruction.opcode {
                 Opcode::StoreI32 => "mir_store_i32",
                 Opcode::StoreU32 => "mir_store_u32",
                 Opcode::StoreU8 => "mir_store_u8",
+                Opcode::StoreI64 => "mir_store_i64",
                 _ => unreachable!(),
             };
             Ok(format!("{}({}, {});", helper, addr, val))
@@ -360,7 +374,7 @@ fn emit_lowered_instruction(
                 dest.id.0, segment.offset, offset, segment.length
             ))
         }
-        Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {
+        Opcode::UnsupportedIndirectCall => {
             Err(CompileError::UnsupportedOpcode(instruction.opcode))
         }
     }
@@ -406,6 +420,13 @@ fn emit_operand(operand: &LoweredOperand) -> String {
             }
         }
         LoweredOperand::ImmU32(value) => format!("{}u", value),
+        LoweredOperand::ImmI64(value) => {
+            if *value == i64::MIN {
+                "((int64_t)(-9223372036854775807LL - 1LL))".to_string()
+            } else {
+                format!("((int64_t){}LL)", value)
+            }
+        }
         LoweredOperand::Block(block) => format!("block_{}", block.id.0),
         LoweredOperand::Function(function) => format!("mir_fn_{}", function.id.0),
         LoweredOperand::Symbol { id, .. } => format!("sym_{}", id.0),
@@ -422,18 +443,18 @@ fn symbol_operand(operand: &LoweredOperand) -> Result<SymbolId, CompileError> {
 
 fn arithmetic_symbol(opcode: Opcode) -> Result<&'static str, CompileError> {
     match opcode {
-        Opcode::AddI32 | Opcode::AddU32 => Ok("+"),
-        Opcode::SubI32 | Opcode::SubU32 => Ok("-"),
-        Opcode::MulI32 | Opcode::MulU32 => Ok("*"),
+        Opcode::AddI32 | Opcode::AddU32 | Opcode::AddI64 => Ok("+"),
+        Opcode::SubI32 | Opcode::SubU32 | Opcode::SubI64 => Ok("-"),
+        Opcode::MulI32 | Opcode::MulU32 | Opcode::MulI64 => Ok("*"),
         _ => Err(CompileError::UnsupportedOpcode(opcode)),
     }
 }
 
 fn compare_symbol(opcode: Opcode) -> Result<&'static str, CompileError> {
     match opcode {
-        Opcode::EqI32 | Opcode::EqU32 => Ok("=="),
-        Opcode::NeI32 | Opcode::NeU32 => Ok("!="),
-        Opcode::LtI32 | Opcode::LtU32 => Ok("<"),
+        Opcode::EqI32 | Opcode::EqU32 | Opcode::EqI64 => Ok("=="),
+        Opcode::NeI32 | Opcode::NeU32 | Opcode::NeI64 => Ok("!="),
+        Opcode::LtI32 | Opcode::LtU32 | Opcode::LtI64 => Ok("<"),
         Opcode::LeU32 => Ok("<="),
         Opcode::GtU32 => Ok(">"),
         Opcode::GeU32 => Ok(">="),

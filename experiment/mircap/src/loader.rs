@@ -207,13 +207,18 @@ fn parse_i32(s: &str, line: usize) -> Result<i32, LoadError> {
         .map_err(|_| err(line, format!("invalid i32: {s}")))
 }
 
+fn parse_i64(s: &str, line: usize) -> Result<i64, LoadError> {
+    s.parse()
+        .map_err(|_| err(line, format!("invalid i64: {s}")))
+}
+
 fn parse_type(s: &str, line: usize) -> Result<TypeKind, LoadError> {
     match s {
         "void" => Ok(TypeKind::Void),
         "i32" => Ok(TypeKind::I32),
         "u32" => Ok(TypeKind::U32),
         "addr32" => Ok(TypeKind::Addr32),
-        "i64" => Ok(TypeKind::UnsupportedI64),
+        "i64" => Ok(TypeKind::I64),
         "float" => Ok(TypeKind::UnsupportedFloat),
         "long_double" => Ok(TypeKind::UnsupportedLongDouble),
         "aggregate" => Ok(TypeKind::UnsupportedAggregate),
@@ -266,8 +271,16 @@ fn parse_opcode(s: &str, line: usize) -> Result<Opcode, LoadError> {
         "store_u8" => Ok(Opcode::StoreU8),
         "addr_add" => Ok(Opcode::AddrAdd),
         "data_addr" => Ok(Opcode::DataAddr),
-        "unsupported_i64" => Ok(Opcode::UnsupportedI64),
+        "const_i64" => Ok(Opcode::ConstI64),
         "indirect_call" => Ok(Opcode::UnsupportedIndirectCall),
+        "add_i64" => Ok(Opcode::AddI64),
+        "sub_i64" => Ok(Opcode::SubI64),
+        "mul_i64" => Ok(Opcode::MulI64),
+        "eq_i64" => Ok(Opcode::EqI64),
+        "ne_i64" => Ok(Opcode::NeI64),
+        "lt_i64" => Ok(Opcode::LtI64),
+        "load_i64" => Ok(Opcode::LoadI64),
+        "store_i64" => Ok(Opcode::StoreI64),
         _ => Err(err(line, format!("unknown opcode: {s}"))),
     }
 }
@@ -280,6 +293,7 @@ fn parse_operand(s: &str, line: usize) -> Result<Operand, LoadError> {
         "v" => Ok(Operand::Value(ValueId(parse_u32(value, line)?))),
         "i" => Ok(Operand::ImmI32(parse_i32(value, line)?)),
         "u" => Ok(Operand::ImmU32(parse_u32(value, line)?)),
+        "l" => Ok(Operand::ImmI64(parse_i64(value, line)?)),
         "b" => Ok(Operand::Block(BlockId(parse_u32(value, line)?))),
         "f" => Ok(Operand::Function(FunctionId(parse_u32(value, line)?))),
         "s" => Ok(Operand::Symbol(SymbolId(parse_u32(value, line)?))),

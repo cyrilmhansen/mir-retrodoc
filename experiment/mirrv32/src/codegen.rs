@@ -96,12 +96,34 @@ fn emit_function(asm: &mut String, function: &LoweredFunction) -> Result<(), Cod
     writeln!(asm, "    sw s0, {}(sp)", frame.frame_size + frame.fp_offset)?;
     writeln!(asm, "    addi s0, sp, {}", frame.frame_size)?;
 
-    // Spill argument registers a0-a7 to parameter stack slots
-    writeln!(asm, "    # Spill arguments")?;
-    for (idx, param) in function.params.iter().enumerate() {
-        if idx < 8 {
-            let offset = frame.offset_of(param.id);
-            writeln!(asm, "    sw a{}, {}(s0)", idx, offset)?;
+    // Save used saved registers
+    for &reg in &frame.used_saved_regs {
+        let offset = frame.saved_reg_offsets.get(&reg).unwrap();
+        writeln!(asm, "    sw {}, {}(s0)", reg.name(), offset)?;
+    }
+
+    // Move or spill argument registers a0-a7
+    writeln!(asm, "    # Handle arguments")?;
+    let mut arg_reg_idx = 0;
+    for param in &function.params {
+        let is_i64 = param.type_kind == mircap::TypeKind::I64;
+        if is_i64 {
+            if arg_reg_idx < 8 && arg_reg_idx + 1 < 8 {
+                let offset = frame.offset_of(param.id);
+                writeln!(asm, "    sw a{}, {}(s0)", arg_reg_idx, offset)?;
+                writeln!(asm, "    sw a{}, {}(s0)", arg_reg_idx + 1, offset + 4)?;
+            }
+            arg_reg_idx += 2;
+        } else {
+            if arg_reg_idx < 8 {
+                if let Some(reg) = frame.registers.get(&param.id) {
+                    writeln!(asm, "    mv {}, a{}", reg.name(), arg_reg_idx)?;
+                } else {
+                    let offset = frame.offset_of(param.id);
+                    writeln!(asm, "    sw a{}, {}(s0)", arg_reg_idx, offset)?;
+                }
+            }
+            arg_reg_idx += 1;
         }
     }
 
@@ -139,8 +161,25 @@ fn emit_instruction(
                     ))
                 }
             };
-            writeln!(asm, "    li t0, {}", imm)?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let (d_reg, spill) = resolve_dest(dest, "t0", frame);
+            writeln!(asm, "    li {}, {}", d_reg, imm)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::ConstI64 => {
+            let dest = one_write(insn)?;
+            let offset = frame.offset_of(dest.id);
+            let imm = match insn.operands.first().unwrap() {
+                LoweredOperand::ImmI64(val) => *val,
+                _ => return Err(CodegenError::Generic("Expected ImmI64".to_string())),
+            };
+            let low = (imm & 0xFFFFFFFF) as u32;
+            let high = ((imm >> 32) & 0xFFFFFFFF) as u32;
+            writeln!(asm, "    li t0, {}", low)?;
+            writeln!(asm, "    sw t0, {}(s0)", offset)?;
+            writeln!(asm, "    li t0, {}", high)?;
+            writeln!(asm, "    sw t0, {}(s0)", offset + 4)?;
         }
         Opcode::Copy => {
             let dest = one_write(insn)?;
@@ -148,8 +187,36 @@ fn emit_instruction(
                 .operands
                 .first()
                 .ok_or(CodegenError::InvalidOperandIndex(0))?;
-            load_operand_to_reg(asm, src, "t0", frame)?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            if dest.type_kind == mircap::TypeKind::I64 {
+                let d_offset = frame.offset_of(dest.id);
+                match src {
+                    LoweredOperand::ImmI64(val) => {
+                        let low = (*val & 0xFFFFFFFF) as u32;
+                        let high = ((*val >> 32) & 0xFFFFFFFF) as u32;
+                        writeln!(asm, "    li t0, {}", low)?;
+                        writeln!(asm, "    sw t0, {}(s0)", d_offset)?;
+                        writeln!(asm, "    li t0, {}", high)?;
+                        writeln!(asm, "    sw t0, {}(s0)", d_offset + 4)?;
+                    }
+                    LoweredOperand::Value(val) => {
+                        let s_offset = frame.offset_of(val.id);
+                        writeln!(asm, "    lw t0, {}(s0)", s_offset)?;
+                        writeln!(asm, "    sw t0, {}(s0)", d_offset)?;
+                        writeln!(asm, "    lw t0, {}(s0)", s_offset + 4)?;
+                        writeln!(asm, "    sw t0, {}(s0)", d_offset + 4)?;
+                    }
+                    _ => return Err(CodegenError::Generic("Unsupported copy src for i64".to_string())),
+                }
+            } else {
+                let s_reg = resolve_operand(asm, src, "t0", frame)?;
+                let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+                if s_reg != d_reg {
+                    writeln!(asm, "    mv {}, {}", d_reg, s_reg)?;
+                }
+                if spill {
+                    commit_dest(asm, dest, d_reg, frame)?;
+                }
+            }
         }
         Opcode::AddI32
         | Opcode::AddU32
@@ -166,16 +233,63 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
 
             match insn.opcode {
-                Opcode::AddI32 | Opcode::AddU32 => writeln!(asm, "    add t0, t0, t1")?,
-                Opcode::SubI32 | Opcode::SubU32 => writeln!(asm, "    sub t0, t0, t1")?,
-                Opcode::MulI32 | Opcode::MulU32 => writeln!(asm, "    mul t0, t0, t1")?,
+                Opcode::AddI32 | Opcode::AddU32 => writeln!(asm, "    add {}, {}, {}", d_reg, s1_reg, s2_reg)?,
+                Opcode::SubI32 | Opcode::SubU32 => writeln!(asm, "    sub {}, {}, {}", d_reg, s1_reg, s2_reg)?,
+                Opcode::MulI32 | Opcode::MulU32 => writeln!(asm, "    mul {}, {}, {}", d_reg, s1_reg, s2_reg)?,
                 _ => unreachable!(),
             }
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::AddI64 => {
+            let dest = one_write(insn)?;
+            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_i64_operand(asm, lhs, "t0", "t1", frame)?;
+            load_i64_operand(asm, rhs, "t2", "t3", frame)?;
+            writeln!(asm, "    add t4, t0, t2")?;
+            writeln!(asm, "    sltu t5, t4, t0")?;
+            writeln!(asm, "    add t6, t1, t3")?;
+            writeln!(asm, "    add t6, t6, t5")?;
+            let d_offset = frame.offset_of(dest.id);
+            writeln!(asm, "    sw t4, {}(s0)", d_offset)?;
+            writeln!(asm, "    sw t6, {}(s0)", d_offset + 4)?;
+        }
+        Opcode::SubI64 => {
+            let dest = one_write(insn)?;
+            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_i64_operand(asm, lhs, "t0", "t1", frame)?;
+            load_i64_operand(asm, rhs, "t2", "t3", frame)?;
+            writeln!(asm, "    sltu t5, t0, t2")?;
+            writeln!(asm, "    sub t4, t0, t2")?;
+            writeln!(asm, "    sub t6, t1, t3")?;
+            writeln!(asm, "    sub t6, t6, t5")?;
+            let d_offset = frame.offset_of(dest.id);
+            writeln!(asm, "    sw t4, {}(s0)", d_offset)?;
+            writeln!(asm, "    sw t6, {}(s0)", d_offset + 4)?;
+        }
+        Opcode::MulI64 => {
+            let dest = one_write(insn)?;
+            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_i64_operand(asm, lhs, "t0", "t1", frame)?;
+            load_i64_operand(asm, rhs, "t2", "t3", frame)?;
+            writeln!(asm, "    mulhu t4, t0, t2")?;
+            writeln!(asm, "    mul t5, t0, t2")?;
+            writeln!(asm, "    mul t6, t1, t2")?;
+            writeln!(asm, "    add t4, t4, t6")?;
+            writeln!(asm, "    mul t6, t0, t3")?;
+            writeln!(asm, "    add t4, t4, t6")?;
+            let d_offset = frame.offset_of(dest.id);
+            writeln!(asm, "    sw t5, {}(s0)", d_offset)?;
+            writeln!(asm, "    sw t4, {}(s0)", d_offset + 4)?;
         }
         Opcode::LtI32 => {
             let dest = one_write(insn)?;
@@ -187,10 +301,13 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
-            writeln!(asm, "    slt t0, t0, t1")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    slt {}, {}, {}", d_reg, s1_reg, s2_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::LtU32 => {
             let dest = one_write(insn)?;
@@ -202,10 +319,13 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
-            writeln!(asm, "    sltu t0, t0, t1")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    sltu {}, {}, {}", d_reg, s1_reg, s2_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::EqI32 | Opcode::EqU32 => {
             let dest = one_write(insn)?;
@@ -217,11 +337,14 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
-            writeln!(asm, "    sub t0, t0, t1")?;
-            writeln!(asm, "    seqz t0, t0")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    sub {}, {}, {}", d_reg, s1_reg, s2_reg)?;
+            writeln!(asm, "    seqz {}, {}", d_reg, d_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::NeI32 | Opcode::NeU32 => {
             let dest = one_write(insn)?;
@@ -233,11 +356,62 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
-            writeln!(asm, "    sub t0, t0, t1")?;
-            writeln!(asm, "    snez t0, t0")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    sub {}, {}, {}", d_reg, s1_reg, s2_reg)?;
+            writeln!(asm, "    snez {}, {}", d_reg, d_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::EqI64 => {
+            let dest = one_write(insn)?;
+            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_i64_operand(asm, lhs, "t0", "t1", frame)?;
+            load_i64_operand(asm, rhs, "t2", "t3", frame)?;
+            writeln!(asm, "    xor t4, t0, t2")?;
+            writeln!(asm, "    xor t5, t1, t3")?;
+            writeln!(asm, "    or t4, t4, t5")?;
+            let (d_reg, spill) = resolve_dest(dest, "t6", frame);
+            writeln!(asm, "    seqz {}, t4", d_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::NeI64 => {
+            let dest = one_write(insn)?;
+            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_i64_operand(asm, lhs, "t0", "t1", frame)?;
+            load_i64_operand(asm, rhs, "t2", "t3", frame)?;
+            writeln!(asm, "    xor t4, t0, t2")?;
+            writeln!(asm, "    xor t5, t1, t3")?;
+            writeln!(asm, "    or t4, t4, t5")?;
+            let (d_reg, spill) = resolve_dest(dest, "t6", frame);
+            writeln!(asm, "    snez {}, t4", d_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::LtI64 => {
+            let dest = one_write(insn)?;
+            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_i64_operand(asm, lhs, "t0", "t1", frame)?;
+            load_i64_operand(asm, rhs, "t2", "t3", frame)?;
+            writeln!(asm, "    slt t4, t1, t3")?;
+            writeln!(asm, "    sub t5, t1, t3")?;
+            writeln!(asm, "    seqz t5, t5")?;
+            writeln!(asm, "    sltu t6, t0, t2")?;
+            writeln!(asm, "    and t5, t5, t6")?;
+            writeln!(asm, "    or t4, t4, t5")?;
+            let (d_reg, spill) = resolve_dest(dest, "t6", frame);
+            writeln!(asm, "    mv {}, t4", d_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::LeU32 => {
             let dest = one_write(insn)?;
@@ -249,11 +423,14 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
-            writeln!(asm, "    sltu t0, t1, t0")?;
-            writeln!(asm, "    xori t0, t0, 1")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    sltu {}, {}, {}", d_reg, s2_reg, s1_reg)?;
+            writeln!(asm, "    xori {}, {}, 1", d_reg, d_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::GtU32 => {
             let dest = one_write(insn)?;
@@ -265,10 +442,13 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
-            writeln!(asm, "    sltu t0, t1, t0")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    sltu {}, {}, {}", d_reg, s2_reg, s1_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::GeU32 => {
             let dest = one_write(insn)?;
@@ -280,11 +460,14 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, lhs, "t0", frame)?;
-            load_operand_to_reg(asm, rhs, "t1", frame)?;
-            writeln!(asm, "    sltu t0, t0, t1")?;
-            writeln!(asm, "    xori t0, t0, 1")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let s1_reg = resolve_operand(asm, lhs, "t0", frame)?;
+            let s2_reg = resolve_operand(asm, rhs, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    sltu {}, {}, {}", d_reg, s1_reg, s2_reg)?;
+            writeln!(asm, "    xori {}, {}, 1", d_reg, d_reg)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::Branch => {
             let target = match insn
@@ -318,8 +501,8 @@ fn emit_instruction(
                 LoweredOperand::Block(label) => label.id.0,
                 _ => return Err(CodegenError::Generic("Expected block operand".to_string())),
             };
-            load_operand_to_reg(asm, cond, "t0", frame)?;
-            writeln!(asm, "    bne t0, zero, block_{}_{}", func_id, true_target)?;
+            let cond_reg = resolve_operand(asm, cond, "t0", frame)?;
+            writeln!(asm, "    bne {}, zero, block_{}_{}", cond_reg, func_id, true_target)?;
             writeln!(asm, "    j block_{}_{}", func_id, false_target)?;
         }
         Opcode::Call => {
@@ -336,34 +519,91 @@ fn emit_instruction(
                 }
             };
             // Load parameters into registers a0-a7
+            let mut arg_reg_idx = 0;
             for idx in 1..insn.operands.len() {
-                if idx - 1 < 8 {
-                    let reg_name = match idx - 1 {
-                        0 => "a0",
-                        1 => "a1",
-                        2 => "a2",
-                        3 => "a3",
-                        4 => "a4",
-                        5 => "a5",
-                        6 => "a6",
-                        7 => "a7",
-                        _ => unreachable!(),
-                    };
-                    load_operand_to_reg(asm, &insn.operands[idx], reg_name, frame)?;
+                let op = &insn.operands[idx];
+                if is_i64_operand(op, frame) {
+                    if arg_reg_idx < 8 && arg_reg_idx + 1 < 8 {
+                        match op {
+                            LoweredOperand::ImmI64(val) => {
+                                let low = (*val & 0xFFFFFFFF) as u32;
+                                let high = ((*val >> 32) & 0xFFFFFFFF) as u32;
+                                writeln!(asm, "    li a{}, {}", arg_reg_idx, low)?;
+                                writeln!(asm, "    li a{}, {}", arg_reg_idx + 1, high)?;
+                            }
+                            LoweredOperand::Value(val) => {
+                                let offset = frame.offset_of(val.id);
+                                writeln!(asm, "    lw a{}, {}(s0)", arg_reg_idx, offset)?;
+                                writeln!(asm, "    lw a{}, {}(s0)", arg_reg_idx + 1, offset + 4)?;
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    arg_reg_idx += 2;
+                } else {
+                    if arg_reg_idx < 8 {
+                        let scratch = match arg_reg_idx {
+                            0 => "a0", 1 => "a1", 2 => "a2", 3 => "a3",
+                            4 => "a4", 5 => "a5", 6 => "a6", 7 => "a7",
+                            _ => unreachable!(),
+                        };
+                        let p_reg = resolve_operand(asm, op, scratch, frame)?;
+                        if p_reg != scratch {
+                            writeln!(asm, "    mv {}, {}", scratch, p_reg)?;
+                        }
+                    }
+                    arg_reg_idx += 1;
                 }
             }
             writeln!(asm, "    jal ra, mir_fn_{}", callee)?;
             if !insn.writes.is_empty() {
                 let dest = one_write(insn)?;
-                writeln!(asm, "    sw a0, {}(s0)", frame.offset_of(dest.id))?;
+                if dest.type_kind == mircap::TypeKind::I64 {
+                    let offset = frame.offset_of(dest.id);
+                    writeln!(asm, "    sw a0, {}(s0)", offset)?;
+                    writeln!(asm, "    sw a1, {}(s0)", offset + 4)?;
+                } else {
+                    let (d_reg, spill) = resolve_dest(dest, "a0", frame);
+                    if d_reg != "a0" {
+                        writeln!(asm, "    mv {}, a0", d_reg)?;
+                    }
+                    if spill {
+                        commit_dest(asm, dest, d_reg, frame)?;
+                    }
+                }
             }
         }
         Opcode::Ret => {
             if !insn.operands.is_empty() {
-                load_operand_to_reg(asm, &insn.operands[0], "a0", frame)?;
+                let op = &insn.operands[0];
+                if is_i64_operand(op, frame) {
+                    match op {
+                        LoweredOperand::ImmI64(val) => {
+                            let low = (*val & 0xFFFFFFFF) as u32;
+                            let high = ((*val >> 32) & 0xFFFFFFFF) as u32;
+                            writeln!(asm, "    li a0, {}", low)?;
+                            writeln!(asm, "    li a1, {}", high)?;
+                        }
+                        LoweredOperand::Value(val) => {
+                            let offset = frame.offset_of(val.id);
+                            writeln!(asm, "    lw a0, {}(s0)", offset)?;
+                            writeln!(asm, "    lw a1, {}(s0)", offset + 4)?;
+                        }
+                        _ => unreachable!(),
+                    }
+                } else {
+                    let r = resolve_operand(asm, op, "a0", frame)?;
+                    if r != "a0" {
+                        writeln!(asm, "    mv a0, {}", r)?;
+                    }
+                }
             }
             // Epilogue
             writeln!(asm, "    # Epilogue")?;
+            for &reg in &frame.used_saved_regs {
+                let offset = frame.saved_reg_offsets.get(&reg).unwrap();
+                writeln!(asm, "    lw {}, {}(s0)", reg.name(), offset)?;
+            }
             writeln!(asm, "    lw ra, {}(sp)", frame.frame_size + frame.ra_offset)?;
             writeln!(asm, "    lw s0, {}(sp)", frame.frame_size + frame.fp_offset)?;
             writeln!(asm, "    addi sp, sp, {}", frame.frame_size)?;
@@ -382,10 +622,22 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, size, "a0", frame)?;
-            load_operand_to_reg(asm, align, "a1", frame)?;
+            let r_size = resolve_operand(asm, size, "a0", frame)?;
+            if r_size != "a0" {
+                writeln!(asm, "    mv a0, {}", r_size)?;
+            }
+            let r_align = resolve_operand(asm, align, "a1", frame)?;
+            if r_align != "a1" {
+                writeln!(asm, "    mv a1, {}", r_align)?;
+            }
             writeln!(asm, "    jal ra, mir_alloc")?;
-            writeln!(asm, "    sw a0, {}(s0)", frame.offset_of(dest.id))?;
+            let (d_reg, spill) = resolve_dest(dest, "a0", frame);
+            if d_reg != "a0" {
+                writeln!(asm, "    mv {}, a0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::LoadI32 | Opcode::LoadU32 => {
             let dest = one_write(insn)?;
@@ -393,9 +645,22 @@ fn emit_instruction(
                 .operands
                 .get(0)
                 .ok_or(CodegenError::InvalidOperandIndex(0))?;
-            load_operand_to_reg(asm, addr, "t0", frame)?;
-            writeln!(asm, "    lw t1, 0(t0)")?;
-            writeln!(asm, "    sw t1, {}(s0)", frame.offset_of(dest.id))?;
+            let r_addr = resolve_operand(asm, addr, "t0", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            writeln!(asm, "    lw {}, 0({})", d_reg, r_addr)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::LoadI64 => {
+            let dest = one_write(insn)?;
+            let addr = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let r_addr = resolve_operand(asm, addr, "t0", frame)?;
+            writeln!(asm, "    lw t1, 0({})", r_addr)?;
+            writeln!(asm, "    lw t2, 4({})", r_addr)?;
+            let d_offset = frame.offset_of(dest.id);
+            writeln!(asm, "    sw t1, {}(s0)", d_offset)?;
+            writeln!(asm, "    sw t2, {}(s0)", d_offset + 4)?;
         }
         Opcode::LoadU8 => {
             let dest = one_write(insn)?;
@@ -403,9 +668,12 @@ fn emit_instruction(
                 .operands
                 .get(0)
                 .ok_or(CodegenError::InvalidOperandIndex(0))?;
-            load_operand_to_reg(asm, addr, "t0", frame)?;
-            writeln!(asm, "    lbu t1, 0(t0)")?;
-            writeln!(asm, "    sw t1, {}(s0)", frame.offset_of(dest.id))?;
+            let r_addr = resolve_operand(asm, addr, "t0", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            writeln!(asm, "    lbu {}, 0({})", d_reg, r_addr)?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::StoreI32 | Opcode::StoreU32 => {
             let addr = insn
@@ -416,9 +684,17 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, addr, "t0", frame)?;
-            load_operand_to_reg(asm, val, "t1", frame)?;
-            writeln!(asm, "    sw t1, 0(t0)")?;
+            let r_addr = resolve_operand(asm, addr, "t0", frame)?;
+            let r_val = resolve_operand(asm, val, "t1", frame)?;
+            writeln!(asm, "    sw {}, 0({})", r_val, r_addr)?;
+        }
+        Opcode::StoreI64 => {
+            let addr = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let val = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let r_addr = resolve_operand(asm, addr, "t0", frame)?;
+            load_i64_operand(asm, val, "t1", "t2", frame)?;
+            writeln!(asm, "    sw t1, 0({})", r_addr)?;
+            writeln!(asm, "    sw t2, 4({})", r_addr)?;
         }
         Opcode::StoreU8 => {
             let addr = insn
@@ -429,9 +705,9 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, addr, "t0", frame)?;
-            load_operand_to_reg(asm, val, "t1", frame)?;
-            writeln!(asm, "    sb t1, 0(t0)")?;
+            let r_addr = resolve_operand(asm, addr, "t0", frame)?;
+            let r_val = resolve_operand(asm, val, "t1", frame)?;
+            writeln!(asm, "    sb {}, 0({})", r_val, r_addr)?;
         }
         Opcode::AddrAdd => {
             let dest = one_write(insn)?;
@@ -443,15 +719,17 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            load_operand_to_reg(asm, base, "t0", frame)?;
-            load_operand_to_reg(asm, offset, "t1", frame)?;
-            writeln!(asm, "    add t0, t0, t1")?;
-            writeln!(asm, "    sltu t2, t0, t1")?;
-            // If overflowed (t2 != 0), trap
-            writeln!(asm, "    beq t2, zero, .Lno_overflow_{}", insn.id.0)?;
+            let r_base = resolve_operand(asm, base, "t0", frame)?;
+            let r_offset = resolve_operand(asm, offset, "t1", frame)?;
+            let (d_reg, spill) = resolve_dest(dest, "t2", frame);
+            writeln!(asm, "    add {}, {}, {}", d_reg, r_base, r_offset)?;
+            writeln!(asm, "    sltu t3, {}, {}", d_reg, r_offset)?;
+            writeln!(asm, "    beq t3, zero, .Lno_overflow_{}", insn.id.0)?;
             writeln!(asm, "    ebreak")?;
             writeln!(asm, ".Lno_overflow_{}:", insn.id.0)?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
         Opcode::DataAddr => {
             let dest = one_write(insn)?;
@@ -468,11 +746,17 @@ fn emit_instruction(
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
             writeln!(asm, "    la t0, sym_{}", symbol.0)?;
-            load_operand_to_reg(asm, offset, "t1", frame)?;
-            writeln!(asm, "    add t0, t0, t1")?;
-            writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
+            let r_offset = resolve_operand(asm, offset, "t1", frame)?;
+            writeln!(asm, "    add t0, t0, {}", r_offset)?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
         }
-        Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {
+        Opcode::UnsupportedIndirectCall => {
             return Err(CodegenError::UnsupportedOpcode(insn.opcode));
         }
     }
@@ -487,28 +771,88 @@ fn one_write(insn: &LoweredInstruction) -> Result<&LoweredValue, CodegenError> {
     }
 }
 
-fn load_operand_to_reg(
+fn is_i64_operand(op: &LoweredOperand, frame: &StackFrame) -> bool {
+    match op {
+        LoweredOperand::Value(val) => frame.val_types.get(&val.id) == Some(&mircap::TypeKind::I64),
+        LoweredOperand::ImmI64(_) => true,
+        _ => false,
+    }
+}
+
+fn load_i64_operand(
+    asm: &mut String,
+    op: &LoweredOperand,
+    reg_low: &str,
+    reg_high: &str,
+    frame: &StackFrame,
+) -> Result<(), CodegenError> {
+    match op {
+        LoweredOperand::ImmI64(val) => {
+            let low = (*val & 0xFFFFFFFF) as u32;
+            let high = ((*val >> 32) & 0xFFFFFFFF) as u32;
+            writeln!(asm, "    li {}, {}", reg_low, low)?;
+            writeln!(asm, "    li {}, {}", reg_high, high)?;
+        }
+        LoweredOperand::Value(val) => {
+            let offset = frame.offset_of(val.id);
+            writeln!(asm, "    lw {}, {}(s0)", reg_low, offset)?;
+            writeln!(asm, "    lw {}, {}(s0)", reg_high, offset + 4)?;
+        }
+        _ => return Err(CodegenError::Generic(format!("Expected i64 operand, got {:?}", op))),
+    }
+    Ok(())
+}
+
+fn resolve_operand(
     asm: &mut String,
     operand: &LoweredOperand,
+    scratch: &'static str,
+    frame: &StackFrame,
+) -> Result<&'static str, CodegenError> {
+    match operand {
+        LoweredOperand::Value(val) => {
+            if let Some(reg) = frame.registers.get(&val.id) {
+                Ok(reg.name())
+            } else {
+                let offset = frame.offset_of(val.id);
+                writeln!(asm, "    lw {}, {}(s0)", scratch, offset)?;
+                Ok(scratch)
+            }
+        }
+        LoweredOperand::ImmI32(val) => {
+            writeln!(asm, "    li {}, {}", scratch, *val)?;
+            Ok(scratch)
+        }
+        LoweredOperand::ImmU32(val) => {
+            writeln!(asm, "    li {}, {}", scratch, *val)?;
+            Ok(scratch)
+        }
+        _ => Err(CodegenError::Generic(format!(
+            "Unsupported operand for resolving: {:?}",
+            operand
+        ))),
+    }
+}
+
+fn resolve_dest(
+    dest: &LoweredValue,
+    scratch: &'static str,
+    frame: &StackFrame,
+) -> (&'static str, bool) {
+    if let Some(reg) = frame.registers.get(&dest.id) {
+        (reg.name(), false)
+    } else {
+        (scratch, true)
+    }
+}
+
+fn commit_dest(
+    asm: &mut String,
+    dest: &LoweredValue,
     reg: &'static str,
     frame: &StackFrame,
 ) -> Result<(), CodegenError> {
-    match operand {
-        LoweredOperand::Value(val) => {
-            writeln!(asm, "    lw {}, {}(s0)", reg, frame.offset_of(val.id))?;
-        }
-        LoweredOperand::ImmI32(val) => {
-            writeln!(asm, "    li {}, {}", reg, *val)?;
-        }
-        LoweredOperand::ImmU32(val) => {
-            writeln!(asm, "    li {}, {}", reg, *val)?;
-        }
-        _ => {
-            return Err(CodegenError::Generic(format!(
-                "Unsupported operand for register loading: {:?}",
-                operand
-            )))
-        }
-    }
+    let offset = frame.offset_of(dest.id);
+    writeln!(asm, "    sw {}, {}(s0)", reg, offset)?;
     Ok(())
 }

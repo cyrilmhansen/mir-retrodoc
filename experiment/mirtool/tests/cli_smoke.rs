@@ -352,3 +352,17 @@ fn test_diff_upstream_trap_load_oob() {
         assert_eq!(stdout.trim(), "PASS");
     }
 }
+
+#[test]
+fn test_compile_rv32i_valid_const_return() {
+    let path = fixture_path("valid_const_return.mircap.txt");
+    let temp_asm = "temp_smoke_compile_rv32i.s";
+    let output = run_mirtool(&["compile-rv32i", &path, temp_asm]);
+    assert!(output.status.success());
+
+    let content = std::fs::read_to_string(temp_asm).expect("read temp asm");
+    assert!(content.contains(".attribute arch"));
+    assert!(content.contains("mir_fn_1"));
+
+    let _ = std::fs::remove_file(temp_asm);
+}

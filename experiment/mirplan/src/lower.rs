@@ -79,6 +79,7 @@ pub enum LoweredOperand {
     Value(LoweredValue),
     ImmI32(i32),
     ImmU32(u32),
+    ImmI64(i64),
     Block(LoweredBlockLabel),
     Function(LoweredFunctionRef),
     Symbol {
@@ -223,6 +224,7 @@ fn lower_operand(operand: &OperandPlan) -> LoweredOperand {
         OperandPlan::Value(value) => LoweredOperand::Value(lower_value(value)),
         OperandPlan::ImmI32(value) => LoweredOperand::ImmI32(*value),
         OperandPlan::ImmU32(value) => LoweredOperand::ImmU32(*value),
+        OperandPlan::ImmI64(value) => LoweredOperand::ImmI64(*value),
         OperandPlan::Block { ix, id } => {
             LoweredOperand::Block(LoweredBlockLabel { ix: *ix, id: *id })
         }
@@ -261,8 +263,8 @@ fn lower_value(value: &ValuePlan) -> LoweredValue {
 fn memory_op(opcode: Opcode) -> Option<LoweredMemoryOp> {
     match opcode {
         Opcode::Alloc => Some(LoweredMemoryOp::Alloc),
-        Opcode::LoadI32 | Opcode::LoadU32 | Opcode::LoadU8 => Some(LoweredMemoryOp::Load),
-        Opcode::StoreI32 | Opcode::StoreU32 | Opcode::StoreU8 => Some(LoweredMemoryOp::Store),
+        Opcode::LoadI32 | Opcode::LoadU32 | Opcode::LoadU8 | Opcode::LoadI64 => Some(LoweredMemoryOp::Load),
+        Opcode::StoreI32 | Opcode::StoreU32 | Opcode::StoreU8 | Opcode::StoreI64 => Some(LoweredMemoryOp::Store),
         Opcode::AddrAdd | Opcode::DataAddr => Some(LoweredMemoryOp::Address),
         _ => None,
     }

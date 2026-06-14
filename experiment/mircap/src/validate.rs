@@ -114,8 +114,7 @@ impl Validator<'_> {
     fn check_unsupported_types(&mut self) {
         for ty in &self.image.types {
             match ty.kind {
-                TypeKind::UnsupportedI64
-                | TypeKind::UnsupportedFloat
+                TypeKind::UnsupportedFloat
                 | TypeKind::UnsupportedLongDouble
                 | TypeKind::UnsupportedAggregate
                 | TypeKind::UnsupportedVarargs
@@ -126,7 +125,7 @@ impl Validator<'_> {
                         format!("unsupported MIR-F0 type: {:?}", ty.kind),
                     );
                 }
-                TypeKind::Void | TypeKind::I32 | TypeKind::U32 | TypeKind::Addr32 => {}
+                TypeKind::Void | TypeKind::I32 | TypeKind::U32 | TypeKind::I64 | TypeKind::Addr32 => {}
             }
         }
     }
@@ -349,7 +348,7 @@ impl Validator<'_> {
 
         if matches!(
             insn.opcode,
-            Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall
+            Opcode::UnsupportedIndirectCall
         ) {
             self.error(
                 ErrorKind::UnsupportedFeature,
@@ -465,7 +464,39 @@ impl Validator<'_> {
             Opcode::StoreU8 => self.check_store(current_function, insn, functions, TypeKind::U32),
             Opcode::AddrAdd => self.check_addr_add(current_function, insn, functions),
             Opcode::DataAddr => self.check_data_addr(current_function, insn, functions),
-            Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {}
+            Opcode::ConstI64 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::I64);
+                let ok = matches!(insn.operands.first(), Some(Operand::ImmI64(_)));
+                if !ok {
+                    self.error(
+                        ErrorKind::MalformedOperand,
+                        EntityRef::Instruction(insn.id),
+                        "expected 64-bit immediate operand".to_string(),
+                    );
+                }
+            }
+            Opcode::AddI64
+            | Opcode::SubI64
+            | Opcode::MulI64
+            | Opcode::EqI64
+            | Opcode::NeI64
+            | Opcode::LtI64 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 2);
+                let expected_res = match insn.opcode {
+                    Opcode::AddI64 | Opcode::SubI64 | Opcode::MulI64 => TypeKind::I64,
+                    Opcode::EqI64 | Opcode::NeI64 | Opcode::LtI64 => TypeKind::I32,
+                    _ => unreachable!(),
+                };
+                self.expect_result_type(current_function, insn, functions, 0, expected_res);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::I64);
+                self.expect_operand_type(current_function, insn, functions, 1, TypeKind::I64);
+            }
+            Opcode::LoadI64 => self.check_load(current_function, insn, functions, TypeKind::I64),
+            Opcode::StoreI64 => self.check_store(current_function, insn, functions, TypeKind::I64),
+            Opcode::UnsupportedIndirectCall => {}
         }
     }
 

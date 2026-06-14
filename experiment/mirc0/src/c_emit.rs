@@ -7,6 +7,7 @@ pub fn emit_type(kind: TypeKind) -> Result<&'static str, CompileError> {
         TypeKind::I32 => Ok("int32_t"),
         TypeKind::U32 => Ok("uint32_t"),
         TypeKind::Addr32 => Ok("uint32_t"),
+        TypeKind::I64 => Ok("int64_t"),
         _ => Err(CompileError::UnsupportedType(kind)),
     }
 }
@@ -22,6 +23,13 @@ pub fn emit_operand(op: &Operand) -> String {
             }
         }
         Operand::ImmU32(imm) => format!("{}u", imm),
+        Operand::ImmI64(imm) => {
+            if *imm == i64::MIN {
+                "((int64_t)(-9223372036854775807LL - 1LL))".to_string()
+            } else {
+                format!("((int64_t){}LL)", imm)
+            }
+        }
         Operand::Block(block) => format!("block_{}", block.0),
         Operand::Function(func) => format!("mir_fn_{}", func.0),
         Operand::Symbol(sym) => format!("sym_{}", sym.0),
@@ -311,7 +319,91 @@ pub fn emit_instruction(insn: &Instruction, image: &ModuleImage) -> Result<Strin
                 dest.0, ds.offset, offset, ds_len
             ))
         }
-        Opcode::UnsupportedI64 | Opcode::UnsupportedIndirectCall => {
+        Opcode::ConstI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let imm = emit_operand(&insn.operands[0]);
+            Ok(format!("v{} = {};", dest.0, imm))
+        }
+        Opcode::AddI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let lhs = emit_operand(&insn.operands[0]);
+            let rhs = emit_operand(&insn.operands[1]);
+            Ok(format!(
+                "v{} = (int64_t)((uint64_t){} + (uint64_t){});",
+                dest.0, lhs, rhs
+            ))
+        }
+        Opcode::SubI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let lhs = emit_operand(&insn.operands[0]);
+            let rhs = emit_operand(&insn.operands[1]);
+            Ok(format!(
+                "v{} = (int64_t)((uint64_t){} - (uint64_t){});",
+                dest.0, lhs, rhs
+            ))
+        }
+        Opcode::MulI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let lhs = emit_operand(&insn.operands[0]);
+            let rhs = emit_operand(&insn.operands[1]);
+            Ok(format!(
+                "v{} = (int64_t)((uint64_t){} * (uint64_t){});",
+                dest.0, lhs, rhs
+            ))
+        }
+        Opcode::EqI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let lhs = emit_operand(&insn.operands[0]);
+            let rhs = emit_operand(&insn.operands[1]);
+            Ok(format!("v{} = ({} == {}) ? 1 : 0;", dest.0, lhs, rhs))
+        }
+        Opcode::NeI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let lhs = emit_operand(&insn.operands[0]);
+            let rhs = emit_operand(&insn.operands[1]);
+            Ok(format!("v{} = ({} != {}) ? 1 : 0;", dest.0, lhs, rhs))
+        }
+        Opcode::LtI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let lhs = emit_operand(&insn.operands[0]);
+            let rhs = emit_operand(&insn.operands[1]);
+            Ok(format!("v{} = ({} < {}) ? 1 : 0;", dest.0, lhs, rhs))
+        }
+        Opcode::LoadI64 => {
+            let dest = insn
+                .results
+                .first()
+                .ok_or(CompileError::MultipleResultsNotSupported)?;
+            let addr = emit_operand(&insn.operands[0]);
+            Ok(format!("v{} = mir_load_i64({});", dest.0, addr))
+        }
+        Opcode::StoreI64 => {
+            let addr = emit_operand(&insn.operands[0]);
+            let val = emit_operand(&insn.operands[1]);
+            Ok(format!("mir_store_i64({}, {});", addr, val))
+        }
+        Opcode::UnsupportedIndirectCall => {
             Err(CompileError::UnsupportedOpcode(insn.opcode))
         }
     }

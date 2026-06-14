@@ -50,7 +50,7 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                     TypeKind::I32 => mircap_capnp::TypeKind::I32,
                     TypeKind::U32 => mircap_capnp::TypeKind::U32,
                     TypeKind::Addr32 => mircap_capnp::TypeKind::Addr32,
-                    TypeKind::UnsupportedI64 => mircap_capnp::TypeKind::UnsupportedI64,
+                    TypeKind::I64 => mircap_capnp::TypeKind::I64,
                     TypeKind::UnsupportedFloat => mircap_capnp::TypeKind::UnsupportedFloat,
                     TypeKind::UnsupportedLongDouble => {
                         mircap_capnp::TypeKind::UnsupportedLongDouble
@@ -233,10 +233,18 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                     Opcode::StoreU8 => mircap_capnp::Opcode::StoreU8,
                     Opcode::AddrAdd => mircap_capnp::Opcode::AddrAdd,
                     Opcode::DataAddr => mircap_capnp::Opcode::DataAddr,
-                    Opcode::UnsupportedI64 => mircap_capnp::Opcode::UnsupportedI64,
+                    Opcode::ConstI64 => mircap_capnp::Opcode::ConstI64,
                     Opcode::UnsupportedIndirectCall => {
                         mircap_capnp::Opcode::UnsupportedIndirectCall
                     }
+                    Opcode::AddI64 => mircap_capnp::Opcode::AddI64,
+                    Opcode::SubI64 => mircap_capnp::Opcode::SubI64,
+                    Opcode::MulI64 => mircap_capnp::Opcode::MulI64,
+                    Opcode::EqI64 => mircap_capnp::Opcode::EqI64,
+                    Opcode::NeI64 => mircap_capnp::Opcode::NeI64,
+                    Opcode::LtI64 => mircap_capnp::Opcode::LtI64,
+                    Opcode::LoadI64 => mircap_capnp::Opcode::LoadI64,
+                    Opcode::StoreI64 => mircap_capnp::Opcode::StoreI64,
                 };
                 capnp_insn.set_opcode(capnp_op);
 
@@ -261,6 +269,7 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                     Operand::Value(val) => capnp_op.set_value(val.0),
                     Operand::ImmI32(val) => capnp_op.set_imm_i32(val),
                     Operand::ImmU32(val) => capnp_op.set_imm_u32(val),
+                    Operand::ImmI64(val) => capnp_op.set_imm_i64(val),
                     Operand::Block(val) => capnp_op.set_block(val.0),
                     Operand::Function(val) => capnp_op.set_function(val.0),
                     Operand::Symbol(val) => capnp_op.set_symbol(val.0),
@@ -348,7 +357,7 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
             mircap_capnp::TypeKind::I32 => TypeKind::I32,
             mircap_capnp::TypeKind::U32 => TypeKind::U32,
             mircap_capnp::TypeKind::Addr32 => TypeKind::Addr32,
-            mircap_capnp::TypeKind::UnsupportedI64 => TypeKind::UnsupportedI64,
+            mircap_capnp::TypeKind::I64 => TypeKind::I64,
             mircap_capnp::TypeKind::UnsupportedFloat => TypeKind::UnsupportedFloat,
             mircap_capnp::TypeKind::UnsupportedLongDouble => TypeKind::UnsupportedLongDouble,
             mircap_capnp::TypeKind::UnsupportedAggregate => TypeKind::UnsupportedAggregate,
@@ -414,6 +423,7 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
             mircap_capnp::operand::Which::Function(val) => Operand::Function(FunctionId(val)),
             mircap_capnp::operand::Which::Symbol(val) => Operand::Symbol(SymbolId(val)),
             mircap_capnp::operand::Which::Type(val) => Operand::Type(TypeId(val)),
+            mircap_capnp::operand::Which::ImmI64(val) => Operand::ImmI64(val),
         };
         operands_list.push(op);
     }
@@ -457,8 +467,16 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
             mircap_capnp::Opcode::StoreU8 => Opcode::StoreU8,
             mircap_capnp::Opcode::AddrAdd => Opcode::AddrAdd,
             mircap_capnp::Opcode::DataAddr => Opcode::DataAddr,
-            mircap_capnp::Opcode::UnsupportedI64 => Opcode::UnsupportedI64,
+            mircap_capnp::Opcode::ConstI64 => Opcode::ConstI64,
             mircap_capnp::Opcode::UnsupportedIndirectCall => Opcode::UnsupportedIndirectCall,
+            mircap_capnp::Opcode::AddI64 => Opcode::AddI64,
+            mircap_capnp::Opcode::SubI64 => Opcode::SubI64,
+            mircap_capnp::Opcode::MulI64 => Opcode::MulI64,
+            mircap_capnp::Opcode::EqI64 => Opcode::EqI64,
+            mircap_capnp::Opcode::NeI64 => Opcode::NeI64,
+            mircap_capnp::Opcode::LtI64 => Opcode::LtI64,
+            mircap_capnp::Opcode::LoadI64 => Opcode::LoadI64,
+            mircap_capnp::Opcode::StoreI64 => Opcode::StoreI64,
         };
 
         let first_res = insn.get_first_result() as usize;

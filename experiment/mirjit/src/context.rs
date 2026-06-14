@@ -273,15 +273,19 @@ impl JitContext {
         result_kinds: &[mircap::TypeKind],
         args: &[Value],
     ) -> Result<ExecutionResult, JitError> {
-        let arg_vals: Vec<u32> = args
-            .iter()
-            .map(|arg| match arg {
-                Value::Void => 0,
-                Value::I32(v) => *v as u32,
-                Value::U32(v) => *v,
-                Value::Addr32(v) => *v,
-            })
-            .collect();
+        let mut arg_vals = Vec::new();
+        for arg in args {
+            match arg {
+                Value::Void => arg_vals.push(0),
+                Value::I32(v) => arg_vals.push(*v as u32),
+                Value::U32(v) => arg_vals.push(*v),
+                Value::Addr32(v) => arg_vals.push(*v),
+                Value::I64(v) => {
+                    arg_vals.push((*v & 0xFFFFFFFF) as u32);
+                    arg_vals.push(((*v >> 32) & 0xFFFFFFFF) as u32);
+                }
+            }
+        }
 
         let ret_val = match (arg_vals.len(), result_kinds.first()) {
             (0, None) => {
@@ -301,6 +305,10 @@ impl JitContext {
                 let f: extern "C" fn() -> u32 = std::mem::transmute(func_ptr);
                 Value::Addr32(f())
             }
+            (0, Some(mircap::TypeKind::I64)) => {
+                let f: extern "C" fn() -> i64 = std::mem::transmute(func_ptr);
+                Value::I64(f())
+            }
             (1, None) => {
                 let f: extern "C" fn(u32) = std::mem::transmute(func_ptr);
                 f(arg_vals[0]);
@@ -318,6 +326,10 @@ impl JitContext {
                 let f: extern "C" fn(u32) -> u32 = std::mem::transmute(func_ptr);
                 Value::Addr32(f(arg_vals[0]))
             }
+            (1, Some(mircap::TypeKind::I64)) => {
+                let f: extern "C" fn(u32) -> i64 = std::mem::transmute(func_ptr);
+                Value::I64(f(arg_vals[0]))
+            }
             (2, None) => {
                 let f: extern "C" fn(u32, u32) = std::mem::transmute(func_ptr);
                 f(arg_vals[0], arg_vals[1]);
@@ -334,6 +346,10 @@ impl JitContext {
             (2, Some(mircap::TypeKind::Addr32)) => {
                 let f: extern "C" fn(u32, u32) -> u32 = std::mem::transmute(func_ptr);
                 Value::Addr32(f(arg_vals[0], arg_vals[1]))
+            }
+            (2, Some(mircap::TypeKind::I64)) => {
+                let f: extern "C" fn(u32, u32) -> i64 = std::mem::transmute(func_ptr);
+                Value::I64(f(arg_vals[0], arg_vals[1]))
             }
             _ => return Err(JitError::Compile("Unsupported FFI signature".to_string())),
         };

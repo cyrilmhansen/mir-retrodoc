@@ -12,4 +12,5 @@ mirsem = { path = "../mirsem" }
 mirc0 = { path = "../mirc0" }
 mirspace = { path = "../mirspace" }
 mirplan = { path = "../mirplan" }
+mirrv32 = { path = "../mirrv32" }
 capnp = "0.19"

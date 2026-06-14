@@ -26,6 +26,7 @@ fn expected_result_line(image: &ModuleImage) -> String {
         Some(Value::I32(value)) => format!("Result: i32 {value}"),
         Some(Value::U32(value)) => format!("Result: u32 {value}"),
         Some(Value::Addr32(value)) => format!("Result: addr32 {value}"),
+        Some(Value::I64(value)) => format!("Result: i64 {value}"),
     }
 }
 

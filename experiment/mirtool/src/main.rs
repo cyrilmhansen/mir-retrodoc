@@ -34,6 +34,9 @@ fn show_help() -> String {
     s.push_str(
         "  compile-c <input_file> <output_file>      Transpiles a module image to portable C11.\n",
     );
+    s.push_str(
+        "  compile-rv32i <input_file> <output_file>  Compiles a module image to RV32I assembly.\n",
+    );
     s.push_str("  diff <input_file>                         Runs differential execution comparison between mirsem and compiled C.\n");
     s.push_str("  diff-upstream <input_file>                Runs differential execution comparison between mirsem and original MIR.\n\n");
     s.push_str("Options:\n");
@@ -136,7 +139,7 @@ fn parse_args() -> Result<Args, String> {
             }
             (positional[0].clone(), None)
         }
-        "encode" | "compile-c" => {
+        "encode" | "compile-c" | "compile-rv32i" => {
             if positional.len() < 2 {
                 return Err(format!(
                     "Command '{}' requires both input and output file paths.\n\n{}",
@@ -203,6 +206,12 @@ fn main() {
             args.output.as_ref().unwrap(),
             args.format.as_deref(),
             entry_name,
+            args.optimize,
+        ),
+        "compile-rv32i" => commands::cmd_compile_rv32i(
+            &args.input,
+            args.output.as_ref().unwrap(),
+            args.format.as_deref(),
             args.optimize,
         ),
         "diff" => commands::cmd_diff(

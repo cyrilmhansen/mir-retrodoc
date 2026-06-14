@@ -111,6 +111,7 @@ pub fn cmd_run(
                         mirsem::Value::I32(v) => println!("Result: i32 {}", v),
                         mirsem::Value::U32(v) => println!("Result: u32 {}", v),
                         mirsem::Value::Addr32(v) => println!("Result: addr32 {}", v),
+                        mirsem::Value::I64(v) => println!("Result: i64 {}", v),
                     }
                 }
             }
@@ -226,6 +227,30 @@ pub fn cmd_compile_c(
     let c_code = backend.compile(&lowered)?;
 
     std::fs::write(output_path, c_code)?;
+    Ok(())
+}
+
+pub fn cmd_compile_rv32i(
+    input_path: &str,
+    output_path: &str,
+    format_opt: Option<&str>,
+    optimize: bool,
+) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let mut lowered = mirplan::lower_compile_plan(&plan);
+    if optimize {
+        lowered = mirplan::optimize_program(lowered);
+    }
+
+    use mirplan::Backend;
+    let backend = mirrv32::Riscv32Backend;
+    let asm_code = backend.compile(&lowered)
+        .map_err(|err| CliError::Generic(err.to_string()))?;
+
+    std::fs::write(output_path, asm_code)?;
     Ok(())
 }
 
@@ -353,6 +378,7 @@ pub fn cmd_diff(
                 Some(mirsem::Value::I32(v)) => format!("Result: i32 {}", v),
                 Some(mirsem::Value::U32(v)) => format!("Result: u32 {}", v),
                 Some(mirsem::Value::Addr32(v)) => format!("Result: addr32 {}", v),
+                Some(mirsem::Value::I64(v)) => format!("Result: i64 {}", v),
             };
             if result_line == Some(expected_str.as_str()) {
                 println!("PASS");
@@ -425,7 +451,7 @@ pub fn image_to_text(image: &ModuleImage) -> String {
             mircap::TypeKind::I32 => "i32",
             mircap::TypeKind::U32 => "u32",
             mircap::TypeKind::Addr32 => "addr32",
-            mircap::TypeKind::UnsupportedI64 => "i64",
+            mircap::TypeKind::I64 => "i64",
             mircap::TypeKind::UnsupportedFloat => "float",
             mircap::TypeKind::UnsupportedLongDouble => "long_double",
             mircap::TypeKind::UnsupportedAggregate => "aggregate",
@@ -538,7 +564,15 @@ pub fn image_to_text(image: &ModuleImage) -> String {
             mircap::Opcode::StoreU8 => "store_u8",
             mircap::Opcode::AddrAdd => "addr_add",
             mircap::Opcode::DataAddr => "data_addr",
-            mircap::Opcode::UnsupportedI64 => "unsupported_i64",
+            mircap::Opcode::ConstI64 => "const_i64",
+            mircap::Opcode::AddI64 => "add_i64",
+            mircap::Opcode::SubI64 => "sub_i64",
+            mircap::Opcode::MulI64 => "mul_i64",
+            mircap::Opcode::EqI64 => "eq_i64",
+            mircap::Opcode::NeI64 => "ne_i64",
+            mircap::Opcode::LtI64 => "lt_i64",
+            mircap::Opcode::LoadI64 => "load_i64",
+            mircap::Opcode::StoreI64 => "store_i64",
             mircap::Opcode::UnsupportedIndirectCall => "indirect_call",
         };
 
@@ -555,6 +589,7 @@ pub fn image_to_text(image: &ModuleImage) -> String {
                 mircap::Operand::Function(val) => format!("f:{}", val.0),
                 mircap::Operand::Symbol(val) => format!("s:{}", val.0),
                 mircap::Operand::Type(val) => format!("t:{}", val.0),
+                mircap::Operand::ImmI64(val) => format!("l:{}", val),
             };
             parts.push(op_str);
         }
@@ -683,6 +718,7 @@ pub fn cmd_diff_upstream(
                 Some(mirsem::Value::I32(v)) => v,
                 Some(mirsem::Value::U32(v)) => v as i32,
                 Some(mirsem::Value::Addr32(v)) => v as i32,
+                Some(mirsem::Value::I64(v)) => v as i32,
             };
             let expected_exit_status = (expected_code & 0xff) as i32;
             let actual_exit_status = exit_code.map(|c| c & 0xff);

@@ -19,6 +19,47 @@ const DIRECT_CALL_FIXTURE: &str =
     include_str!("../../mircap/tests/fixtures/valid_direct_call.mircap.txt");
 const TRAP_FIXTURE: &str = include_str!("../../mircap/tests/fixtures/trap_load_oob.mircap.txt");
 
+const I64_FIXTURE: &str = r#"mircap mircap
+version 0
+module 1 test_i64
+type 1 i32
+type 2 i64
+type 3 addr32
+type 4 u32
+symbol 1 main function
+function 1 1 - 1 16 0 2,2,2,2,2,2,3,1,1,2,1,1,4,1,4,1
+func_block 1 1
+func_block 1 2
+func_block 1 3
+func_block 1 4
+block 1 1 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+insn 1 const_i64 r:0 l:100000000000
+insn 2 const_i64 r:1 l:200000000000
+insn 3 add_i64 r:2 v:0 v:1
+insn 4 sub_i64 r:3 v:2 v:0
+insn 5 const_i64 r:4 l:2
+insn 6 mul_i64 r:5 v:3 v:4
+insn 7 const_i32 r:8 i:8
+insn 8 const_i32 r:7 i:8
+insn 9 alloc r:6 v:8 v:7
+insn 10 store_i64 v:6 v:5
+insn 11 load_i64 r:9 v:6
+insn 12 eq_i64 r:10 v:9 v:5
+insn 13 const_i32 r:11 i:1
+insn 14 eq_i32 r:12 v:10 v:11
+insn 15 branch_if v:12 b:2 b:3
+block 2 1 16 17 18
+insn 16 lt_i64 r:13 v:3 v:2
+insn 17 eq_i32 r:14 v:13 v:11
+insn 18 branch_if v:14 b:4 b:3
+block 4 1 19 20
+insn 19 const_i32 r:15 i:42
+insn 20 ret v:15
+block 3 1 21 22
+insn 21 const_i32 r:15 i:99
+insn 22 ret v:15
+"#;
+
 fn check_tools() -> bool {
     let gcc_check = Command::new("riscv64-linux-gnu-gcc")
         .arg("--version")
@@ -220,4 +261,16 @@ fn test_rv32i_trap() {
 
     let code_opt = execute_rv32i(TRAP_FIXTURE, "trap_opt", true);
     assert_eq!(code_opt, 139);
+}
+
+#[test]
+fn test_rv32i_i64() {
+    if !check_tools() {
+        return;
+    }
+    let code_unopt = execute_rv32i(I64_FIXTURE, "i64_unopt", false);
+    assert_eq!(code_unopt, 42);
+
+    let code_opt = execute_rv32i(I64_FIXTURE, "i64_opt", true);
+    assert_eq!(code_opt, 42);
 }

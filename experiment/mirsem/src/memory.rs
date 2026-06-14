@@ -161,6 +161,32 @@ impl LinearMemory {
             self.bytes[start + 3],
         ]
     }
+
+    pub fn load_i64(&self, addr: u32) -> Result<i64, ExecutionTrap> {
+        self.check_load(addr, 8, 8)?;
+        let bytes = self.eight_bytes(addr);
+        Ok(i64::from_le_bytes(bytes))
+    }
+
+    pub fn store_i64(&mut self, addr: u32, value: i64) -> Result<(), ExecutionTrap> {
+        self.check_store(addr, 8, 8)?;
+        self.bytes[addr as usize..addr as usize + 8].copy_from_slice(&value.to_le_bytes());
+        Ok(())
+    }
+
+    fn eight_bytes(&self, addr: u32) -> [u8; 8] {
+        let start = addr as usize;
+        [
+            self.bytes[start],
+            self.bytes[start + 1],
+            self.bytes[start + 2],
+            self.bytes[start + 3],
+            self.bytes[start + 4],
+            self.bytes[start + 5],
+            self.bytes[start + 6],
+            self.bytes[start + 7],
+        ]
+    }
 }
 
 fn align_up(value: u32, align: u32) -> Option<u32> {

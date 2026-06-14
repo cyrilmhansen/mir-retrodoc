@@ -139,4 +139,40 @@ void mir_store_u8(uint32_t addr, uint32_t value) {
     }
     g_memory[addr] = (uint8_t)(value & 0xFF);
 }
+
+int64_t mir_load_i64(uint32_t addr) {
+    if (addr % 8 != 0) {
+        mir_trap(15); // MisalignedLoad
+    }
+    if (addr > MEMORY_SIZE - 8) {
+        mir_trap(13); // OutOfBoundsLoad
+    }
+    uint64_t val = (uint64_t)g_memory[addr] |
+                   ((uint64_t)g_memory[addr + 1] << 8) |
+                   ((uint64_t)g_memory[addr + 2] << 16) |
+                   ((uint64_t)g_memory[addr + 3] << 24) |
+                   ((uint64_t)g_memory[addr + 4] << 32) |
+                   ((uint64_t)g_memory[addr + 5] << 40) |
+                   ((uint64_t)g_memory[addr + 6] << 48) |
+                   ((uint64_t)g_memory[addr + 7] << 56);
+    return (int64_t)val;
+}
+
+void mir_store_i64(uint32_t addr, int64_t value) {
+    if (addr % 8 != 0) {
+        mir_trap(16); // MisalignedStore
+    }
+    if (addr > MEMORY_SIZE - 8) {
+        mir_trap(14); // OutOfBoundsStore
+    }
+    uint64_t val = (uint64_t)value;
+    g_memory[addr] = val & 0xFF;
+    g_memory[addr + 1] = (val >> 8) & 0xFF;
+    g_memory[addr + 2] = (val >> 16) & 0xFF;
+    g_memory[addr + 3] = (val >> 24) & 0xFF;
+    g_memory[addr + 4] = (val >> 32) & 0xFF;
+    g_memory[addr + 5] = (val >> 40) & 0xFF;
+    g_memory[addr + 6] = (val >> 48) & 0xFF;
+    g_memory[addr + 7] = (val >> 56) & 0xFF;
+}
 "#;

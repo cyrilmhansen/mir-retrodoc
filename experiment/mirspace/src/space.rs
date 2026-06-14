@@ -57,6 +57,7 @@ pub enum OperandRec {
     Value(ValueIx),
     ImmI32(i32),
     ImmU32(u32),
+    ImmI64(i64),
     Block(BlockIx),
     Function(FunctionIx),
     Symbol(SymbolIx),

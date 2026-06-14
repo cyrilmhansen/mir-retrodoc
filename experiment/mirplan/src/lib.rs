@@ -65,6 +65,7 @@ pub enum OperandPlan {
     Value(ValuePlan),
     ImmI32(i32),
     ImmU32(u32),
+    ImmI64(i64),
     Block {
         ix: BlockIx,
         id: BlockId,
@@ -208,6 +209,7 @@ fn build_function_plan(space: &ProgramSpace, function_ix: FunctionIx) -> Functio
                                 }
                                 OperandRec::ImmI32(value) => OperandPlan::ImmI32(value),
                                 OperandRec::ImmU32(value) => OperandPlan::ImmU32(value),
+                                OperandRec::ImmI64(value) => OperandPlan::ImmI64(value),
                                 OperandRec::Block(block) => OperandPlan::Block {
                                     ix: block,
                                     id: space.blocks[block.0].id,
@@ -308,8 +310,10 @@ fn is_memory_op(opcode: Opcode) -> bool {
         Opcode::Alloc
             | Opcode::LoadI32
             | Opcode::LoadU32
+            | Opcode::LoadI64
             | Opcode::StoreI32
             | Opcode::StoreU32
+            | Opcode::StoreI64
             | Opcode::LoadU8
             | Opcode::StoreU8
             | Opcode::AddrAdd

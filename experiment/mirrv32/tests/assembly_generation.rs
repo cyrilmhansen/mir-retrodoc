@@ -32,12 +32,13 @@ fn test_assembly_generation_const_return() {
     assert!(asm.contains("sw s0, 8(sp)"));
     assert!(asm.contains("addi s0, sp, 16"));
 
-    // Verify constant load & spill store
-    assert!(asm.contains("li t0, 42"));
-    assert!(asm.contains("sw t0, -12(s0)"));
+    // Verify constant load & callee-saved register use
+    assert!(asm.contains("sw s1, -12(s0)"));
+    assert!(asm.contains("li s1, 42"));
+    assert!(asm.contains("mv a0, s1"));
+    assert!(asm.contains("lw s1, -12(s0)"));
 
     // Verify epilogue & return
-    assert!(asm.contains("lw a0, -12(s0)"));
     assert!(asm.contains("lw ra, 12(sp)"));
     assert!(asm.contains("lw s0, 8(sp)"));
     assert!(asm.contains("addi sp, sp, 16"));
@@ -58,6 +59,6 @@ fn test_assembly_generation_branch() {
     assert!(asm.contains("block_1_1:"));
     assert!(asm.contains("block_1_2:"));
     assert!(asm.contains("block_1_3:"));
-    assert!(asm.contains("bne t0, zero, block_1_2"));
+    assert!(asm.contains("bne s1, zero, block_1_2"));
     assert!(asm.contains("j block_1_3"));
 }

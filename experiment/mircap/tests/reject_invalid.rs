@@ -27,10 +27,7 @@ fn rejects_return_type_mismatch() {
     reject_fixture("invalid_return_type_mismatch.mircap.txt");
 }
 
-#[test]
-fn rejects_unsupported_i64() {
-    reject_fixture("invalid_unsupported_i64.mircap.txt");
-}
+
 
 #[test]
 fn rejects_instruction_after_terminator() {
@@ -62,10 +59,7 @@ fn rejects_malformed_data_segment() {
     reject_fixture("invalid_malformed_data_segment.mircap.txt");
 }
 
-#[test]
-fn rejects_unsupported_i64_memory() {
-    reject_fixture("invalid_unsupported_i64_memory.mircap.txt");
-}
+
 
 #[test]
 fn rejects_addr_add_wrong_offset_type() {

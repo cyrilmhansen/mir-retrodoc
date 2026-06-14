@@ -45,7 +45,7 @@ enum TypeKind {
   i32 @1;
   u32 @2;
   addr32 @3;
-  unsupportedI64 @4;
+  i64 @4;
   unsupportedFloat @5;
   unsupportedLongDouble @6;
   unsupportedAggregate @7;
@@ -137,8 +137,16 @@ enum Opcode {
   storeU8 @29;
   addrAdd @30;
   dataAddr @31;
-  unsupportedI64 @32;
+  constI64 @32;
   unsupportedIndirectCall @33;
+  addI64 @34;
+  subI64 @35;
+  mulI64 @36;
+  eqI64 @37;
+  neI64 @38;
+  ltI64 @39;
+  loadI64 @40;
+  storeI64 @41;
 }
 
 struct Operand {
@@ -150,6 +158,7 @@ struct Operand {
     function @4 :UInt32;
     symbol @5 :UInt32;
     type @6 :UInt32;
+    immI64 @7 :Int64;
   }
 }
 
