@@ -28,6 +28,8 @@ The first F1 axis is `mirspace` analysis:
   data segments, branches, calls, and memory operations explicit without
   generating code;
 - CLI inspection through `mirtool plan` and `mirtool lower`.
+- experimental backend validation through `mirc0::compile_lowered`, while
+  keeping the stable `ModuleImage` compiler path unchanged.
 
 ## Deferred From Early F1
 
@@ -51,7 +53,9 @@ These remain intentionally deferred until the analysis layer is firmer:
 5. Differentially verify that planning does not mutate `ModuleImage` and stays
    stable across text and Cap'n Proto load paths.
 6. Expose planning and lowering artifacts through read-only CLI inspection.
-7. Only then choose the first target-facing F1 feature.
+7. Prove the lowered contract with an experimental C backend path before
+   choosing a new target.
+8. Only then choose the first target-facing F1 feature.
 
 ## Exit Criteria
 
@@ -65,6 +69,8 @@ F1 is ready to move toward target work when:
   segment summaries;
 - `mirplan` artifacts are identical across text and Cap'n Proto load paths;
 - `mirtool` exposes both plan and lower inspection paths;
+- `mirc0` can experimentally compile representative F0 fixtures from
+  `LoweredProgram`;
 - all analysis output is deterministic;
 - all F0 tests remain green;
 - the planned baseline compiler input is documented and covered by fixtures.

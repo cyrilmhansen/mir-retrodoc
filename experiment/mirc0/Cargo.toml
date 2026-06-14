@@ -10,6 +10,8 @@ path = "src/lib.rs"
 
 [dependencies]
 mircap = { path = "../mircap" }
+mirplan = { path = "../mirplan" }
 
 [dev-dependencies]
 mirsem = { path = "../mirsem" }
+mirspace = { path = "../mirspace" }

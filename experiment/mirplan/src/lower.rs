@@ -1,6 +1,6 @@
 use crate::{BlockEdgePlan, CompilePlan, DataSegmentPlan, FunctionPlan, OperandPlan, ValuePlan};
-use mircap::{BlockId, FunctionId, InstructionId, Opcode, TypeKind, ValueId};
-use mirspace::{BlockIx, EdgeKind, FunctionIx, InstructionIx, ValueIx};
+use mircap::{BlockId, FunctionId, InstructionId, Opcode, SymbolId, TypeId, TypeKind, ValueId};
+use mirspace::{BlockIx, EdgeKind, FunctionIx, InstructionIx, SymbolIx, ValueIx};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoweredProgram {
@@ -35,6 +35,7 @@ pub struct LoweredInstruction {
     pub kind: LoweredInstructionKind,
     pub writes: Vec<LoweredValue>,
     pub reads: Vec<LoweredValue>,
+    pub operands: Vec<LoweredOperand>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -71,6 +72,21 @@ pub struct LoweredFunctionRef {
     pub ix: FunctionIx,
     pub id: FunctionId,
     pub name: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LoweredOperand {
+    Value(LoweredValue),
+    ImmI32(i32),
+    ImmU32(u32),
+    Block(LoweredBlockLabel),
+    Function(LoweredFunctionRef),
+    Symbol {
+        ix: SymbolIx,
+        id: SymbolId,
+        name: String,
+    },
+    Type(TypeId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -139,6 +155,7 @@ fn lower_instruction(instruction: &crate::InstructionPlan) -> LoweredInstruction
         kind: lower_instruction_kind(instruction),
         writes,
         reads,
+        operands: instruction.operands.iter().map(lower_operand).collect(),
     }
 }
 
@@ -199,6 +216,28 @@ fn callee_from_operands(operands: &[OperandPlan]) -> LoweredFunctionRef {
             _ => None,
         })
         .expect("compile plan call instruction must have a direct callee")
+}
+
+fn lower_operand(operand: &OperandPlan) -> LoweredOperand {
+    match operand {
+        OperandPlan::Value(value) => LoweredOperand::Value(lower_value(value)),
+        OperandPlan::ImmI32(value) => LoweredOperand::ImmI32(*value),
+        OperandPlan::ImmU32(value) => LoweredOperand::ImmU32(*value),
+        OperandPlan::Block { ix, id } => {
+            LoweredOperand::Block(LoweredBlockLabel { ix: *ix, id: *id })
+        }
+        OperandPlan::Function { ix, id, name } => LoweredOperand::Function(LoweredFunctionRef {
+            ix: *ix,
+            id: *id,
+            name: name.clone(),
+        }),
+        OperandPlan::Symbol { ix, id, name } => LoweredOperand::Symbol {
+            ix: *ix,
+            id: *id,
+            name: name.clone(),
+        },
+        OperandPlan::Type(type_id) => LoweredOperand::Type(*type_id),
+    }
 }
 
 fn lower_branch_target(target: &BlockEdgePlan) -> LoweredBranchTarget {

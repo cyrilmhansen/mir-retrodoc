@@ -48,6 +48,8 @@ Current F1 direction:
 - use `mirplan` to produce deterministic compile-plan artifacts;
 - use `mirplan` lowering projections as backend-facing, target-neutral input,
   including module data segment summaries;
+- prove that input through an experimental `mirc0::compile_lowered` path while
+  preserving the stable `ModuleImage` C compiler path;
 - expose inspection through `mirtool plan` and `mirtool lower`.
 
 Detailed F1 scope and exit criteria live in

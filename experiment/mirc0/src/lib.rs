@@ -4,9 +4,11 @@
 
 pub mod c_emit;
 pub mod compile;
+pub mod compile_lowered;
 pub mod error;
 pub mod pretty;
 pub mod runtime_c;
 
 pub use compile::compile;
+pub use compile_lowered::compile_lowered;
 pub use error::CompileError;

@@ -10,7 +10,7 @@ pub use format::{format_lowered, format_plan};
 pub use lower::{
     lower_compile_plan, LoweredBlock, LoweredBlockLabel, LoweredBranchTarget, LoweredFunction,
     LoweredFunctionRef, LoweredInstruction, LoweredInstructionKind, LoweredMemoryOp,
-    LoweredProgram, LoweredValue,
+    LoweredOperand, LoweredProgram, LoweredValue,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -108,6 +108,8 @@ pub struct DataSegmentPlan {
     pub symbol: SymbolId,
     pub name: String,
     pub offset: u32,
+    pub bytes: Vec<u8>,
+    pub zero_fill: u32,
     pub length: u32,
 }
 
@@ -129,6 +131,8 @@ pub fn build_compile_plan(space: &ProgramSpace) -> CompilePlan {
                 symbol: segment.symbol,
                 name: symbol.name.clone(),
                 offset: segment.offset,
+                bytes: segment.bytes.clone(),
+                zero_fill: segment.zero_fill,
                 length: segment.length,
             }
         })

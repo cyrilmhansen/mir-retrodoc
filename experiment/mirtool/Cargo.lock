@@ -31,6 +31,7 @@ name = "mirc0"
 version = "0.1.0"
 dependencies = [
  "mircap",
+ "mirplan",
 ]
 
 [[package]]

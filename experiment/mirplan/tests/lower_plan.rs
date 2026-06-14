@@ -1,5 +1,7 @@
 use mircap::{BlockId, FunctionId, InstructionId, ModuleImage, Opcode, TypeKind, ValueId};
-use mirplan::{build_compile_plan, lower_compile_plan, LoweredInstructionKind, LoweredMemoryOp};
+use mirplan::{
+    build_compile_plan, lower_compile_plan, LoweredInstructionKind, LoweredMemoryOp, LoweredOperand,
+};
 use mirspace::{EdgeKind, ProgramSpace};
 
 fn lowered_fixture(name: &str) -> mirplan::LoweredProgram {
@@ -127,5 +129,13 @@ fn lowers_data_segment_summaries() {
     assert_eq!(lowered.data_segments.len(), 1);
     assert_eq!(lowered.data_segments[0].name, "global0");
     assert_eq!(lowered.data_segments[0].offset, 100);
+    assert_eq!(lowered.data_segments[0].bytes, vec![0x2a, 0x2b, 0x2c, 0x2d]);
+    assert_eq!(lowered.data_segments[0].zero_fill, 0);
     assert_eq!(lowered.data_segments[0].length, 4);
+
+    let data_addr = &lowered.functions[0].blocks[0].instructions[1];
+    assert!(matches!(
+        data_addr.operands.as_slice(),
+        [LoweredOperand::Symbol { name, .. }, LoweredOperand::Value(_)] if name == "global0"
+    ));
 }
