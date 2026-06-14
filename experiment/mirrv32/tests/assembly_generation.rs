@@ -2,7 +2,8 @@ use mircap::ModuleImage;
 use mirplan::{build_compile_plan, lower_compile_plan, Backend};
 use mirrv32::Riscv32Backend;
 
-const CONST_RETURN_FIXTURE: &str = include_str!("../../mircap/tests/fixtures/valid_const_return.mircap.txt");
+const CONST_RETURN_FIXTURE: &str =
+    include_str!("../../mircap/tests/fixtures/valid_const_return.mircap.txt");
 const BRANCH_FIXTURE: &str = include_str!("../../mircap/tests/fixtures/valid_branch.mircap.txt");
 
 #[test]
@@ -19,7 +20,6 @@ fn test_assembly_generation_const_return() {
 
     // Verify metadata directives
     assert!(asm.contains(".attribute arch, \"rv32im\""));
-    assert!(asm.contains(".attribute abi, \"ilp32\""));
     assert!(asm.contains(".section .text"));
 
     // Verify function global declaration & symbol

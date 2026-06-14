@@ -8,9 +8,9 @@ use mirspace::{
 
 pub use format::{format_lowered, format_plan};
 pub use lower::{
-    lower_compile_plan, Backend, LoweredBlock, LoweredBlockLabel, LoweredBranchTarget, LoweredFunction,
-    LoweredFunctionRef, LoweredInstruction, LoweredInstructionKind, LoweredMemoryOp,
-    LoweredOperand, LoweredProgram, LoweredValue,
+    lower_compile_plan, Backend, LoweredBlock, LoweredBlockLabel, LoweredBranchTarget,
+    LoweredFunction, LoweredFunctionRef, LoweredInstruction, LoweredInstructionKind,
+    LoweredMemoryOp, LoweredOperand, LoweredProgram, LoweredValue,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]

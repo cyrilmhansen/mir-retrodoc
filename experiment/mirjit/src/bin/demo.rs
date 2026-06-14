@@ -1,17 +1,19 @@
+use mirc0::C11Backend;
 use mircap::ModuleImage;
-use mirsem::profile::ExecutionProfile;
 use mirjit::{JitContext, ThunkTarget};
 use mirplan::{build_compile_plan, lower_compile_plan, Backend};
-use mirc0::C11Backend;
+use mirsem::profile::ExecutionProfile;
+use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::error::Error;
 
-const CONST_RETURN_FIXTURE: &str = include_str!("../../../mircap/tests/fixtures/valid_const_return.mircap.txt");
-const SIEVE_FIXTURE: &str = include_str!("../../../mircap/tests/fixtures/valid_sieve_32_u32.mircap.txt");
+const CONST_RETURN_FIXTURE: &str =
+    include_str!("../../../mircap/tests/fixtures/valid_const_return.mircap.txt");
+const SIEVE_FIXTURE: &str =
+    include_str!("../../../mircap/tests/fixtures/valid_sieve_32_u32.mircap.txt");
 
 fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<String, String> {
     let space = mirspace::ProgramSpace::from_module_image(image).map_err(|e| format!("{:?}", e))?;
@@ -29,7 +31,8 @@ fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<Strin
     fs::write(&c_path, c_code).map_err(|e| e.to_string())?;
 
     let mut compile_cmd = Command::new("cc");
-    compile_cmd.arg("-O0")
+    compile_cmd
+        .arg("-O0")
         .arg("-std=c11")
         .arg("-Wall")
         .arg("-Wextra")
@@ -37,7 +40,7 @@ fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<Strin
         .arg("-o")
         .arg(&bin_path)
         .arg(&c_path);
-    
+
     let compile_output = compile_cmd.output().map_err(|e| e.to_string())?;
     let _ = fs::remove_file(&c_path);
 
@@ -95,13 +98,22 @@ int main(void) {{
 
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target");
     let _ = fs::create_dir_all(&dir);
-    let c_path = dir.join(format!("temp_bench_{}_{}.c", test_name, opt_level.replace("-", "")));
-    let bin_path = dir.join(format!("temp_bench_{}_{}", test_name, opt_level.replace("-", "")));
+    let c_path = dir.join(format!(
+        "temp_bench_{}_{}.c",
+        test_name,
+        opt_level.replace("-", "")
+    ));
+    let bin_path = dir.join(format!(
+        "temp_bench_{}_{}",
+        test_name,
+        opt_level.replace("-", "")
+    ));
 
     fs::write(&c_path, c_code).map_err(|e| e.to_string())?;
 
     let mut compile_cmd = Command::new("cc");
-    compile_cmd.arg(opt_level)
+    compile_cmd
+        .arg(opt_level)
         .arg("-std=c11")
         .arg("-Wall")
         .arg("-Wextra")
@@ -109,7 +121,7 @@ int main(void) {{
         .arg("-o")
         .arg(&bin_path)
         .arg(&c_path);
-    
+
     let compile_output = compile_cmd.output().map_err(|e| e.to_string())?;
     let _ = fs::remove_file(&c_path);
 
@@ -120,7 +132,9 @@ int main(void) {{
         ));
     }
 
-    let run_output = Command::new(&bin_path).output().map_err(|e| e.to_string())?;
+    let run_output = Command::new(&bin_path)
+        .output()
+        .map_err(|e| e.to_string())?;
     let _ = fs::remove_file(&bin_path);
 
     if !run_output.status.success() {
@@ -193,9 +207,7 @@ print(f"elapsed_ns: {{elapsed_ns}}")
     let script_path = dir.join("sieve_bench.py");
     fs::write(&script_path, python_script).map_err(|e| e.to_string())?;
 
-    let output = Command::new("python3")
-        .arg(&script_path)
-        .output();
+    let output = Command::new("python3").arg(&script_path).output();
 
     let _ = fs::remove_file(&script_path);
 
@@ -217,20 +229,28 @@ print(f"elapsed_ns: {{elapsed_ns}}")
 
 fn run_interpreter_bench(image: &ModuleImage, iterations: u32) -> Result<u128, String> {
     let profile = ExecutionProfile::default();
-    let entry_func = image.functions.first().ok_or("No functions found".to_string())?.id;
-    
+    let entry_func = image
+        .functions
+        .first()
+        .ok_or("No functions found".to_string())?
+        .id;
+
     // Warm up
     {
         let mut runner = mirsem::runner::Runner::new(image.clone(), profile.clone())
             .map_err(|e| format!("{:?}", e))?;
-        let _ = runner.run_entry(entry_func, &[]).map_err(|e| format!("{:?}", e))?;
+        let _ = runner
+            .run_entry(entry_func, &[])
+            .map_err(|e| format!("{:?}", e))?;
     }
 
     let start = Instant::now();
     for _ in 0..iterations {
         let mut runner = mirsem::runner::Runner::new(image.clone(), profile.clone())
             .map_err(|e| format!("{:?}", e))?;
-        let _ = runner.run_entry(entry_func, &[]).map_err(|e| format!("{:?}", e))?;
+        let _ = runner
+            .run_entry(entry_func, &[])
+            .map_err(|e| format!("{:?}", e))?;
     }
     let elapsed = start.elapsed().as_nanos();
     Ok(elapsed)
@@ -261,16 +281,25 @@ fn run_pedagogical_demo() -> Result<(), Box<dyn Error>> {
     // 2. Eager Compile Mode
     println!("Step 2: Running in Eager JIT Compile Mode...");
     let mut context_eager = JitContext::new(image.clone(), ExecutionProfile::default());
-    context_eager.set_eager_compile(|img, _| {
-        compile_function_to_bin(img, "demo_eager").map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn Error + Send + Sync>)
-    }).map_err(|e| e.to_string())?;
-    
-    let thunk_eager = context_eager.thunks.values().find(|t| t.name == "main").unwrap();
+    context_eager
+        .set_eager_compile(|img, _| {
+            compile_function_to_bin(img, "demo_eager").map_err(|e| {
+                Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
+                    as Box<dyn Error + Send + Sync>
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let thunk_eager = context_eager
+        .thunks
+        .values()
+        .find(|t| t.name == "main")
+        .unwrap();
     println!("Main thunk target: Compiled");
-    
+
     let res_eager = context_eager.call_by_name("main", &[])?;
     println!("Result: {:?}", res_eager.values);
-    
+
     if let ThunkTarget::Compiled { binary_path } = thunk_eager.target() {
         let _ = fs::remove_file(&binary_path);
     }
@@ -279,16 +308,23 @@ fn run_pedagogical_demo() -> Result<(), Box<dyn Error>> {
     // 3. Lazy Compile Mode
     println!("Step 3: Running in Lazy JIT Compile Mode...");
     let mut context_lazy = JitContext::new(image.clone(), ExecutionProfile::default());
-    
+
     let compile_counter = Arc::new(Mutex::new(0));
     let counter_clone = compile_counter.clone();
     let compile_hook = Arc::new(move |img: &ModuleImage, _| {
         *counter_clone.lock().unwrap() += 1;
-        compile_function_to_bin(img, "demo_lazy").map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn Error + Send + Sync>)
+        compile_function_to_bin(img, "demo_lazy").map_err(|e| {
+            Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
+                as Box<dyn Error + Send + Sync>
+        })
     });
-    
+
     context_lazy.set_lazy_compile(compile_hook);
-    let thunk_lazy = context_lazy.thunks.values().find(|t| t.name == "main").unwrap();
+    let thunk_lazy = context_lazy
+        .thunks
+        .values()
+        .find(|t| t.name == "main")
+        .unwrap();
     println!("Main thunk target initially: LazyCompile");
     println!("Compilation count: {}", *compile_counter.lock().unwrap());
 
@@ -340,11 +376,13 @@ fn run_performance_benchmarks() -> Result<(), Box<dyn Error>> {
     let cc_check = Command::new("cc").arg("--version").output();
     let (c_o0_ns, c_o3_ns) = if cc_check.is_ok() {
         print!("Running JIT Compiled C (-O0) benchmark... ");
-        let o0_ns = compile_and_run_c_bench(&image, "sieve", "-O0", iterations).map_err(|e| e.to_string())?;
+        let o0_ns = compile_and_run_c_bench(&image, "sieve", "-O0", iterations)
+            .map_err(|e| e.to_string())?;
         println!("{:.3} ms", (o0_ns as f64) / 1_000_000.0);
 
         print!("Running JIT Compiled C (-O3) benchmark... ");
-        let o3_ns = compile_and_run_c_bench(&image, "sieve", "-O3", iterations).map_err(|e| e.to_string())?;
+        let o3_ns = compile_and_run_c_bench(&image, "sieve", "-O3", iterations)
+            .map_err(|e| e.to_string())?;
         println!("{:.3} ms", (o3_ns as f64) / 1_000_000.0);
         (Some(o0_ns), Some(o3_ns))
     } else {

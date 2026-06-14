@@ -274,4 +274,3 @@ pub trait Backend {
 
     fn compile(&self, program: &LoweredProgram) -> Result<Self::Output, Self::Error>;
 }
-

@@ -1,11 +1,9 @@
 use crate::allocator::StackFrame;
-use mircap::{Opcode, ValueId};
-use mirplan::{
-    LoweredFunction, LoweredInstruction, LoweredOperand, LoweredProgram, LoweredValue,
-};
-use std::fmt::Write;
+use mircap::Opcode;
+use mirplan::{LoweredFunction, LoweredInstruction, LoweredOperand, LoweredProgram, LoweredValue};
 use std::error::Error;
 use std::fmt;
+use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum CodegenError {
@@ -21,7 +19,9 @@ impl fmt::Display for CodegenError {
         match self {
             CodegenError::Format(e) => write!(f, "Format error: {}", e),
             CodegenError::UnsupportedOpcode(op) => write!(f, "Unsupported opcode: {:?}", op),
-            CodegenError::MultipleResultsNotSupported => write!(f, "Multiple results not supported"),
+            CodegenError::MultipleResultsNotSupported => {
+                write!(f, "Multiple results not supported")
+            }
             CodegenError::InvalidOperandIndex(idx) => write!(f, "Invalid operand index: {}", idx),
             CodegenError::Generic(s) => write!(f, "Codegen error: {}", s),
         }
@@ -46,7 +46,6 @@ impl mirplan::Backend for Riscv32Backend {
         let mut asm = String::new();
 
         writeln!(&mut asm, ".attribute arch, \"rv32im\"")?;
-        writeln!(&mut asm, ".attribute abi, \"ilp32\"")?;
         writeln!(&mut asm, ".section .text")?;
 
         // 1. Forward declaration globals
@@ -127,30 +126,49 @@ fn emit_instruction(
     match insn.opcode {
         Opcode::ConstI32 | Opcode::ConstU32 => {
             let dest = one_write(insn)?;
-            let imm = match insn.operands.first().ok_or(CodegenError::InvalidOperandIndex(0))? {
+            let imm = match insn
+                .operands
+                .first()
+                .ok_or(CodegenError::InvalidOperandIndex(0))?
+            {
                 LoweredOperand::ImmI32(val) => *val as u32,
                 LoweredOperand::ImmU32(val) => *val,
-                _ => return Err(CodegenError::Generic("Expected immediate operand".to_string())),
+                _ => {
+                    return Err(CodegenError::Generic(
+                        "Expected immediate operand".to_string(),
+                    ))
+                }
             };
             writeln!(asm, "    li t0, {}", imm)?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::Copy => {
             let dest = one_write(insn)?;
-            let src = match insn.operands.first().ok_or(CodegenError::InvalidOperandIndex(0))? {
-                LoweredOperand::Value(val) => val.id,
-                _ => return Err(CodegenError::Generic("Expected value operand".to_string())),
-            };
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(src))?;
+            let src = insn
+                .operands
+                .first()
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            load_operand_to_reg(asm, src, "t0", frame)?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
-        Opcode::AddI32 | Opcode::AddU32 | Opcode::SubI32 | Opcode::SubU32 | Opcode::MulI32 | Opcode::MulU32 => {
+        Opcode::AddI32
+        | Opcode::AddU32
+        | Opcode::SubI32
+        | Opcode::SubU32
+        | Opcode::MulI32
+        | Opcode::MulU32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
-            
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
+
             match insn.opcode {
                 Opcode::AddI32 | Opcode::AddU32 => writeln!(asm, "    add t0, t0, t1")?,
                 Opcode::SubI32 | Opcode::SubU32 => writeln!(asm, "    sub t0, t0, t1")?,
@@ -161,105 +179,177 @@ fn emit_instruction(
         }
         Opcode::LtI32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
             writeln!(asm, "    slt t0, t0, t1")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::LtU32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
             writeln!(asm, "    sltu t0, t0, t1")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::EqI32 | Opcode::EqU32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
             writeln!(asm, "    sub t0, t0, t1")?;
             writeln!(asm, "    seqz t0, t0")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::NeI32 | Opcode::NeU32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
             writeln!(asm, "    sub t0, t0, t1")?;
             writeln!(asm, "    snez t0, t0")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::LeU32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
             writeln!(asm, "    sltu t0, t1, t0")?;
             writeln!(asm, "    xori t0, t0, 1")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::GtU32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
             writeln!(asm, "    sltu t0, t1, t0")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::GeU32 => {
             let dest = one_write(insn)?;
-            let lhs = value_operand(insn, 0)?;
-            let rhs = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(lhs))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(rhs))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, lhs, "t0", frame)?;
+            load_operand_to_reg(asm, rhs, "t1", frame)?;
             writeln!(asm, "    sltu t0, t0, t1")?;
             writeln!(asm, "    xori t0, t0, 1")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::Branch => {
-            let target = match insn.operands.first().ok_or(CodegenError::InvalidOperandIndex(0))? {
+            let target = match insn
+                .operands
+                .first()
+                .ok_or(CodegenError::InvalidOperandIndex(0))?
+            {
                 LoweredOperand::Block(label) => label.id.0,
                 _ => return Err(CodegenError::Generic("Expected block operand".to_string())),
             };
             writeln!(asm, "    j block_{}_{}", func_id, target)?;
         }
         Opcode::BranchIf => {
-            let cond = value_operand(insn, 0)?;
-            let true_target = match insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))? {
+            let cond = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let true_target = match insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?
+            {
                 LoweredOperand::Block(label) => label.id.0,
                 _ => return Err(CodegenError::Generic("Expected block operand".to_string())),
             };
-            let false_target = match insn.operands.get(2).ok_or(CodegenError::InvalidOperandIndex(2))? {
+            let false_target = match insn
+                .operands
+                .get(2)
+                .ok_or(CodegenError::InvalidOperandIndex(2))?
+            {
                 LoweredOperand::Block(label) => label.id.0,
                 _ => return Err(CodegenError::Generic("Expected block operand".to_string())),
             };
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(cond))?;
+            load_operand_to_reg(asm, cond, "t0", frame)?;
             writeln!(asm, "    bne t0, zero, block_{}_{}", func_id, true_target)?;
             writeln!(asm, "    j block_{}_{}", func_id, false_target)?;
         }
         Opcode::Call => {
-            let callee = match insn.operands.first().ok_or(CodegenError::InvalidOperandIndex(0))? {
+            let callee = match insn
+                .operands
+                .first()
+                .ok_or(CodegenError::InvalidOperandIndex(0))?
+            {
                 LoweredOperand::Function(func_ref) => func_ref.id.0,
-                _ => return Err(CodegenError::Generic("Expected function operand".to_string())),
+                _ => {
+                    return Err(CodegenError::Generic(
+                        "Expected function operand".to_string(),
+                    ))
+                }
             };
             // Load parameters into registers a0-a7
             for idx in 1..insn.operands.len() {
                 if idx - 1 < 8 {
-                    let arg = match &insn.operands[idx] {
-                        LoweredOperand::Value(val) => val.id,
-                        _ => return Err(CodegenError::Generic("Expected value operand".to_string())),
+                    let reg_name = match idx - 1 {
+                        0 => "a0",
+                        1 => "a1",
+                        2 => "a2",
+                        3 => "a3",
+                        4 => "a4",
+                        5 => "a5",
+                        6 => "a6",
+                        7 => "a7",
+                        _ => unreachable!(),
                     };
-                    writeln!(asm, "    lw a{}, {}(s0)", idx - 1, frame.offset_of(arg))?;
+                    load_operand_to_reg(asm, &insn.operands[idx], reg_name, frame)?;
                 }
             }
             writeln!(asm, "    jal ra, mir_fn_{}", callee)?;
@@ -270,11 +360,7 @@ fn emit_instruction(
         }
         Opcode::Ret => {
             if !insn.operands.is_empty() {
-                let val = match insn.operands.first().ok_or(CodegenError::InvalidOperandIndex(0))? {
-                    LoweredOperand::Value(val) => val.id,
-                    _ => return Err(CodegenError::Generic("Expected value operand".to_string())),
-                };
-                writeln!(asm, "    lw a0, {}(s0)", frame.offset_of(val))?;
+                load_operand_to_reg(asm, &insn.operands[0], "a0", frame)?;
             }
             // Epilogue
             writeln!(asm, "    # Epilogue")?;
@@ -288,47 +374,77 @@ fn emit_instruction(
         }
         Opcode::Alloc => {
             let dest = one_write(insn)?;
-            let size = value_operand(insn, 0)?;
-            let align = value_operand(insn, 1)?;
-            writeln!(asm, "    lw a0, {}(s0)", frame.offset_of(size))?;
-            writeln!(asm, "    lw a1, {}(s0)", frame.offset_of(align))?;
+            let size = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let align = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, size, "a0", frame)?;
+            load_operand_to_reg(asm, align, "a1", frame)?;
             writeln!(asm, "    jal ra, mir_alloc")?;
             writeln!(asm, "    sw a0, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::LoadI32 | Opcode::LoadU32 => {
             let dest = one_write(insn)?;
-            let addr = value_operand(insn, 0)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(addr))?;
+            let addr = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            load_operand_to_reg(asm, addr, "t0", frame)?;
             writeln!(asm, "    lw t1, 0(t0)")?;
             writeln!(asm, "    sw t1, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::LoadU8 => {
             let dest = one_write(insn)?;
-            let addr = value_operand(insn, 0)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(addr))?;
+            let addr = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            load_operand_to_reg(asm, addr, "t0", frame)?;
             writeln!(asm, "    lbu t1, 0(t0)")?;
             writeln!(asm, "    sw t1, {}(s0)", frame.offset_of(dest.id))?;
         }
         Opcode::StoreI32 | Opcode::StoreU32 => {
-            let addr = value_operand(insn, 0)?;
-            let val = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(addr))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(val))?;
+            let addr = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let val = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, addr, "t0", frame)?;
+            load_operand_to_reg(asm, val, "t1", frame)?;
             writeln!(asm, "    sw t1, 0(t0)")?;
         }
         Opcode::StoreU8 => {
-            let addr = value_operand(insn, 0)?;
-            let val = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(addr))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(val))?;
+            let addr = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let val = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, addr, "t0", frame)?;
+            load_operand_to_reg(asm, val, "t1", frame)?;
             writeln!(asm, "    sb t1, 0(t0)")?;
         }
         Opcode::AddrAdd => {
             let dest = one_write(insn)?;
-            let base = value_operand(insn, 0)?;
-            let offset = value_operand(insn, 1)?;
-            writeln!(asm, "    lw t0, {}(s0)", frame.offset_of(base))?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(offset))?;
+            let base = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let offset = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
+            load_operand_to_reg(asm, base, "t0", frame)?;
+            load_operand_to_reg(asm, offset, "t1", frame)?;
             writeln!(asm, "    add t0, t0, t1")?;
             writeln!(asm, "    sltu t2, t0, t1")?;
             // If overflowed (t2 != 0), trap
@@ -339,13 +455,20 @@ fn emit_instruction(
         }
         Opcode::DataAddr => {
             let dest = one_write(insn)?;
-            let symbol = match insn.operands.first().ok_or(CodegenError::InvalidOperandIndex(0))? {
+            let symbol = match insn
+                .operands
+                .first()
+                .ok_or(CodegenError::InvalidOperandIndex(0))?
+            {
                 LoweredOperand::Symbol { id, .. } => *id,
                 _ => return Err(CodegenError::Generic("Expected symbol operand".to_string())),
             };
-            let offset = value_operand(insn, 1)?;
+            let offset = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             writeln!(asm, "    la t0, sym_{}", symbol.0)?;
-            writeln!(asm, "    lw t1, {}(s0)", frame.offset_of(offset))?;
+            load_operand_to_reg(asm, offset, "t1", frame)?;
             writeln!(asm, "    add t0, t0, t1")?;
             writeln!(asm, "    sw t0, {}(s0)", frame.offset_of(dest.id))?;
         }
@@ -364,9 +487,28 @@ fn one_write(insn: &LoweredInstruction) -> Result<&LoweredValue, CodegenError> {
     }
 }
 
-fn value_operand(insn: &LoweredInstruction, index: usize) -> Result<ValueId, CodegenError> {
-    match insn.operands.get(index).ok_or(CodegenError::InvalidOperandIndex(index))? {
-        LoweredOperand::Value(val) => Ok(val.id),
-        _ => Err(CodegenError::Generic(format!("Expected value operand at index {}", index))),
+fn load_operand_to_reg(
+    asm: &mut String,
+    operand: &LoweredOperand,
+    reg: &'static str,
+    frame: &StackFrame,
+) -> Result<(), CodegenError> {
+    match operand {
+        LoweredOperand::Value(val) => {
+            writeln!(asm, "    lw {}, {}(s0)", reg, frame.offset_of(val.id))?;
+        }
+        LoweredOperand::ImmI32(val) => {
+            writeln!(asm, "    li {}, {}", reg, *val)?;
+        }
+        LoweredOperand::ImmU32(val) => {
+            writeln!(asm, "    li {}, {}", reg, *val)?;
+        }
+        _ => {
+            return Err(CodegenError::Generic(format!(
+                "Unsupported operand for register loading: {:?}",
+                operand
+            )))
+        }
     }
+    Ok(())
 }

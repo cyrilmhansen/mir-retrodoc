@@ -503,4 +503,3 @@ impl mirplan::Backend for C11Backend {
         compile_lowered(program, &self.entry_name)
     }
 }
-

@@ -1,18 +1,16 @@
 use mircap::{FunctionId, ModuleImage};
-use std::sync::{Arc, Mutex};
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 
-pub type CompilerHook = Arc<dyn Fn(&ModuleImage, FunctionId) -> Result<String, Box<dyn Error + Send + Sync>> + Send + Sync>;
+pub type CompilerHook = Arc<
+    dyn Fn(&ModuleImage, FunctionId) -> Result<String, Box<dyn Error + Send + Sync>> + Send + Sync,
+>;
 
 #[derive(Clone)]
 pub enum ThunkTarget {
     Interpreter,
-    LazyCompile {
-        hook: CompilerHook,
-    },
-    Compiled {
-        binary_path: String,
-    },
+    LazyCompile { hook: CompilerHook },
+    Compiled { binary_path: String },
 }
 
 #[derive(Clone)]

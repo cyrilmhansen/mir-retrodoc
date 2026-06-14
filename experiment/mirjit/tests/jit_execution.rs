@@ -1,20 +1,24 @@
-use mircap::ModuleImage;
-use mirsem::profile::ExecutionProfile;
-use mirsem::value::Value;
-use mirsem::trap::ExecutionTrap;
-use mirjit::{JitContext, ThunkTarget, JitError};
-use mirplan::{build_compile_plan, lower_compile_plan, Backend};
 use mirc0::C11Backend;
+use mircap::ModuleImage;
+use mirjit::{JitContext, JitError, ThunkTarget};
+use mirplan::{build_compile_plan, lower_compile_plan, Backend};
+use mirsem::profile::ExecutionProfile;
+use mirsem::trap::ExecutionTrap;
+use mirsem::value::Value;
+use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
-use std::error::Error;
 
-const CONST_RETURN_FIXTURE: &str = include_str!("../../mircap/tests/fixtures/valid_const_return.mircap.txt");
+const CONST_RETURN_FIXTURE: &str =
+    include_str!("../../mircap/tests/fixtures/valid_const_return.mircap.txt");
 const TRAP_FIXTURE: &str = include_str!("../../mircap/tests/fixtures/trap_load_oob.mircap.txt");
 
-fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+fn compile_function_to_bin(
+    image: &ModuleImage,
+    test_name: &str,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
     let space = mirspace::ProgramSpace::from_module_image(image)?;
     let plan = build_compile_plan(&space);
     let lowered = lower_compile_plan(&plan);
@@ -35,7 +39,8 @@ fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<Strin
     fs::write(&c_path, c_code)?;
 
     let mut compile_cmd = Command::new("cc");
-    compile_cmd.arg("-O0")
+    compile_cmd
+        .arg("-O0")
         .arg("-std=c11")
         .arg("-Wall")
         .arg("-Wextra")
@@ -43,7 +48,7 @@ fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<Strin
         .arg("-o")
         .arg(&bin_path)
         .arg(&c_path);
-    
+
     let compile_output = compile_cmd.output()?;
     let _ = fs::remove_file(&c_path);
 
@@ -51,7 +56,8 @@ fn compile_function_to_bin(image: &ModuleImage, test_name: &str) -> Result<Strin
         return Err(format!(
             "Compilation failed: {}",
             String::from_utf8_lossy(&compile_output.stderr)
-        ).into());
+        )
+        .into());
     }
 
     Ok(bin_path.to_string_lossy().to_string())
@@ -76,9 +82,9 @@ fn test_eager_compile_mode() {
     let image = ModuleImage::from_text(CONST_RETURN_FIXTURE).unwrap();
     let mut context = JitContext::new(image, ExecutionProfile::default());
 
-    context.set_eager_compile(|img, _| {
-        compile_function_to_bin(img, "eager_const_return")
-    }).unwrap();
+    context
+        .set_eager_compile(|img, _| compile_function_to_bin(img, "eager_const_return"))
+        .unwrap();
 
     let thunk = context.thunks.values().find(|t| t.name == "main").unwrap();
     assert!(matches!(thunk.target(), ThunkTarget::Compiled { .. }));
@@ -153,14 +159,14 @@ fn test_compiled_trap_mode() {
     let image = ModuleImage::from_text(TRAP_FIXTURE).unwrap();
     let mut context = JitContext::new(image, ExecutionProfile::default());
 
-    context.set_eager_compile(|img, _| {
-        compile_function_to_bin(img, "trap_const_return")
-    }).unwrap();
+    context
+        .set_eager_compile(|img, _| compile_function_to_bin(img, "trap_const_return"))
+        .unwrap();
 
     let thunk = context.thunks.values().find(|t| t.name == "main").unwrap();
     let res = context.call_by_name("main", &[]);
     assert!(res.is_err());
-    
+
     match res.unwrap_err() {
         JitError::Trap(ExecutionTrap::OutOfBoundsLoad { .. }) => {}
         e => panic!("Expected OutOfBoundsLoad trap, got: {:?}", e),
