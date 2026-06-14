@@ -1,4 +1,5 @@
 mod format;
+mod lower;
 
 use mircap::{BlockId, FunctionId, InstructionId, Opcode, SymbolId, TypeKind, ValueId};
 use mirspace::{
@@ -6,6 +7,11 @@ use mirspace::{
 };
 
 pub use format::format_plan;
+pub use lower::{
+    lower_compile_plan, LoweredBlock, LoweredBlockLabel, LoweredBranchTarget, LoweredFunction,
+    LoweredFunctionRef, LoweredInstruction, LoweredInstructionKind, LoweredMemoryOp,
+    LoweredProgram, LoweredValue,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompilePlan {

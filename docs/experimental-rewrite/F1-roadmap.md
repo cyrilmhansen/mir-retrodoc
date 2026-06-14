@@ -23,7 +23,9 @@ The first F1 axis is `mirspace` analysis:
 - stable block and instruction traversal utilities;
 - CFG-derived analyses needed by a future baseline compiler;
 - deterministic compile-plan data structures in `experiment/mirplan` that can
-  be tested before code generation exists.
+  be tested before code generation exists;
+- a target-neutral lowering projection that makes value reads, value writes,
+  branches, calls, and memory operations explicit without generating code.
 
 ## Deferred From Early F1
 
@@ -42,9 +44,11 @@ These remain intentionally deferred until the analysis layer is firmer:
 2. Add a simple deterministic block traversal suitable for compiler planning.
 3. Add a compile-plan artifact that lists functions, blocks, values, calls, and
    memory operations without generating code.
-4. Differentially verify that planning does not mutate `ModuleImage` and stays
+4. Add a backend-facing projection over the compile plan without choosing a
+   target, register model, or optimizer.
+5. Differentially verify that planning does not mutate `ModuleImage` and stays
    stable across text and Cap'n Proto load paths.
-5. Only then choose the first target-facing F1 feature.
+6. Only then choose the first target-facing F1 feature.
 
 ## Exit Criteria
 
@@ -54,6 +58,7 @@ F1 is ready to move toward target work when:
   calls;
 - `mirplan` produces deterministic planning artifacts over representative F0
   fixtures;
+- `mirplan` exposes a tested target-neutral lowering projection;
 - all analysis output is deterministic;
 - all F0 tests remain green;
 - the planned baseline compiler input is documented and covered by fixtures.
