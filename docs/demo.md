@@ -1,8 +1,8 @@
 # Project Demo
 
-This demo is a short tour of the current MIR-F0/F1 pipeline. It uses one valid
-fixture and one trap fixture to show validation, interpretation, planning,
-lowering, binary encoding, C output, and differential checking.
+This demo is a guided tour of the current MIR-F0/F1 pipeline. It pauses between
+steps, prints the input fixture contents, explains what each stage proves, and
+ends with the near-term future direction.
 
 ## Prerequisites
 
@@ -18,15 +18,24 @@ If `cc` is not available, run the demo with `--no-cc`.
 ./scripts/demo.sh
 ```
 
+The default mode pauses between sections for live presentation.
+
 Without a C compiler:
 
 ```sh
 ./scripts/demo.sh --no-cc
 ```
 
+For a non-interactive terminal recording or CI check:
+
+```sh
+./scripts/demo.sh --no-pause
+./scripts/demo.sh --no-cc --no-pause
+```
+
 ## What It Shows
 
-The demo validates and runs:
+The demo first prints the contents of:
 
 ```text
 experiment/mircap/tests/fixtures/valid_data_segment_load.mircap.txt
@@ -70,6 +79,8 @@ The expected trap result is:
 Trap: 13 OutOfBoundsLoad
 ```
 
+The script also prints the trap fixture contents before running it.
+
 ## Narrative
 
 The demo shows the current project boundary:
@@ -81,3 +92,10 @@ The demo shows the current project boundary:
 - `mirtool plan` and `mirtool lower` expose the F1 artifacts without changing
   runtime semantics.
 
+The future direction shown at the end is intentionally conservative:
+
+- expand experimental lowered C coverage;
+- decide whether `mirc0` should eventually consume `LoweredProgram` by default;
+- add a backend trait after the lowered contract stabilizes;
+- only then choose a first target-facing backend direction;
+- defer `i64`, floats, host ABI, optimization, and runtime replacement.

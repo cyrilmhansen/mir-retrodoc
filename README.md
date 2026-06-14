@@ -62,6 +62,12 @@ Run the project tour:
 ./scripts/demo.sh
 ```
 
+For a non-interactive run:
+
+```sh
+./scripts/demo.sh --no-pause
+```
+
 For environments without a host C compiler:
 
 ```sh
