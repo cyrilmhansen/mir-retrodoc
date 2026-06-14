@@ -1,0 +1,16 @@
+[package]
+name = "mirrv32"
+version = "0.1.0"
+edition = "2021"
+description = "RISC-V32 (RV32I) assembly backend for the MIR-F1 compiler"
+license = "MIT"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mircap = { path = "../mircap" }
+mirplan = { path = "../mirplan" }
+
+[dev-dependencies]
+mirspace = { path = "../mirspace" }
