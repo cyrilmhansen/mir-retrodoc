@@ -247,7 +247,8 @@ pub fn cmd_compile_rv32i(
 
     use mirplan::Backend;
     let backend = mirrv32::Riscv32Backend;
-    let asm_code = backend.compile(&lowered)
+    let asm_code = backend
+        .compile(&lowered)
         .map_err(|err| CliError::Generic(err.to_string()))?;
 
     std::fs::write(output_path, asm_code)?;
@@ -485,6 +486,8 @@ pub fn image_to_text(image: &ModuleImage) -> String {
             mircap::TypeKind::U32 => "u32",
             mircap::TypeKind::Addr32 => "addr32",
             mircap::TypeKind::I64 => "i64",
+            mircap::TypeKind::F32 => "f32",
+            mircap::TypeKind::F64 => "f64",
             mircap::TypeKind::UnsupportedFloat => "float",
             mircap::TypeKind::UnsupportedLongDouble => "long_double",
             mircap::TypeKind::UnsupportedAggregate => "aggregate",
@@ -606,6 +609,36 @@ pub fn image_to_text(image: &ModuleImage) -> String {
             mircap::Opcode::LtI64 => "lt_i64",
             mircap::Opcode::LoadI64 => "load_i64",
             mircap::Opcode::StoreI64 => "store_i64",
+            mircap::Opcode::ConstF32 => "const_f32",
+            mircap::Opcode::ConstF64 => "const_f64",
+            mircap::Opcode::AddF32 => "add_f32",
+            mircap::Opcode::SubF32 => "sub_f32",
+            mircap::Opcode::MulF32 => "mul_f32",
+            mircap::Opcode::DivF32 => "div_f32",
+            mircap::Opcode::NegF32 => "neg_f32",
+            mircap::Opcode::EqF32 => "eq_f32",
+            mircap::Opcode::NeF32 => "ne_f32",
+            mircap::Opcode::LtF32 => "lt_f32",
+            mircap::Opcode::LeF32 => "le_f32",
+            mircap::Opcode::GtF32 => "gt_f32",
+            mircap::Opcode::GeF32 => "ge_f32",
+            mircap::Opcode::AddF64 => "add_f64",
+            mircap::Opcode::SubF64 => "sub_f64",
+            mircap::Opcode::MulF64 => "mul_f64",
+            mircap::Opcode::DivF64 => "div_f64",
+            mircap::Opcode::NegF64 => "neg_f64",
+            mircap::Opcode::EqF64 => "eq_f64",
+            mircap::Opcode::NeF64 => "ne_f64",
+            mircap::Opcode::LtF64 => "lt_f64",
+            mircap::Opcode::LeF64 => "le_f64",
+            mircap::Opcode::GtF64 => "gt_f64",
+            mircap::Opcode::GeF64 => "ge_f64",
+            mircap::Opcode::I32ToF32 => "i32_to_f32",
+            mircap::Opcode::F32ToI32 => "f32_to_i32",
+            mircap::Opcode::I32ToF64 => "i32_to_f64",
+            mircap::Opcode::F64ToI32 => "f64_to_i32",
+            mircap::Opcode::F32ToF64 => "f32_to_f64",
+            mircap::Opcode::F64ToF32 => "f64_to_f32",
             mircap::Opcode::UnsupportedIndirectCall => "indirect_call",
         };
 
@@ -623,6 +656,8 @@ pub fn image_to_text(image: &ModuleImage) -> String {
                 mircap::Operand::Symbol(val) => format!("s:{}", val.0),
                 mircap::Operand::Type(val) => format!("t:{}", val.0),
                 mircap::Operand::ImmI64(val) => format!("l:{}", val),
+                mircap::Operand::ImmF32(bits) => format!("f32:{}", f32::from_bits(*bits)),
+                mircap::Operand::ImmF64(bits) => format!("f64:{}", f64::from_bits(*bits)),
             };
             parts.push(op_str);
         }
@@ -1567,7 +1602,8 @@ pub fn cmd_diff_rv32i(
 
     use mirplan::Backend;
     let backend = mirrv32::Riscv32Backend;
-    let generated_asm = backend.compile(&lowered)
+    let generated_asm = backend
+        .compile(&lowered)
         .map_err(|err| CliError::Generic(err.to_string()))?;
 
     // Append runtime stub and custom mir_alloc
@@ -1627,8 +1663,12 @@ heap_buffer:
     );
 
     // 3. Check for tools
-    let gcc_check = std::process::Command::new("riscv64-linux-gnu-gcc").arg("--version").output();
-    let qemu_check = std::process::Command::new("qemu-riscv32").arg("--version").output();
+    let gcc_check = std::process::Command::new("riscv64-linux-gnu-gcc")
+        .arg("--version")
+        .output();
+    let qemu_check = std::process::Command::new("qemu-riscv32")
+        .arg("--version")
+        .output();
     if gcc_check.is_err() || qemu_check.is_err() {
         if !quiet {
             println!("riscv64-linux-gnu-gcc or qemu-riscv32 is unavailable. Skipping RV32I verification.");
@@ -1762,25 +1802,54 @@ heap_buffer:
 pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
     let fixtures_dir = match find_fixtures_dir() {
         Some(dir) => dir,
-        None => return Err(CliError::Generic("Failed to find fixtures directory".to_string())),
+        None => {
+            return Err(CliError::Generic(
+                "Failed to find fixtures directory".to_string(),
+            ))
+        }
     };
 
-    let cc_available = std::process::Command::new("cc").arg("--version").output().is_ok();
+    let cc_available = std::process::Command::new("cc")
+        .arg("--version")
+        .output()
+        .is_ok();
 
     let m2b_path = "/home/john/project/mir-preservation/git/mir-restored/m2b";
     let mir_bin_run_path = "/home/john/project/mir-preservation/git/mir-restored/mir-bin-run";
-    let upstream_available = std::path::Path::new(m2b_path).exists() && std::path::Path::new(mir_bin_run_path).exists();
+    let upstream_available =
+        std::path::Path::new(m2b_path).exists() && std::path::Path::new(mir_bin_run_path).exists();
 
-    let gcc_check = std::process::Command::new("riscv64-linux-gnu-gcc").arg("--version").output();
-    let qemu_check = std::process::Command::new("qemu-riscv32").arg("--version").output();
+    let gcc_check = std::process::Command::new("riscv64-linux-gnu-gcc")
+        .arg("--version")
+        .output();
+    let qemu_check = std::process::Command::new("qemu-riscv32")
+        .arg("--version")
+        .output();
     let rv32_available = gcc_check.is_ok() && qemu_check.is_ok();
 
     println!("=====================================================================");
     println!("           MIR-RETRODOC REGRESSION & DIFFERENTIAL TESTS              ");
     println!("=====================================================================");
-    println!("C Transpiler Diff (cc):   {}", if cc_available { "ENABLED" } else { "DISABLED" });
-    println!("Upstream MIR Diff (m2b):  {}", if upstream_available { "ENABLED" } else { "DISABLED" });
-    println!("RV32I QEMU Diff (gcc):    {}", if rv32_available { "ENABLED" } else { "DISABLED" });
+    println!(
+        "C Transpiler Diff (cc):   {}",
+        if cc_available { "ENABLED" } else { "DISABLED" }
+    );
+    println!(
+        "Upstream MIR Diff (m2b):  {}",
+        if upstream_available {
+            "ENABLED"
+        } else {
+            "DISABLED"
+        }
+    );
+    println!(
+        "RV32I QEMU Diff (gcc):    {}",
+        if rv32_available {
+            "ENABLED"
+        } else {
+            "DISABLED"
+        }
+    );
     println!("=====================================================================\n");
 
     let mut paths = Vec::new();
@@ -1803,16 +1872,31 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
     let mut fail_count = 0;
     let mut skip_count = 0;
 
-    println!("{:<40} | {:<12} | {:<12} | {:<12} | {:<12}", "Fixture Name", "Interpreter", "C Transpiler", "Upstream MIR", "RV32I QEMU");
-    println!("{:-<40}-+-{:-<12}-+-{:-<12}-+-{:-<12}-+-{:-<12}", "", "", "", "", "");
+    println!(
+        "{:<40} | {:<12} | {:<12} | {:<12} | {:<12}",
+        "Fixture Name", "Interpreter", "C Transpiler", "Upstream MIR", "RV32I QEMU"
+    );
+    println!(
+        "{:-<40}-+-{:-<12}-+-{:-<12}-+-{:-<12}-+-{:-<12}",
+        "", "", "", "", ""
+    );
 
     for path in paths {
         let name = path.file_name().unwrap().to_string_lossy().to_string();
         let path_str = path.to_string_lossy();
+        let image = load_image(&path_str, None)?;
+
+        if module_uses_float(&image) {
+            println!(
+                "{:<40} | {:<12} | {:<12} | {:<12} | {:<12}",
+                name, "VALIDATE", "SKIP", "SKIP", "SKIP"
+            );
+            skip_count += 1;
+            continue;
+        }
 
         // 1. Interpreter check
         let mut interp_status = "PASS";
-        let image = load_image(&path_str, None)?;
         let runner = Runner::new(image, mirsem::ExecutionProfile::default());
         if runner.is_err() {
             interp_status = "FAIL";
@@ -1885,17 +1969,30 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
             }
         }
 
-        println!("{:<40} | {:<12} | {:<12} | {:<12} | {:<12}", name, interp_status, c_status, upstream_status, rv32_status);
+        println!(
+            "{:<40} | {:<12} | {:<12} | {:<12} | {:<12}",
+            name, interp_status, c_status, upstream_status, rv32_status
+        );
     }
 
     println!("\n=====================================================================");
-    println!("Summary: {} Passed, {} Failed, {} Skipped", pass_count, fail_count, skip_count);
+    println!(
+        "Summary: {} Passed, {} Failed, {} Skipped",
+        pass_count, fail_count, skip_count
+    );
     println!("=====================================================================");
 
     if fail_count > 0 {
         return Err(CliError::Generic(format!("{} tests failed", fail_count)));
     }
     Ok(())
+}
+
+fn module_uses_float(image: &ModuleImage) -> bool {
+    image
+        .types
+        .iter()
+        .any(|ty| matches!(ty.kind, mircap::TypeKind::F32 | mircap::TypeKind::F64))
 }
 
 fn find_fixtures_dir() -> Option<std::path::PathBuf> {

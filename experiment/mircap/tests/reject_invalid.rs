@@ -27,8 +27,6 @@ fn rejects_return_type_mismatch() {
     reject_fixture("invalid_return_type_mismatch.mircap.txt");
 }
 
-
-
 #[test]
 fn rejects_instruction_after_terminator() {
     reject_fixture("invalid_instruction_after_terminator.mircap.txt");
@@ -58,8 +56,6 @@ fn rejects_alloc_wrong_result_type() {
 fn rejects_malformed_data_segment() {
     reject_fixture("invalid_malformed_data_segment.mircap.txt");
 }
-
-
 
 #[test]
 fn rejects_addr_add_wrong_offset_type() {

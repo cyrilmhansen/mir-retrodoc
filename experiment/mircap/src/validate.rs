@@ -125,7 +125,13 @@ impl Validator<'_> {
                         format!("unsupported MIR-F0 type: {:?}", ty.kind),
                     );
                 }
-                TypeKind::Void | TypeKind::I32 | TypeKind::U32 | TypeKind::I64 | TypeKind::Addr32 => {}
+                TypeKind::Void
+                | TypeKind::I32
+                | TypeKind::U32
+                | TypeKind::I64
+                | TypeKind::Addr32
+                | TypeKind::F32
+                | TypeKind::F64 => {}
             }
         }
     }
@@ -346,10 +352,7 @@ impl Validator<'_> {
             }
         }
 
-        if matches!(
-            insn.opcode,
-            Opcode::UnsupportedIndirectCall
-        ) {
+        if matches!(insn.opcode, Opcode::UnsupportedIndirectCall) {
             self.error(
                 ErrorKind::UnsupportedFeature,
                 EntityRef::Instruction(insn.id),
@@ -358,18 +361,22 @@ impl Validator<'_> {
         }
 
         match insn.opcode {
-            Opcode::ConstI32 | Opcode::ConstU32 => {
+            Opcode::ConstI32 | Opcode::ConstU32 | Opcode::ConstF32 | Opcode::ConstF64 => {
                 self.expect_results(insn, 1);
                 self.expect_operands(insn, 1);
-                let expected = if matches!(insn.opcode, Opcode::ConstI32) {
-                    TypeKind::I32
-                } else {
-                    TypeKind::U32
+                let expected = match insn.opcode {
+                    Opcode::ConstI32 => TypeKind::I32,
+                    Opcode::ConstU32 => TypeKind::U32,
+                    Opcode::ConstF32 => TypeKind::F32,
+                    Opcode::ConstF64 => TypeKind::F64,
+                    _ => unreachable!(),
                 };
                 self.expect_result_type(current_function, insn, functions, 0, expected);
                 let ok = match insn.opcode {
                     Opcode::ConstI32 => matches!(insn.operands.first(), Some(Operand::ImmI32(_))),
                     Opcode::ConstU32 => matches!(insn.operands.first(), Some(Operand::ImmU32(_))),
+                    Opcode::ConstF32 => matches!(insn.operands.first(), Some(Operand::ImmF32(_))),
+                    Opcode::ConstF64 => matches!(insn.operands.first(), Some(Operand::ImmF64(_))),
                     _ => false,
                 };
                 if !ok {
@@ -496,6 +503,43 @@ impl Validator<'_> {
             }
             Opcode::LoadI64 => self.check_load(current_function, insn, functions, TypeKind::I64),
             Opcode::StoreI64 => self.check_store(current_function, insn, functions, TypeKind::I64),
+            Opcode::AddF32
+            | Opcode::SubF32
+            | Opcode::MulF32
+            | Opcode::DivF32
+            | Opcode::NegF32
+            | Opcode::EqF32
+            | Opcode::NeF32
+            | Opcode::LtF32
+            | Opcode::LeF32
+            | Opcode::GtF32
+            | Opcode::GeF32
+            | Opcode::AddF64
+            | Opcode::SubF64
+            | Opcode::MulF64
+            | Opcode::DivF64
+            | Opcode::NegF64
+            | Opcode::EqF64
+            | Opcode::NeF64
+            | Opcode::LtF64
+            | Opcode::LeF64
+            | Opcode::GtF64
+            | Opcode::GeF64
+            | Opcode::I32ToF32
+            | Opcode::F32ToI32
+            | Opcode::I32ToF64
+            | Opcode::F64ToI32
+            | Opcode::F32ToF64
+            | Opcode::F64ToF32 => {
+                self.error(
+                    ErrorKind::UnsupportedFeature,
+                    EntityRef::Instruction(insn.id),
+                    format!(
+                        "reserved MIR-F0 float opcode is not executable yet: {:?}",
+                        insn.opcode
+                    ),
+                );
+            }
             Opcode::UnsupportedIndirectCall => {}
         }
     }

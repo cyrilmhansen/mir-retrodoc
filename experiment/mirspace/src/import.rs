@@ -225,6 +225,8 @@ impl ProgramSpace {
                     mircap::Operand::ImmI32(val) => OperandRec::ImmI32(*val),
                     mircap::Operand::ImmU32(val) => OperandRec::ImmU32(*val),
                     mircap::Operand::ImmI64(val) => OperandRec::ImmI64(*val),
+                    mircap::Operand::ImmF32(val) => OperandRec::ImmF32(*val),
+                    mircap::Operand::ImmF64(val) => OperandRec::ImmF64(*val),
                     mircap::Operand::Block(blk_id) => {
                         let blk_ix = space.maps.blocks.get(blk_id).ok_or_else(|| {
                             SpaceError::Inconsistency(format!(

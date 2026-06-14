@@ -25,6 +25,8 @@ pub fn format_operand(operand: &Operand) -> String {
         Operand::ImmI32(value) => format!("i:{value}"),
         Operand::ImmU32(value) => format!("u:{value}"),
         Operand::ImmI64(value) => format!("l:{value}"),
+        Operand::ImmF32(bits) => format!("f32:{}", f32::from_bits(*bits)),
+        Operand::ImmF64(bits) => format!("f64:{}", f64::from_bits(*bits)),
         Operand::Block(id) => format!("b:{id}"),
         Operand::Function(id) => format!("f:{id}"),
         Operand::Symbol(id) => format!("s:{id}"),

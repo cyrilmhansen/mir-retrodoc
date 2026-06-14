@@ -210,7 +210,11 @@ fn emit_instruction(
                         writeln!(asm, "    lw t0, {}(s0)", s_offset + 4)?;
                         writeln!(asm, "    sw t0, {}(s0)", d_offset + 4)?;
                     }
-                    _ => return Err(CodegenError::Generic("Unsupported copy src for i64".to_string())),
+                    _ => {
+                        return Err(CodegenError::Generic(
+                            "Unsupported copy src for i64".to_string(),
+                        ))
+                    }
                 }
             } else {
                 let s_reg = resolve_operand(asm, src, "t0", frame)?;
@@ -243,9 +247,15 @@ fn emit_instruction(
             let (d_reg, spill) = resolve_dest(dest, "t2", frame);
 
             match insn.opcode {
-                Opcode::AddI32 | Opcode::AddU32 => writeln!(asm, "    add {}, {}, {}", d_reg, s1_reg, s2_reg)?,
-                Opcode::SubI32 | Opcode::SubU32 => writeln!(asm, "    sub {}, {}, {}", d_reg, s1_reg, s2_reg)?,
-                Opcode::MulI32 | Opcode::MulU32 => writeln!(asm, "    mul {}, {}, {}", d_reg, s1_reg, s2_reg)?,
+                Opcode::AddI32 | Opcode::AddU32 => {
+                    writeln!(asm, "    add {}, {}, {}", d_reg, s1_reg, s2_reg)?
+                }
+                Opcode::SubI32 | Opcode::SubU32 => {
+                    writeln!(asm, "    sub {}, {}, {}", d_reg, s1_reg, s2_reg)?
+                }
+                Opcode::MulI32 | Opcode::MulU32 => {
+                    writeln!(asm, "    mul {}, {}, {}", d_reg, s1_reg, s2_reg)?
+                }
                 _ => unreachable!(),
             }
             if spill {
@@ -254,8 +264,14 @@ fn emit_instruction(
         }
         Opcode::AddI64 => {
             let dest = one_write(insn)?;
-            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
-            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             load_i64_operand(asm, lhs, "t0", "t1", frame)?;
             load_i64_operand(asm, rhs, "t2", "t3", frame)?;
             writeln!(asm, "    add t4, t0, t2")?;
@@ -268,8 +284,14 @@ fn emit_instruction(
         }
         Opcode::SubI64 => {
             let dest = one_write(insn)?;
-            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
-            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             load_i64_operand(asm, lhs, "t0", "t1", frame)?;
             load_i64_operand(asm, rhs, "t2", "t3", frame)?;
             writeln!(asm, "    sltu t5, t0, t2")?;
@@ -282,8 +304,14 @@ fn emit_instruction(
         }
         Opcode::MulI64 => {
             let dest = one_write(insn)?;
-            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
-            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             load_i64_operand(asm, lhs, "t0", "t1", frame)?;
             load_i64_operand(asm, rhs, "t2", "t3", frame)?;
             writeln!(asm, "    mulhu t4, t0, t2")?;
@@ -372,8 +400,14 @@ fn emit_instruction(
         }
         Opcode::EqI64 => {
             let dest = one_write(insn)?;
-            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
-            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             load_i64_operand(asm, lhs, "t0", "t1", frame)?;
             load_i64_operand(asm, rhs, "t2", "t3", frame)?;
             writeln!(asm, "    xor t4, t0, t2")?;
@@ -387,8 +421,14 @@ fn emit_instruction(
         }
         Opcode::NeI64 => {
             let dest = one_write(insn)?;
-            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
-            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             load_i64_operand(asm, lhs, "t0", "t1", frame)?;
             load_i64_operand(asm, rhs, "t2", "t3", frame)?;
             writeln!(asm, "    xor t4, t0, t2")?;
@@ -402,8 +442,14 @@ fn emit_instruction(
         }
         Opcode::LtI64 => {
             let dest = one_write(insn)?;
-            let lhs = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
-            let rhs = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let lhs = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let rhs = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             load_i64_operand(asm, lhs, "t0", "t1", frame)?;
             load_i64_operand(asm, rhs, "t2", "t3", frame)?;
             writeln!(asm, "    slt t4, t1, t3")?;
@@ -507,7 +553,11 @@ fn emit_instruction(
                 _ => return Err(CodegenError::Generic("Expected block operand".to_string())),
             };
             let cond_reg = resolve_operand(asm, cond, "t0", frame)?;
-            writeln!(asm, "    bne {}, zero, block_{}_{}", cond_reg, func_id, true_target)?;
+            writeln!(
+                asm,
+                "    bne {}, zero, block_{}_{}",
+                cond_reg, func_id, true_target
+            )?;
             writeln!(asm, "    j block_{}_{}", func_id, false_target)?;
         }
         Opcode::Call => {
@@ -548,8 +598,14 @@ fn emit_instruction(
                 } else {
                     if arg_reg_idx < 8 {
                         let scratch = match arg_reg_idx {
-                            0 => "a0", 1 => "a1", 2 => "a2", 3 => "a3",
-                            4 => "a4", 5 => "a5", 6 => "a6", 7 => "a7",
+                            0 => "a0",
+                            1 => "a1",
+                            2 => "a2",
+                            3 => "a3",
+                            4 => "a4",
+                            5 => "a5",
+                            6 => "a6",
+                            7 => "a7",
                             _ => unreachable!(),
                         };
                         let p_reg = resolve_operand(asm, op, scratch, frame)?;
@@ -659,7 +715,10 @@ fn emit_instruction(
         }
         Opcode::LoadI64 => {
             let dest = one_write(insn)?;
-            let addr = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let addr = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
             let r_addr = resolve_operand(asm, addr, "t0", frame)?;
             writeln!(asm, "    lw t1, 0({})", r_addr)?;
             writeln!(asm, "    lw t2, 4({})", r_addr)?;
@@ -694,8 +753,14 @@ fn emit_instruction(
             writeln!(asm, "    sw {}, 0({})", r_val, r_addr)?;
         }
         Opcode::StoreI64 => {
-            let addr = insn.operands.get(0).ok_or(CodegenError::InvalidOperandIndex(0))?;
-            let val = insn.operands.get(1).ok_or(CodegenError::InvalidOperandIndex(1))?;
+            let addr = insn
+                .operands
+                .get(0)
+                .ok_or(CodegenError::InvalidOperandIndex(0))?;
+            let val = insn
+                .operands
+                .get(1)
+                .ok_or(CodegenError::InvalidOperandIndex(1))?;
             let r_addr = resolve_operand(asm, addr, "t0", frame)?;
             load_i64_operand(asm, val, "t1", "t2", frame)?;
             writeln!(asm, "    sw t1, 0({})", r_addr)?;
@@ -750,11 +815,13 @@ fn emit_instruction(
                 .operands
                 .get(1)
                 .ok_or(CodegenError::InvalidOperandIndex(1))?;
-            
+
             let segment = data_segments
                 .iter()
                 .find(|seg| seg.symbol == symbol)
-                .ok_or_else(|| CodegenError::Generic(format!("missing data segment symbol {:?}", symbol)))?;
+                .ok_or_else(|| {
+                    CodegenError::Generic(format!("missing data segment symbol {:?}", symbol))
+                })?;
             let segment_len = segment.length;
 
             let r_offset = resolve_operand(asm, offset, "t1", frame)?;
@@ -784,8 +851,38 @@ fn emit_instruction(
                 commit_dest(asm, dest, d_reg, frame)?;
             }
         }
-        Opcode::UnsupportedIndirectCall => {
-            return Err(CodegenError::UnsupportedOpcode(insn.opcode));
+        Opcode::ConstF32
+        | Opcode::ConstF64
+        | Opcode::AddF32
+        | Opcode::SubF32
+        | Opcode::MulF32
+        | Opcode::DivF32
+        | Opcode::NegF32
+        | Opcode::EqF32
+        | Opcode::NeF32
+        | Opcode::LtF32
+        | Opcode::LeF32
+        | Opcode::GtF32
+        | Opcode::GeF32
+        | Opcode::AddF64
+        | Opcode::SubF64
+        | Opcode::MulF64
+        | Opcode::DivF64
+        | Opcode::NegF64
+        | Opcode::EqF64
+        | Opcode::NeF64
+        | Opcode::LtF64
+        | Opcode::LeF64
+        | Opcode::GtF64
+        | Opcode::GeF64
+        | Opcode::I32ToF32
+        | Opcode::F32ToI32
+        | Opcode::I32ToF64
+        | Opcode::F64ToI32
+        | Opcode::F32ToF64
+        | Opcode::F64ToF32
+        | Opcode::UnsupportedIndirectCall => {
+            return Err(CodegenError::UnsupportedOpcode(insn.opcode))
         }
     }
     Ok(())
@@ -826,7 +923,12 @@ fn load_i64_operand(
             writeln!(asm, "    lw {}, {}(s0)", reg_low, offset)?;
             writeln!(asm, "    lw {}, {}(s0)", reg_high, offset + 4)?;
         }
-        _ => return Err(CodegenError::Generic(format!("Expected i64 operand, got {:?}", op))),
+        _ => {
+            return Err(CodegenError::Generic(format!(
+                "Expected i64 operand, got {:?}",
+                op
+            )))
+        }
     }
     Ok(())
 }

@@ -98,7 +98,9 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                     if let Some(dest) = insn.writes.first() {
                         if matches!(
                             insn.operands[0],
-                            LoweredOperand::ImmI32(_) | LoweredOperand::ImmU32(_) | LoweredOperand::ImmI64(_)
+                            LoweredOperand::ImmI32(_)
+                                | LoweredOperand::ImmU32(_)
+                                | LoweredOperand::ImmI64(_)
                         ) {
                             is_folded_constant = true;
                             folded_val = Some((dest.id, insn.operands[0].clone()));

@@ -30,6 +30,8 @@ pub fn emit_operand(op: &Operand) -> String {
                 format!("((int64_t){}LL)", imm)
             }
         }
+        Operand::ImmF32(bits) => format!("/* f32 bits 0x{bits:08x} */"),
+        Operand::ImmF64(bits) => format!("/* f64 bits 0x{bits:016x} */"),
         Operand::Block(block) => format!("block_{}", block.0),
         Operand::Function(func) => format!("mir_fn_{}", func.0),
         Operand::Symbol(sym) => format!("sym_{}", sym.0),
@@ -403,8 +405,36 @@ pub fn emit_instruction(insn: &Instruction, image: &ModuleImage) -> Result<Strin
             let val = emit_operand(&insn.operands[1]);
             Ok(format!("mir_store_i64({}, {});", addr, val))
         }
-        Opcode::UnsupportedIndirectCall => {
-            Err(CompileError::UnsupportedOpcode(insn.opcode))
-        }
+        Opcode::ConstF32
+        | Opcode::ConstF64
+        | Opcode::AddF32
+        | Opcode::SubF32
+        | Opcode::MulF32
+        | Opcode::DivF32
+        | Opcode::NegF32
+        | Opcode::EqF32
+        | Opcode::NeF32
+        | Opcode::LtF32
+        | Opcode::LeF32
+        | Opcode::GtF32
+        | Opcode::GeF32
+        | Opcode::AddF64
+        | Opcode::SubF64
+        | Opcode::MulF64
+        | Opcode::DivF64
+        | Opcode::NegF64
+        | Opcode::EqF64
+        | Opcode::NeF64
+        | Opcode::LtF64
+        | Opcode::LeF64
+        | Opcode::GtF64
+        | Opcode::GeF64
+        | Opcode::I32ToF32
+        | Opcode::F32ToI32
+        | Opcode::I32ToF64
+        | Opcode::F64ToI32
+        | Opcode::F32ToF64
+        | Opcode::F64ToF32
+        | Opcode::UnsupportedIndirectCall => Err(CompileError::UnsupportedOpcode(insn.opcode)),
     }
 }

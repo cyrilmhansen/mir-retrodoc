@@ -131,3 +131,10 @@ fn valid_load_store_u8_loads() {
         .validate()
         .expect("valid fixture");
 }
+
+#[test]
+fn valid_float_constants_loads() {
+    load_fixture("valid_float_constants.mircap.txt")
+        .validate()
+        .expect("valid fixture");
+}

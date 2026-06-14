@@ -51,6 +51,8 @@ enum TypeKind {
   unsupportedAggregate @7;
   unsupportedVarargs @8;
   unsupportedHostCAbi @9;
+  f32 @10;
+  f64 @11;
 }
 
 struct Symbol {
@@ -147,6 +149,36 @@ enum Opcode {
   ltI64 @39;
   loadI64 @40;
   storeI64 @41;
+  constF32 @42;
+  constF64 @43;
+  addF32 @44;
+  subF32 @45;
+  mulF32 @46;
+  divF32 @47;
+  negF32 @48;
+  eqF32 @49;
+  neF32 @50;
+  ltF32 @51;
+  leF32 @52;
+  gtF32 @53;
+  geF32 @54;
+  addF64 @55;
+  subF64 @56;
+  mulF64 @57;
+  divF64 @58;
+  negF64 @59;
+  eqF64 @60;
+  neF64 @61;
+  ltF64 @62;
+  leF64 @63;
+  gtF64 @64;
+  geF64 @65;
+  i32ToF32 @66;
+  f32ToI32 @67;
+  i32ToF64 @68;
+  f64ToI32 @69;
+  f32ToF64 @70;
+  f64ToF32 @71;
 }
 
 struct Operand {
@@ -159,6 +191,8 @@ struct Operand {
     symbol @5 :UInt32;
     type @6 :UInt32;
     immI64 @7 :Int64;
+    immF32 @8 :Float32;
+    immF64 @9 :Float64;
   }
 }
 

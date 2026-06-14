@@ -220,7 +220,6 @@ fn test_diff_valid_i64_ops() {
     }
 }
 
-
 #[test]
 fn test_run_trap_load_oob() {
     let path = fixture_path("trap_load_oob.mircap.txt");
@@ -379,7 +378,6 @@ fn test_diff_upstream_valid_i64_ops() {
     }
 }
 
-
 #[test]
 fn test_compile_rv32i_valid_const_return() {
     let path = fixture_path("valid_const_return.mircap.txt");
@@ -402,4 +400,3 @@ fn test_diff_all() {
     assert!(stdout.contains("Summary:"));
     assert!(stdout.contains("Passed"));
 }
-

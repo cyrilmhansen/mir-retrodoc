@@ -212,6 +212,18 @@ fn parse_i64(s: &str, line: usize) -> Result<i64, LoadError> {
         .map_err(|_| err(line, format!("invalid i64: {s}")))
 }
 
+fn parse_f32_bits(s: &str, line: usize) -> Result<u32, LoadError> {
+    s.parse::<f32>()
+        .map(f32::to_bits)
+        .map_err(|_| err(line, format!("invalid f32: {s}")))
+}
+
+fn parse_f64_bits(s: &str, line: usize) -> Result<u64, LoadError> {
+    s.parse::<f64>()
+        .map(f64::to_bits)
+        .map_err(|_| err(line, format!("invalid f64: {s}")))
+}
+
 fn parse_type(s: &str, line: usize) -> Result<TypeKind, LoadError> {
     match s {
         "void" => Ok(TypeKind::Void),
@@ -219,6 +231,8 @@ fn parse_type(s: &str, line: usize) -> Result<TypeKind, LoadError> {
         "u32" => Ok(TypeKind::U32),
         "addr32" => Ok(TypeKind::Addr32),
         "i64" => Ok(TypeKind::I64),
+        "f32" => Ok(TypeKind::F32),
+        "f64" => Ok(TypeKind::F64),
         "float" => Ok(TypeKind::UnsupportedFloat),
         "long_double" => Ok(TypeKind::UnsupportedLongDouble),
         "aggregate" => Ok(TypeKind::UnsupportedAggregate),
@@ -281,6 +295,36 @@ fn parse_opcode(s: &str, line: usize) -> Result<Opcode, LoadError> {
         "lt_i64" => Ok(Opcode::LtI64),
         "load_i64" => Ok(Opcode::LoadI64),
         "store_i64" => Ok(Opcode::StoreI64),
+        "const_f32" => Ok(Opcode::ConstF32),
+        "const_f64" => Ok(Opcode::ConstF64),
+        "add_f32" => Ok(Opcode::AddF32),
+        "sub_f32" => Ok(Opcode::SubF32),
+        "mul_f32" => Ok(Opcode::MulF32),
+        "div_f32" => Ok(Opcode::DivF32),
+        "neg_f32" => Ok(Opcode::NegF32),
+        "eq_f32" => Ok(Opcode::EqF32),
+        "ne_f32" => Ok(Opcode::NeF32),
+        "lt_f32" => Ok(Opcode::LtF32),
+        "le_f32" => Ok(Opcode::LeF32),
+        "gt_f32" => Ok(Opcode::GtF32),
+        "ge_f32" => Ok(Opcode::GeF32),
+        "add_f64" => Ok(Opcode::AddF64),
+        "sub_f64" => Ok(Opcode::SubF64),
+        "mul_f64" => Ok(Opcode::MulF64),
+        "div_f64" => Ok(Opcode::DivF64),
+        "neg_f64" => Ok(Opcode::NegF64),
+        "eq_f64" => Ok(Opcode::EqF64),
+        "ne_f64" => Ok(Opcode::NeF64),
+        "lt_f64" => Ok(Opcode::LtF64),
+        "le_f64" => Ok(Opcode::LeF64),
+        "gt_f64" => Ok(Opcode::GtF64),
+        "ge_f64" => Ok(Opcode::GeF64),
+        "i32_to_f32" => Ok(Opcode::I32ToF32),
+        "f32_to_i32" => Ok(Opcode::F32ToI32),
+        "i32_to_f64" => Ok(Opcode::I32ToF64),
+        "f64_to_i32" => Ok(Opcode::F64ToI32),
+        "f32_to_f64" => Ok(Opcode::F32ToF64),
+        "f64_to_f32" => Ok(Opcode::F64ToF32),
         _ => Err(err(line, format!("unknown opcode: {s}"))),
     }
 }
@@ -294,6 +338,8 @@ fn parse_operand(s: &str, line: usize) -> Result<Operand, LoadError> {
         "i" => Ok(Operand::ImmI32(parse_i32(value, line)?)),
         "u" => Ok(Operand::ImmU32(parse_u32(value, line)?)),
         "l" => Ok(Operand::ImmI64(parse_i64(value, line)?)),
+        "f32" => Ok(Operand::ImmF32(parse_f32_bits(value, line)?)),
+        "f64" => Ok(Operand::ImmF64(parse_f64_bits(value, line)?)),
         "b" => Ok(Operand::Block(BlockId(parse_u32(value, line)?))),
         "f" => Ok(Operand::Function(FunctionId(parse_u32(value, line)?))),
         "s" => Ok(Operand::Symbol(SymbolId(parse_u32(value, line)?))),

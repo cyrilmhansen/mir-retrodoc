@@ -262,9 +262,12 @@ fn emit_lowered_instruction(
                 dest.id.0, lhs, op, rhs
             ))
         }
-        Opcode::EqI32 | Opcode::NeI32 | Opcode::LtI32 | Opcode::EqI64 | Opcode::NeI64 | Opcode::LtI64 => {
-            emit_compare(instruction, true)
-        }
+        Opcode::EqI32
+        | Opcode::NeI32
+        | Opcode::LtI32
+        | Opcode::EqI64
+        | Opcode::NeI64
+        | Opcode::LtI64 => emit_compare(instruction, true),
         Opcode::AddU32 | Opcode::SubU32 | Opcode::MulU32 => {
             let dest = one_write(instruction)?;
             let lhs = emit_operand(one_operand(instruction, 0)?);
@@ -374,7 +377,37 @@ fn emit_lowered_instruction(
                 dest.id.0, segment.offset, offset, segment.length
             ))
         }
-        Opcode::UnsupportedIndirectCall => {
+        Opcode::ConstF32
+        | Opcode::ConstF64
+        | Opcode::AddF32
+        | Opcode::SubF32
+        | Opcode::MulF32
+        | Opcode::DivF32
+        | Opcode::NegF32
+        | Opcode::EqF32
+        | Opcode::NeF32
+        | Opcode::LtF32
+        | Opcode::LeF32
+        | Opcode::GtF32
+        | Opcode::GeF32
+        | Opcode::AddF64
+        | Opcode::SubF64
+        | Opcode::MulF64
+        | Opcode::DivF64
+        | Opcode::NegF64
+        | Opcode::EqF64
+        | Opcode::NeF64
+        | Opcode::LtF64
+        | Opcode::LeF64
+        | Opcode::GtF64
+        | Opcode::GeF64
+        | Opcode::I32ToF32
+        | Opcode::F32ToI32
+        | Opcode::I32ToF64
+        | Opcode::F64ToI32
+        | Opcode::F32ToF64
+        | Opcode::F64ToF32
+        | Opcode::UnsupportedIndirectCall => {
             Err(CompileError::UnsupportedOpcode(instruction.opcode))
         }
     }
@@ -427,6 +460,8 @@ fn emit_operand(operand: &LoweredOperand) -> String {
                 format!("((int64_t){}LL)", value)
             }
         }
+        LoweredOperand::ImmF32(bits) => format!("/* f32 bits 0x{bits:08x} */"),
+        LoweredOperand::ImmF64(bits) => format!("/* f64 bits 0x{bits:016x} */"),
         LoweredOperand::Block(block) => format!("block_{}", block.id.0),
         LoweredOperand::Function(function) => format!("mir_fn_{}", function.id.0),
         LoweredOperand::Symbol { id, .. } => format!("sym_{}", id.0),

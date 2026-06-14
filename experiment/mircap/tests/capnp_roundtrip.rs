@@ -77,3 +77,8 @@ fn roundtrip_valid_sieve_32_u32() {
 fn roundtrip_trap_load_oob() {
     check_fixture_roundtrip("trap_load_oob.mircap.txt");
 }
+
+#[test]
+fn roundtrip_valid_float_constants() {
+    check_fixture_roundtrip("valid_float_constants.mircap.txt");
+}

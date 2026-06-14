@@ -23,7 +23,11 @@ impl StackFrame {
         for block in &function.blocks {
             let start = insn_count;
             insn_count += block.instructions.len();
-            let end = if insn_count > start { insn_count - 1 } else { start };
+            let end = if insn_count > start {
+                insn_count - 1
+            } else {
+                start
+            };
             block_ranges.insert(block.label.id, (start, end));
         }
 

@@ -1,0 +1,12 @@
+mircap mircap
+version 0
+module 1 float_constants
+type 1 f32
+type 2 f64
+symbol 1 main function
+function 1 1 - 1,2 2 0 1,2
+func_block 1 1
+block 1 1 1 2 3
+insn 1 const_f32 r:0 f32:1.5
+insn 2 const_f64 r:1 f64:-0.25
+insn 3 ret v:0 v:1

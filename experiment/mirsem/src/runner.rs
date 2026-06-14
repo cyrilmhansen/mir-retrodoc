@@ -209,7 +209,37 @@ impl Runner {
                 Opcode::StoreU8 => self.exec_store_u8(&mut stack, &insn)?,
                 Opcode::AddrAdd => self.exec_addr_add(&mut stack, &insn)?,
                 Opcode::DataAddr => self.exec_data_addr(&mut stack, &insn)?,
-                Opcode::UnsupportedIndirectCall => {
+                Opcode::ConstF32
+                | Opcode::ConstF64
+                | Opcode::AddF32
+                | Opcode::SubF32
+                | Opcode::MulF32
+                | Opcode::DivF32
+                | Opcode::NegF32
+                | Opcode::EqF32
+                | Opcode::NeF32
+                | Opcode::LtF32
+                | Opcode::LeF32
+                | Opcode::GtF32
+                | Opcode::GeF32
+                | Opcode::AddF64
+                | Opcode::SubF64
+                | Opcode::MulF64
+                | Opcode::DivF64
+                | Opcode::NegF64
+                | Opcode::EqF64
+                | Opcode::NeF64
+                | Opcode::LtF64
+                | Opcode::LeF64
+                | Opcode::GtF64
+                | Opcode::GeF64
+                | Opcode::I32ToF32
+                | Opcode::F32ToI32
+                | Opcode::I32ToF64
+                | Opcode::F64ToI32
+                | Opcode::F32ToF64
+                | Opcode::F64ToF32
+                | Opcode::UnsupportedIndirectCall => {
                     return Err(ExecutionTrap::UnsupportedInstruction {
                         instruction: insn.id,
                         opcode: format!("{:?}", insn.opcode),
