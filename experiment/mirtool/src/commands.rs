@@ -189,6 +189,99 @@ pub fn cmd_trace_check(
     }
 }
 
+pub fn cmd_cost(
+    input_path: &str,
+    format_opt: Option<&str>,
+    emit_json: bool,
+) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let lowered = mirplan::lower_compile_plan(&plan);
+    let cost = mirplan::summarize_cost(&lowered);
+    if emit_json {
+        println!("{}", format_cost_summary_json(&cost));
+    } else {
+        print!("{}", format_cost_summary(&cost));
+    }
+    Ok(())
+}
+
+fn format_cost_summary(cost: &mirplan::ProgramCostSummary) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("cost module {}\n", cost.module_name));
+    out.push_str(&format!("  bounded: {}\n", cost.bounded));
+    out.push_str("  totals:\n");
+    append_cost_counts(&mut out, &cost.totals, 4);
+    for function in &cost.functions {
+        out.push_str(&format!(
+            "  fn f{}#{} {}\n",
+            function.function.0, function.id.0, function.name
+        ));
+        out.push_str(&format!("    bounded: {}\n", function.bounded));
+        out.push_str(&format!("    bound_kind: {}\n", function.bound_kind));
+        out.push_str("    counts:\n");
+        append_cost_counts(&mut out, &function.counts, 6);
+    }
+    out
+}
+
+fn append_cost_counts(out: &mut String, counts: &mirplan::CostCounts, indent: usize) {
+    let pad = " ".repeat(indent);
+    out.push_str(&format!("{pad}instructions: {}\n", counts.instructions));
+    out.push_str(&format!("{pad}branches: {}\n", counts.branches));
+    out.push_str(&format!("{pad}calls: {}\n", counts.calls));
+    out.push_str(&format!("{pad}memory_reads: {}\n", counts.memory_reads));
+    out.push_str(&format!("{pad}memory_writes: {}\n", counts.memory_writes));
+    out.push_str(&format!(
+        "{pad}memory_addresses: {}\n",
+        counts.memory_addresses
+    ));
+    out.push_str(&format!("{pad}allocations: {}\n", counts.allocations));
+    out.push_str(&format!("{pad}traps: {}\n", counts.traps));
+}
+
+fn format_cost_summary_json(cost: &mirplan::ProgramCostSummary) -> String {
+    let functions = cost
+        .functions
+        .iter()
+        .map(|function| {
+            json!({
+                "index": function.function.0,
+                "id": function.id.0,
+                "name": function.name,
+                "bounded": function.bounded,
+                "bound_kind": function.bound_kind,
+                "counts": cost_counts_json(&function.counts)
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "kind": "cost",
+        "module": {
+            "name": cost.module_name
+        },
+        "bounded": cost.bounded,
+        "totals": cost_counts_json(&cost.totals),
+        "functions": functions
+    })
+    .to_string()
+}
+
+fn cost_counts_json(counts: &mirplan::CostCounts) -> JsonValue {
+    json!({
+        "instructions": counts.instructions,
+        "branches": counts.branches,
+        "calls": counts.calls,
+        "memory_reads": counts.memory_reads,
+        "memory_writes": counts.memory_writes,
+        "memory_addresses": counts.memory_addresses,
+        "allocations": counts.allocations,
+        "traps": counts.traps
+    })
+}
+
 fn format_trace_check_json(
     space: &mirspace::ProgramSpace,
     snapshot: &mirsem::TraceSnapshot,

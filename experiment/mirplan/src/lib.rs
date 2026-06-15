@@ -1,3 +1,4 @@
+mod cost;
 mod format;
 mod lower;
 mod optimize;
@@ -7,6 +8,7 @@ use mirspace::{
     BlockIx, EdgeKind, FunctionIx, InstructionIx, OperandRec, ProgramSpace, SymbolIx, ValueIx,
 };
 
+pub use cost::{summarize_cost, CostCounts, FunctionCostSummary, ProgramCostSummary};
 pub use format::{format_lowered, format_plan};
 pub use lower::{
     lower_compile_plan, Backend, LoweredBlock, LoweredBlockLabel, LoweredBranchTarget,

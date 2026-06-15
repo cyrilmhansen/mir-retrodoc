@@ -29,6 +29,8 @@ graph TD
     BinaryFile -->|mirtool analyze| Analysis
     TextFile -->|mirtool trace-check| TraceCheck[Static vs observed effects]
     BinaryFile -->|mirtool trace-check| TraceCheck
+    TextFile -->|mirtool cost| Cost[Symbolic cost summary]
+    BinaryFile -->|mirtool cost| Cost
 
     TextFile -->|mirtool plan| Plan[mirplan compile plan]
     BinaryFile -->|mirtool plan| Plan
@@ -100,6 +102,13 @@ mirtool trace-check <input_file> [--format text|binary] [--entry <name>] [--json
 Reports the runtime outcome, observed instruction/effect totals, caller/callee edge counts, and per-function statuses. `proven-absent` means the static summary ruled out an effect and the run did not observe it; `observed` means a statically possible effect happened; `conservative` means the static summary allowed an effect that this run did not exercise; `mismatch` would indicate a bug in the static summary or trace accounting.
 
 With `--json`, both commands emit machine-readable reports with `kind`, `module`, and `functions` fields. `trace-check --json` also includes `outcome` and `observed_totals`.
+
+### `cost`
+Prints conservative symbolic cost summaries over the lowered plan.
+```bash
+mirtool cost <input_file> [--format text|binary] [--json]
+```
+Counts abstract structural units: instructions, branches, direct calls, memory reads/writes/address computations, allocations, and traps. Acyclic functions are reported as `bounded: true` with `bound_kind: acyclic-structural`; cyclic CFGs are reported as `bounded: false` with `bound_kind: cyclic-unknown`.
 
 ### `plan`
 Prints the deterministic MIR-F1 compile-plan text for a module image.

@@ -332,6 +332,57 @@ fn test_trace_check_trap_fixture() {
 }
 
 #[test]
+fn test_cost_valid_arithmetic_u32() {
+    let path = fixture_path("valid_arithmetic_u32.mircap.txt");
+    let output = run_mirtool(&["cost", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("cost module arithmetic_u32"));
+    assert!(stdout.contains("bounded: true"));
+    assert!(stdout.contains("instructions: 6"));
+    assert!(stdout.contains("branches: 0"));
+    assert!(stdout.contains("memory_reads: 0"));
+}
+
+#[test]
+fn test_cost_valid_memory_effects() {
+    let path = fixture_path("valid_alloc_store_load_u32.mircap.txt");
+    let output = run_mirtool(&["cost", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("cost module alloc_store_load_u32"));
+    assert!(stdout.contains("instructions: 5"));
+    assert!(stdout.contains("allocations: 1"));
+    assert!(stdout.contains("memory_reads: 1"));
+    assert!(stdout.contains("memory_writes: 1"));
+}
+
+#[test]
+fn test_cost_loop_reports_unbounded() {
+    let path = fixture_path("valid_loop.mircap.txt");
+    let output = run_mirtool(&["cost", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("cost module loop"));
+    assert!(stdout.contains("bounded: false"));
+    assert!(stdout.contains("bound_kind: cyclic-unknown"));
+}
+
+#[test]
+fn test_cost_json_valid_direct_call() {
+    let path = fixture_path("valid_direct_call.mircap.txt");
+    let output = run_mirtool(&["cost", &path, "--json"]);
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("valid cost JSON");
+    assert_eq!(json["kind"], "cost");
+    assert_eq!(json["module"]["name"], "direct_call");
+    assert_eq!(json["bounded"], true);
+    assert_eq!(json["totals"]["instructions"], 5);
+    assert_eq!(json["totals"]["calls"], 1);
+    assert_eq!(json["functions"][0]["counts"]["calls"], 1);
+}
+
+#[test]
 fn test_bench_load_text() {
     let path = fixture_path("valid_data_segment_load.mircap.txt");
     let output = run_mirtool(&["bench-load", &path, "--iterations", "3"]);

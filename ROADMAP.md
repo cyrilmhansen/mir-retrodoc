@@ -54,12 +54,15 @@ Status:
 - `mirsem` traces now expose effect counters and observed caller/callee edges
   that can be compared with static summaries;
 - `mirplan` produces deterministic compile-plan and lowered artifacts;
+- `mirplan` computes conservative symbolic cost summaries over lowered plans,
+  marking cyclic CFGs as unbounded/unknown;
 - lowered C emission is implemented while preserving the stable `ModuleImage`
   C compiler path;
 - optimization exists for local constant propagation/folding and dead-code
   elimination on lowered plans;
-- `mirtool analyze`, `mirtool trace-check`, `mirtool plan`, `mirtool lower`,
-  and `mirtool diff-all` expose inspection and differential workflows;
+- `mirtool analyze`, `mirtool trace-check`, `mirtool cost`, `mirtool plan`,
+  `mirtool lower`, and `mirtool diff-all` expose inspection and differential
+  workflows;
 - `mirtool analyze --json` and `mirtool trace-check --json` expose the first
   machine-readable reflection contract for tests, demos, and later tooling;
 - `mirrv32` emits RV32I assembly for the supported integer/address/memory
@@ -77,10 +80,11 @@ snapshots into a reflective runtime research platform. This phase should make
 program behavior inspectable and partially provable before attempting aggressive
 runtime replacement or speculative optimization.
 
-Status: first static and trace-backed slice started through `mirspace` effect
-summaries, `mirsem` effect counters and call-edge counters, `mirtool analyze`,
-`mirtool trace-check`, and JSON output for both commands. The broader
-conceptual starting point remains
+Status: first static, trace-backed, and symbolic-cost slices started through
+`mirspace` effect summaries, `mirsem` effect counters and call-edge counters,
+`mirplan` cost summaries, `mirtool analyze`, `mirtool trace-check`, `mirtool
+cost`, and JSON output for report commands. The broader conceptual starting
+point remains
 `docs/design-perspectives/02-runtime-introspection-and-tracing.md`.
 
 Target capabilities:
@@ -115,9 +119,9 @@ Runtime performance monitoring:
 
 Complexity analysis:
 
-- compute symbolic cost summaries over the lowered plan for simple patterns,
-  starting with straight-line code, acyclic CFGs, and loops with statically
-  visible bounds;
+- compute symbolic cost summaries over the lowered plan for simple patterns;
+  the current pass counts straight-line and acyclic structural units, and
+  reports cyclic CFGs as unbounded/unknown until loop-bound inference exists;
 - report costs in abstract units first: instruction count, branch count, memory
   access count, allocation count, and call count;
 - compare symbolic predictions with runtime measurements from `mirsem` traces
@@ -132,15 +136,15 @@ Complexity analysis:
 ## Current Recommended Next Step
 
 The demo now has a coherent story from validation to interpretation, static
-effect analysis, trace-backed call-edge checking, machine-readable JSON
-reports, lowering, C differential checks, Cap'n Proto serialization, float
-arithmetic, traps, and RV32I output. The best next demo-facing step is to add
-the first symbolic cost summaries:
+effect analysis, trace-backed call-edge checking, symbolic cost summaries,
+machine-readable JSON reports, lowering, C differential checks, Cap'n Proto
+serialization, float arithmetic, traps, and RV32I output. The best next
+demo-facing step is to compare symbolic cost predictions with observed trace
+counters:
 
-- summarize straight-line and acyclic lowered plans in abstract units:
-  instructions, branches, calls, memory reads/writes, allocations, and traps;
-- expose that cost summary in text and JSON so it can be compared with
-  `mirsem` trace counters;
+- add a `trace-cost` or `cost --trace-check` mode that reports static cost
+  units beside `mirsem` observed instruction/effect counts;
+- keep cyclic CFGs conservative until loop-bound inference exists;
 - keep float expansion deliberate by specifying comparisons, conversions, and
   the RV32FD versus soft-float backend decision separately.
 

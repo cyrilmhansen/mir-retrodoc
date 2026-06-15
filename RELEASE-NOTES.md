@@ -23,6 +23,8 @@ The long-term project plan lives in `ROADMAP.md`.
   differential workflows through the CLI.
 - `mirtool analyze --json` and `mirtool trace-check --json` provide the first
   machine-readable reflection reports.
+- `mirtool cost` and `mirtool cost --json` expose conservative symbolic cost
+  summaries over lowered plans, with cyclic CFGs marked unbounded/unknown.
 - `i64` operations and byte memory operations are implemented across the
   interpreter and supported backend paths.
 - `f32` and `f64` constants and arithmetic are implemented in `mircap`,
@@ -43,9 +45,10 @@ The long-term project plan lives in `ROADMAP.md`.
 - F0 is the frozen validated baseline subset.
 - F1 now includes `mirspace`, `mirplan`, lowered C, optimization, RV32I, JIT
   demo execution, and differential tooling.
-- The next recommended demo-facing feature is a first symbolic cost summary,
-  followed by deliberate float comparison and conversion specs plus an RV32FD
-  versus soft-float backend decision.
+- The next recommended demo-facing feature is comparing symbolic cost summaries
+  with observed `mirsem` trace counters, followed by deliberate float
+  comparison and conversion specs plus an RV32FD versus soft-float backend
+  decision.
 
 ## Validation Commands
 

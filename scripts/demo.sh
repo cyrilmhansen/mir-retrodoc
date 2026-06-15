@@ -190,6 +190,11 @@ mirtool trace-check "$FIXTURE" --json | cut -c1-220
 explain "For direct calls, trace-check compares static direct-call edges with observed caller/callee counts."
 printf '\n%s\n' "$ mirtool trace-check $DIRECT_CALL_FIXTURE | sed -n '1,22p'"
 mirtool trace-check "$DIRECT_CALL_FIXTURE" | sed -n '1,22p'
+explain "mirtool cost adds the first symbolic cost summary over the lowered plan. Acyclic functions get structural counts; cyclic CFGs are marked unknown instead of overclaiming complexity."
+printf '\n%s\n' "$ mirtool cost $FIXTURE"
+mirtool cost "$FIXTURE"
+printf '\n%s\n' "$ mirtool cost $DIRECT_CALL_FIXTURE --json | cut -c1-220"
+mirtool cost "$DIRECT_CALL_FIXTURE" --json | cut -c1-220
 pause
 
 section "Step 5: inspect the MIR-F1 compile plan"
@@ -317,6 +322,6 @@ printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap
 printf '%s\n' "- f32/f64 constants and arithmetic validated in mircap, executed in mirsem, emitted by mirc0, and checked with C differential tests"
 printf '%s\n' "- linear scan register allocation with callee-saved register spill handling in the RV32I backend"
 printf '%s\n' "- target-neutral lowering and projection, tested using differential checks"
-printf '%s\n' "- static effect summaries, trace-backed call-edge checks, and JSON reflection reports through mirtool analyze and mirtool trace-check"
+printf '%s\n' "- static effect summaries, trace-backed call-edge checks, symbolic cost summaries, and JSON reflection reports"
 
 section "demo complete"
