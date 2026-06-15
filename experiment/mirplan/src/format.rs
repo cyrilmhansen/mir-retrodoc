@@ -247,8 +247,9 @@ fn format_type(kind: TypeKind) -> &'static str {
         TypeKind::UnsupportedFloat => "unsupported_float",
         TypeKind::UnsupportedLongDouble => "unsupported_long_double",
         TypeKind::UnsupportedAggregate => "unsupported_aggregate",
-        TypeKind::UnsupportedVarargs => "unsupported_varargs",
-        TypeKind::UnsupportedHostCAbi => "unsupported_host_c_abi",
+        TypeKind::Struct => "struct",
+        TypeKind::Array => "array",
+        TypeKind::Pad => "pad",
     }
 }
 
@@ -326,6 +327,11 @@ fn format_opcode(opcode: Opcode) -> &'static str {
         Opcode::F64ToI32 => "f64_to_i32",
         Opcode::F32ToF64 => "f32_to_f64",
         Opcode::F64ToF32 => "f64_to_f32",
+        Opcode::ExtractValue => "extract_value",
+        Opcode::InsertValue => "insert_value",
+        Opcode::VaStart => "va_start",
+        Opcode::VaArg => "va_arg",
+        Opcode::VaEnd => "va_end",
     }
 }
 

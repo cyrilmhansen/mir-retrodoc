@@ -50,11 +50,11 @@ fn summarizes_branch_cost_units() {
 }
 
 #[test]
-fn marks_cyclic_cfg_as_unbounded() {
+fn marks_counted_loops_as_bounded() {
     let cost = cost_fixture("valid_loop.mircap.txt");
     assert_eq!(cost.module_name, "loop");
-    assert!(!cost.bounded);
-    assert_eq!(cost.functions[0].bound_kind, "cyclic-unknown");
-    assert_eq!(cost.totals.instructions, 9);
-    assert_eq!(cost.totals.branches, 3);
+    assert!(cost.bounded);
+    assert_eq!(cost.functions[0].bound_kind, "cyclic-counted-loop");
+    assert_eq!(cost.totals.instructions, 19);
+    assert_eq!(cost.totals.branches, 8);
 }

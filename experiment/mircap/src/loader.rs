@@ -62,11 +62,53 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
                 };
             }
             Some("type") => {
-                expect_len(&parts, 3, line_no)?;
-                types.push(TypeDef {
-                    id: TypeId(parse_u32(parts[1], line_no)?),
-                    kind: parse_type(parts[2], line_no)?,
-                });
+                expect_min_len(&parts, 3, line_no)?;
+                let id = TypeId(parse_u32(parts[1], line_no)?);
+                match parts[2] {
+                    "struct" => {
+                        let fields = if parts.len() > 3 {
+                            parse_type_list(parts[3], line_no)?
+                        } else {
+                            Vec::new()
+                        };
+                        types.push(TypeDef {
+                            id,
+                            kind: TypeKind::Struct,
+                            fields,
+                            array_len: 0,
+                        });
+                    }
+                    "array" => {
+                        expect_len(&parts, 5, line_no)?;
+                        let elem_ty = TypeId(parse_u32(parts[3], line_no)?);
+                        let array_len = parse_u32(parts[4], line_no)?;
+                        types.push(TypeDef {
+                            id,
+                            kind: TypeKind::Array,
+                            fields: vec![elem_ty],
+                            array_len,
+                        });
+                    }
+                    "pad" => {
+                        expect_len(&parts, 4, line_no)?;
+                        let size = parse_u32(parts[3], line_no)?;
+                        types.push(TypeDef {
+                            id,
+                            kind: TypeKind::Pad,
+                            fields: Vec::new(),
+                            array_len: size,
+                        });
+                    }
+                    _ => {
+                        expect_len(&parts, 3, line_no)?;
+                        types.push(TypeDef {
+                            id,
+                            kind: parse_type(parts[2], line_no)?,
+                            fields: Vec::new(),
+                            array_len: 0,
+                        });
+                    }
+                }
             }
             Some("symbol") => {
                 expect_len(&parts, 4, line_no)?;
@@ -89,6 +131,11 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
                 } else {
                     Vec::new()
                 };
+                let is_variadic = if parts.len() >= 9 {
+                    parts[8] == "true"
+                } else {
+                    false
+                };
                 functions.push(Function {
                     id,
                     symbol,
@@ -99,6 +146,8 @@ pub fn from_text(text: &str) -> Result<ModuleImage, LoadError> {
                     blocks: Vec::new(),
                     flags,
                     source_span: None,
+                    calling_convention: crate::image::CallingConvention::MirDefault,
+                    is_variadic,
                 });
             }
             Some("data") => {
@@ -233,11 +282,12 @@ fn parse_type(s: &str, line: usize) -> Result<TypeKind, LoadError> {
         "i64" => Ok(TypeKind::I64),
         "f32" => Ok(TypeKind::F32),
         "f64" => Ok(TypeKind::F64),
+        "struct" => Ok(TypeKind::Struct),
+        "array" => Ok(TypeKind::Array),
+        "pad" => Ok(TypeKind::Pad),
         "float" => Ok(TypeKind::UnsupportedFloat),
         "long_double" => Ok(TypeKind::UnsupportedLongDouble),
         "aggregate" => Ok(TypeKind::UnsupportedAggregate),
-        "varargs" => Ok(TypeKind::UnsupportedVarargs),
-        "host_c_abi" => Ok(TypeKind::UnsupportedHostCAbi),
         _ => Err(err(line, format!("unknown type kind: {s}"))),
     }
 }
@@ -325,6 +375,11 @@ fn parse_opcode(s: &str, line: usize) -> Result<Opcode, LoadError> {
         "f64_to_i32" => Ok(Opcode::F64ToI32),
         "f32_to_f64" => Ok(Opcode::F32ToF64),
         "f64_to_f32" => Ok(Opcode::F64ToF32),
+        "extract_value" => Ok(Opcode::ExtractValue),
+        "insert_value" => Ok(Opcode::InsertValue),
+        "va_start" => Ok(Opcode::VaStart),
+        "va_arg" => Ok(Opcode::VaArg),
+        "va_end" => Ok(Opcode::VaEnd),
         _ => Err(err(line, format!("unknown opcode: {s}"))),
     }
 }

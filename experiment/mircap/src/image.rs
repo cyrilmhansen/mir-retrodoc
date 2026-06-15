@@ -32,16 +32,19 @@ pub enum TypeKind {
     UnsupportedFloat,
     UnsupportedLongDouble,
     UnsupportedAggregate,
-    UnsupportedVarargs,
-    UnsupportedHostCAbi,
     F32,
     F64,
+    Struct,
+    Array,
+    Pad,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TypeDef {
     pub id: TypeId,
     pub kind: TypeKind,
+    pub fields: Vec<TypeId>,
+    pub array_len: u32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -58,6 +61,12 @@ pub struct Symbol {
     pub kind: SymbolKind,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CallingConvention {
+    MirDefault,
+    HostC,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Function {
     pub id: FunctionId,
@@ -69,6 +78,8 @@ pub struct Function {
     pub blocks: Vec<BlockId>,
     pub flags: u32,
     pub source_span: Option<SourceSpanId>,
+    pub calling_convention: CallingConvention,
+    pub is_variadic: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -154,6 +165,11 @@ pub enum Opcode {
     F64ToI32,
     F32ToF64,
     F64ToF32,
+    ExtractValue,
+    InsertValue,
+    VaStart,
+    VaArg,
+    VaEnd,
 }
 
 impl Opcode {

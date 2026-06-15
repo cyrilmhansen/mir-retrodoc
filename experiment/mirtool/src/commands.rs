@@ -1417,10 +1417,27 @@ pub fn image_to_text(image: &ModuleImage) -> String {
             mircap::TypeKind::UnsupportedFloat => "float",
             mircap::TypeKind::UnsupportedLongDouble => "long_double",
             mircap::TypeKind::UnsupportedAggregate => "aggregate",
-            mircap::TypeKind::UnsupportedVarargs => "varargs",
-            mircap::TypeKind::UnsupportedHostCAbi => "host_c_abi",
+            mircap::TypeKind::Struct => "struct",
+            mircap::TypeKind::Array => "array",
+            mircap::TypeKind::Pad => "pad",
         };
-        out.push_str(&format!("type {} {}\n", ty.id.0, kind_str));
+        match ty.kind {
+            mircap::TypeKind::Struct => {
+                let fields_str = ty.fields.iter().map(|f| f.0.to_string()).collect::<Vec<_>>().join(",");
+                let fields_out = if fields_str.is_empty() { "-" } else { &fields_str };
+                out.push_str(&format!("type {} {} {}\n", ty.id.0, kind_str, fields_out));
+            }
+            mircap::TypeKind::Array => {
+                let elem = ty.fields.first().map(|f| f.0.to_string()).unwrap_or_else(|| "0".to_string());
+                out.push_str(&format!("type {} {} {} {}\n", ty.id.0, kind_str, elem, ty.array_len));
+            }
+            mircap::TypeKind::Pad => {
+                out.push_str(&format!("type {} {} {}\n", ty.id.0, kind_str, ty.array_len));
+            }
+            _ => {
+                out.push_str(&format!("type {} {}\n", ty.id.0, kind_str));
+            }
+        }
     }
 
     for sym in &image.symbols {
@@ -1565,6 +1582,11 @@ pub fn image_to_text(image: &ModuleImage) -> String {
             mircap::Opcode::F64ToI32 => "f64_to_i32",
             mircap::Opcode::F32ToF64 => "f32_to_f64",
             mircap::Opcode::F64ToF32 => "f64_to_f32",
+            mircap::Opcode::ExtractValue => "extract_value",
+            mircap::Opcode::InsertValue => "insert_value",
+            mircap::Opcode::VaStart => "va_start",
+            mircap::Opcode::VaArg => "va_arg",
+            mircap::Opcode::VaEnd => "va_end",
             mircap::Opcode::UnsupportedIndirectCall => "indirect_call",
         };
 
@@ -2800,6 +2822,7 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
         let path_str = path.to_string_lossy();
         let image = load_image(&path_str, None)?;
         let uses_float = module_uses_float(&image);
+        let uses_varargs = module_uses_varargs(&image);
 
         // 1. Interpreter check
         let mut interp_status = "PASS";
@@ -2819,7 +2842,9 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
         // 2. C Transpiler check
         let mut c_status = "SKIP";
         let mut c_passed = true;
-        if cc_available {
+        if uses_varargs {
+            c_status = "SKIP";
+        } else if cc_available {
             match cmd_diff(&path_str, None, "main", keep_temp, optimize, true) {
                 Ok(passed) => {
                     c_passed = passed;
@@ -2835,7 +2860,7 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
         // 3. Upstream MIR check
         let mut upstream_status = "SKIP";
         let mut upstream_passed = true;
-        if uses_float {
+        if uses_float || uses_varargs {
             upstream_status = "SKIP";
         } else if upstream_available {
             match cmd_diff_upstream(&path_str, None, "main", keep_temp, optimize, true) {
@@ -2853,7 +2878,7 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
         // 4. RV32I check
         let mut rv32_status = "SKIP";
         let mut rv32_passed = true;
-        if uses_float {
+        if uses_float || uses_varargs {
             rv32_status = "SKIP";
         } else if rv32_available {
             match cmd_diff_rv32i(&path_str, None, keep_temp, optimize, true) {
@@ -2903,6 +2928,10 @@ fn module_uses_float(image: &ModuleImage) -> bool {
         .types
         .iter()
         .any(|ty| matches!(ty.kind, mircap::TypeKind::F32 | mircap::TypeKind::F64))
+}
+
+fn module_uses_varargs(image: &ModuleImage) -> bool {
+    image.functions.iter().any(|f| f.is_variadic)
 }
 
 fn find_fixtures_dir() -> Option<std::path::PathBuf> {

@@ -437,6 +437,11 @@ pub fn emit_instruction(insn: &Instruction, image: &ModuleImage) -> Result<Strin
         | Opcode::F64ToI32
         | Opcode::F32ToF64
         | Opcode::F64ToF32
-        | Opcode::UnsupportedIndirectCall => Err(CompileError::UnsupportedOpcode(insn.opcode)),
+        | Opcode::ExtractValue
+        | Opcode::InsertValue
+        | Opcode::UnsupportedIndirectCall
+        | Opcode::VaStart
+        | Opcode::VaArg
+        | Opcode::VaEnd => Err(CompileError::UnsupportedOpcode(insn.opcode)),
     }
 }

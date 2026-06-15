@@ -36,6 +36,8 @@ The currently implemented language surface includes integer, address, memory,
 control-flow, direct-call, return, trap, `i64`, and byte-memory operations.
 Floating-point support includes `f32` and `f64` constants, arithmetic, comparisons, and conversions. These are validated and executable in `mirsem`, transpiled by `mirc0`, and emitted by `mirrv32` using the RV32FD extension.
 
+Work has also begun on expanding the functional subset with **struct/aggregate types** and interoperability via **Host C ABI and Varargs**. Aggregate types have been introduced to `mircap` and opcodes for `va_start`/`va_arg`/`va_end` along with variadic function properties have been integrated into the schema.
+
 Unsupported upstream MIR features are rejected or documented explicitly.
 
 ## Phase 2: MIR-F1 Analysis, Planning, And Backends
@@ -152,8 +154,8 @@ The best next strategic steps to deepen the analysis and backend coverage are:
 - ~~expand floating-point support deliberately by specifying comparisons,
   conversions, and deciding between an RV32FD or soft-float backend
   implementation~~ (Done);
-- begin evaluating host C ABI, varargs, or aggregate lowering to expand the
-  functional subset.
+- ~~begin evaluating host C ABI, varargs, or aggregate lowering to expand the
+  functional subset~~ (In Progress: Designing struct/aggregate types in mircap).
 
 This keeps the public demo concrete while moving toward the F2 reflection and
 runtime-intelligence vision.
@@ -164,7 +166,6 @@ The following remain out of early F1 until the analysis and planning boundary is
 stable:
 
 - host C ABI and varargs;
-- aggregate lowering;
 - fantasy-computer target work;
 - lazy basic-block versioning;
 - runtime code replacement or deoptimization.

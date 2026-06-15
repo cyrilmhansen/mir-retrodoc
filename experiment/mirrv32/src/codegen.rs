@@ -1064,9 +1064,12 @@ fn emit_instruction(
             let offset = frame.offset_of(dest.id);
             writeln!(asm, "    fsw ft1, {}(s0)", offset)?;
         }
-        Opcode::UnsupportedIndirectCall => {
-            return Err(CodegenError::UnsupportedOpcode(insn.opcode))
-        }
+        Opcode::ExtractValue
+        | Opcode::InsertValue
+        | Opcode::VaStart
+        | Opcode::VaArg
+        | Opcode::VaEnd
+        | Opcode::UnsupportedIndirectCall => return Err(CodegenError::UnsupportedOpcode(insn.opcode)),
     }
     Ok(())
 }

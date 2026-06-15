@@ -468,7 +468,12 @@ fn emit_lowered_instruction(
         Opcode::F64ToI32 => emit_convert(instruction, "int32_t"),
         Opcode::F32ToF64 => emit_convert(instruction, "double"),
         Opcode::F64ToF32 => emit_convert(instruction, "float"),
-        Opcode::UnsupportedIndirectCall => {
+        Opcode::ExtractValue
+        | Opcode::InsertValue
+        | Opcode::VaStart
+        | Opcode::VaArg
+        | Opcode::VaEnd
+        | Opcode::UnsupportedIndirectCall => {
             Err(CompileError::UnsupportedOpcode(instruction.opcode))
         }
     }

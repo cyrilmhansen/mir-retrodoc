@@ -8,6 +8,8 @@ pub struct Frame {
     pub instruction_position: usize,
     pub values: Vec<Option<Value>>,
     pub return_destinations: Vec<ValueId>,
+    pub varargs: Vec<Value>,
+    pub varargs_cursor: usize,
 }
 
 impl Frame {
@@ -23,6 +25,8 @@ impl Frame {
             instruction_position: 0,
             values: vec![None; value_count as usize],
             return_destinations,
+            varargs: Vec::new(),
+            varargs_cursor: 0,
         }
     }
 

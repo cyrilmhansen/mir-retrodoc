@@ -38,6 +38,8 @@ struct Module {
 struct TypeDef {
   id @0 :UInt32;
   kind @1 :TypeKind;
+  fields @2 :List(UInt32);
+  arrayLen @3 :UInt32;
 }
 
 enum TypeKind {
@@ -49,10 +51,13 @@ enum TypeKind {
   unsupportedFloat @5;
   unsupportedLongDouble @6;
   unsupportedAggregate @7;
-  unsupportedVarargs @8;
-  unsupportedHostCAbi @9;
+  reserved8 @8;
+  reserved9 @9;
   f32 @10;
   f64 @11;
+  struct @12;
+  array @13;
+  pad @14;
 }
 
 struct Symbol {
@@ -78,6 +83,13 @@ struct Function {
   blockCount @7 :UInt32;
   flags @8 :UInt32;
   sourceSpan @9 :UInt32;
+  callingConvention @10 :CallingConvention;
+  isVariadic @11 :Bool;
+}
+
+enum CallingConvention {
+  mirDefault @0;
+  hostC @1;
 }
 
 struct DataSegment {
@@ -179,6 +191,11 @@ enum Opcode {
   f64ToI32 @69;
   f32ToF64 @70;
   f64ToF32 @71;
+  extractValue @72;
+  insertValue @73;
+  vaStart @74;
+  vaArg @75;
+  vaEnd @76;
 }
 
 struct Operand {

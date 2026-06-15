@@ -249,6 +249,8 @@ impl Runner {
                 Opcode::ConstI64 => self.exec_const_i64(&mut stack, &insn)?,
                 Opcode::ConstF32 => self.exec_const_f32(&mut stack, &insn)?,
                 Opcode::ConstF64 => self.exec_const_f64(&mut stack, &insn)?,
+                Opcode::ExtractValue => unimplemented!("aggregate extract value not yet implemented in mirsem"),
+                Opcode::InsertValue => unimplemented!("aggregate insert value not yet implemented in mirsem"),
                 Opcode::Copy => self.exec_copy(&mut stack, &insn)?,
                 Opcode::AddI32
                 | Opcode::SubI32
@@ -325,7 +327,10 @@ impl Runner {
                 | Opcode::F64ToI32
                 | Opcode::F32ToF64
                 | Opcode::F64ToF32 => self.exec_float_convert(&mut stack, &insn)?,
-                | Opcode::UnsupportedIndirectCall => {
+                Opcode::VaStart => self.exec_va_start(&mut stack, &insn)?,
+                Opcode::VaArg => self.exec_va_arg(&mut stack, &insn)?,
+                Opcode::VaEnd => self.exec_va_end(&mut stack, &insn)?,
+                Opcode::UnsupportedIndirectCall => {
                     return Err(ExecutionTrap::UnsupportedInstruction {
                         instruction: insn.id,
                         opcode: format!("{:?}", insn.opcode),
@@ -350,7 +355,13 @@ impl Runner {
             .into());
         }
         let function = self.function(function_id)?;
-        if args.len() != function.params.len() {
+        if function.is_variadic {
+            if args.len() < function.params.len() {
+                return Err(ExecutionError::Internal(format!(
+                    "entry/call arity mismatch for variadic function {function_id}"
+                )));
+            }
+        } else if args.len() != function.params.len() {
             return Err(ExecutionError::Internal(format!(
                 "entry/call arity mismatch for function {function_id}"
             )));
@@ -365,8 +376,11 @@ impl Runner {
             function.value_count,
             return_destinations,
         );
-        for (idx, arg) in args.iter().enumerate() {
+        for (idx, arg) in args.iter().take(function.params.len()).enumerate() {
             frame.write(ValueId(idx as u32), arg.clone());
+        }
+        if function.is_variadic {
+            frame.varargs = args[function.params.len()..].to_vec();
         }
         stack.push(frame);
         self.trace.record_function_call(function_id, stack.len());
@@ -725,7 +739,12 @@ impl Runner {
         for idx in 1..insn.operands.len() {
             args.push(self.value_operand(stack, insn, idx)?);
         }
-        if args.len() != function.params.len() || insn.results.len() != function.results.len() {
+        let arity_ok = if function.is_variadic {
+            args.len() >= function.params.len()
+        } else {
+            args.len() == function.params.len()
+        };
+        if !arity_ok || insn.results.len() != function.results.len() {
             return Err(ExecutionTrap::CallArityMismatch {
                 instruction: insn.id,
             }
@@ -1152,5 +1171,35 @@ impl Runner {
         self.image
             .function(function)
             .ok_or_else(|| ExecutionError::Internal(format!("missing function {function}")))
+    }
+
+    fn exec_va_start(&mut self, stack: &mut [Frame], _insn: &Instruction) -> Result<(), RunError> {
+        let frame = self.current_frame_mut(stack)?;
+        frame.varargs_cursor = 0;
+        frame.instruction_position += 1;
+        Ok(())
+    }
+
+    fn exec_va_arg(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let value = {
+            let frame = self.current_frame_mut(stack)?;
+            if frame.varargs_cursor >= frame.varargs.len() {
+                return Err(ExecutionTrap::InvalidInstruction {
+                    instruction: insn.id,
+                }
+                .into());
+            }
+            let value = frame.varargs[frame.varargs_cursor].clone();
+            frame.varargs_cursor += 1;
+            value
+        };
+        self.write_result_and_advance(stack, insn, value)
+    }
+
+    fn exec_va_end(&mut self, stack: &mut [Frame], _insn: &Instruction) -> Result<(), RunError> {
+        let frame = self.current_frame_mut(stack)?;
+        frame.varargs_cursor = 0;
+        frame.instruction_position += 1;
+        Ok(())
     }
 }

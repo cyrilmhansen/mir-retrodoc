@@ -116,9 +116,7 @@ impl Validator<'_> {
             match ty.kind {
                 TypeKind::UnsupportedFloat
                 | TypeKind::UnsupportedLongDouble
-                | TypeKind::UnsupportedAggregate
-                | TypeKind::UnsupportedVarargs
-                | TypeKind::UnsupportedHostCAbi => {
+                | TypeKind::UnsupportedAggregate => {
                     self.error(
                         ErrorKind::UnsupportedFeature,
                         EntityRef::Type(ty.id),
@@ -131,7 +129,10 @@ impl Validator<'_> {
                 | TypeKind::I64
                 | TypeKind::Addr32
                 | TypeKind::F32
-                | TypeKind::F64 => {}
+                | TypeKind::F64
+                | TypeKind::Struct
+                | TypeKind::Array
+                | TypeKind::Pad => {}
             }
         }
     }
@@ -142,6 +143,18 @@ impl Validator<'_> {
         let functions: BTreeMap<_, _> = self.image.functions.iter().map(|f| (f.id, f)).collect();
         let blocks: BTreeMap<_, _> = self.image.blocks.iter().map(|b| (b.id, b)).collect();
         let insns: BTreeMap<_, _> = self.image.instructions.iter().map(|i| (i.id, i)).collect();
+
+        for ty in &self.image.types {
+            for &field_ty in &ty.fields {
+                if !types.contains(&field_ty) {
+                    self.error(
+                        ErrorKind::MissingReference,
+                        EntityRef::Type(ty.id),
+                        format!("missing field type {field_ty} in aggregate"),
+                    );
+                }
+            }
+        }
 
         for function in &self.image.functions {
             match symbols.get(&function.symbol) {
@@ -444,6 +457,19 @@ impl Validator<'_> {
                 self.expect_operand_type(current_function, insn, functions, 0, TypeKind::U32);
                 self.expect_operand_type(current_function, insn, functions, 1, TypeKind::U32);
             }
+            Opcode::VaStart => {
+                self.expect_results(insn, 0);
+                self.expect_operands(insn, 0);
+                // Can only be used in a variadic function, check that later.
+            }
+            Opcode::VaArg => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1); // e.g. type to extract
+            }
+            Opcode::VaEnd => {
+                self.expect_results(insn, 0);
+                self.expect_operands(insn, 0);
+            }
             Opcode::Branch => {
                 self.expect_results(insn, 0);
                 self.expect_operands(insn, 1);
@@ -574,6 +600,26 @@ impl Validator<'_> {
                 self.expect_operands(insn, 1);
                 self.expect_result_type(current_function, insn, functions, 0, TypeKind::F32);
                 self.expect_operand_type(current_function, insn, functions, 0, TypeKind::F64);
+            }
+            Opcode::ExtractValue => {
+                self.expect_results(insn, 1);
+                if insn.operands.len() < 2 {
+                    self.error(
+                        ErrorKind::MalformedOperand,
+                        EntityRef::Instruction(insn.id),
+                        "extract_value requires at least 2 operands (aggregate, index...)",
+                    );
+                }
+            }
+            Opcode::InsertValue => {
+                self.expect_results(insn, 1);
+                if insn.operands.len() < 3 {
+                    self.error(
+                        ErrorKind::MalformedOperand,
+                        EntityRef::Instruction(insn.id),
+                        "insert_value requires at least 3 operands (aggregate, value, index...)",
+                    );
+                }
             }
             Opcode::UnsupportedIndirectCall => {}
         }
@@ -766,7 +812,18 @@ impl Validator<'_> {
             return;
         };
         let arg_count = insn.operands.len().saturating_sub(1);
-        if arg_count != callee.params.len() {
+        if callee.is_variadic {
+            if arg_count < callee.params.len() {
+                self.error(
+                    ErrorKind::MalformedFunctionSignature,
+                    EntityRef::Instruction(insn.id),
+                    format!(
+                        "variadic call argument count mismatch: expected at least {}, got {arg_count}",
+                        callee.params.len()
+                    ),
+                );
+            }
+        } else if arg_count != callee.params.len() {
             self.error(
                 ErrorKind::MalformedFunctionSignature,
                 EntityRef::Instruction(insn.id),

@@ -56,12 +56,18 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                         mircap_capnp::TypeKind::UnsupportedLongDouble
                     }
                     TypeKind::UnsupportedAggregate => mircap_capnp::TypeKind::UnsupportedAggregate,
-                    TypeKind::UnsupportedVarargs => mircap_capnp::TypeKind::UnsupportedVarargs,
-                    TypeKind::UnsupportedHostCAbi => mircap_capnp::TypeKind::UnsupportedHostCAbi,
                     TypeKind::F32 => mircap_capnp::TypeKind::F32,
                     TypeKind::F64 => mircap_capnp::TypeKind::F64,
+                    TypeKind::Struct => mircap_capnp::TypeKind::Struct,
+                    TypeKind::Array => mircap_capnp::TypeKind::Array,
+                    TypeKind::Pad => mircap_capnp::TypeKind::Pad,
                 };
                 capnp_ty.set_kind(capnp_kind);
+                let mut capnp_fields = capnp_ty.reborrow().init_fields(ty.fields.len() as u32);
+                for (j, &field_id) in ty.fields.iter().enumerate() {
+                    capnp_fields.set(j as u32, field_id.0);
+                }
+                capnp_ty.set_array_len(ty.array_len);
             }
         }
 
@@ -277,6 +283,11 @@ pub fn to_capnp_bytes(image: &ModuleImage) -> Vec<u8> {
                     Opcode::F64ToI32 => mircap_capnp::Opcode::F64ToI32,
                     Opcode::F32ToF64 => mircap_capnp::Opcode::F32ToF64,
                     Opcode::F64ToF32 => mircap_capnp::Opcode::F64ToF32,
+                    Opcode::ExtractValue => mircap_capnp::Opcode::ExtractValue,
+                    Opcode::InsertValue => mircap_capnp::Opcode::InsertValue,
+                    Opcode::VaStart => mircap_capnp::Opcode::VaStart,
+                    Opcode::VaArg => mircap_capnp::Opcode::VaArg,
+                    Opcode::VaEnd => mircap_capnp::Opcode::VaEnd,
                 };
                 capnp_insn.set_opcode(capnp_op);
 
@@ -385,7 +396,6 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
     let mut types = Vec::new();
     for i in 0..capnp_types.len() {
         let ty = capnp_types.get(i);
-        let id = TypeId(ty.get_id());
         let kind = match ty.get_kind()? {
             mircap_capnp::TypeKind::Void => TypeKind::Void,
             mircap_capnp::TypeKind::I32 => TypeKind::I32,
@@ -395,12 +405,28 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
             mircap_capnp::TypeKind::UnsupportedFloat => TypeKind::UnsupportedFloat,
             mircap_capnp::TypeKind::UnsupportedLongDouble => TypeKind::UnsupportedLongDouble,
             mircap_capnp::TypeKind::UnsupportedAggregate => TypeKind::UnsupportedAggregate,
-            mircap_capnp::TypeKind::UnsupportedVarargs => TypeKind::UnsupportedVarargs,
-            mircap_capnp::TypeKind::UnsupportedHostCAbi => TypeKind::UnsupportedHostCAbi,
+            mircap_capnp::TypeKind::Reserved8 => return Err(capnp::Error::failed("reserved8 type kind".into())),
+            mircap_capnp::TypeKind::Reserved9 => return Err(capnp::Error::failed("reserved9 type kind".into())),
             mircap_capnp::TypeKind::F32 => TypeKind::F32,
             mircap_capnp::TypeKind::F64 => TypeKind::F64,
+            mircap_capnp::TypeKind::Struct => TypeKind::Struct,
+            mircap_capnp::TypeKind::Array => TypeKind::Array,
+            mircap_capnp::TypeKind::Pad => TypeKind::Pad,
         };
-        types.push(TypeDef { id, kind });
+
+        let mut fields = Vec::new();
+        if ty.has_fields() {
+            for field_id in ty.get_fields()? {
+                fields.push(TypeId(field_id));
+            }
+        }
+
+        types.push(TypeDef {
+            id: TypeId(ty.get_id()),
+            kind,
+            fields,
+            array_len: ty.get_array_len(),
+        });
     }
 
     // 4. Symbols
@@ -545,6 +571,11 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
             mircap_capnp::Opcode::F64ToI32 => Opcode::F64ToI32,
             mircap_capnp::Opcode::F32ToF64 => Opcode::F32ToF64,
             mircap_capnp::Opcode::F64ToF32 => Opcode::F64ToF32,
+            mircap_capnp::Opcode::ExtractValue => Opcode::ExtractValue,
+            mircap_capnp::Opcode::InsertValue => Opcode::InsertValue,
+            mircap_capnp::Opcode::VaStart => Opcode::VaStart,
+            mircap_capnp::Opcode::VaArg => Opcode::VaArg,
+            mircap_capnp::Opcode::VaEnd => Opcode::VaEnd,
         };
 
         let first_res = insn.get_first_result() as usize;
@@ -665,6 +696,11 @@ pub fn from_capnp_bytes(bytes: &[u8]) -> Result<ModuleImage, capnp::Error> {
             blocks: func_blocks,
             flags,
             source_span,
+            calling_convention: match func.get_calling_convention()? {
+                mircap_capnp::CallingConvention::MirDefault => crate::image::CallingConvention::MirDefault,
+                mircap_capnp::CallingConvention::HostC => crate::image::CallingConvention::HostC,
+            },
+            is_variadic: func.get_is_variadic(),
         });
     }
 

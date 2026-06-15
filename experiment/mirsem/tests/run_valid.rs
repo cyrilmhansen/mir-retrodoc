@@ -14,6 +14,14 @@ fn run_text(text: &str) -> (Vec<Value>, mirsem::trace::TraceSnapshot) {
 }
 
 #[test]
+fn runs_varargs() {
+    let values = run_fixture(include_str!(
+        "../../mircap/tests/fixtures/valid_varargs.mircap.txt"
+    ));
+    assert_eq!(values, vec![Value::I32(30)]);
+}
+
+#[test]
 fn runs_const_return() {
     let values = run_fixture(include_str!(
         "../../mircap/tests/fixtures/valid_const_return.mircap.txt"
