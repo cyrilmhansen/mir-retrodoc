@@ -65,25 +65,37 @@ pub fn summarize_cost(program: &LoweredProgram) -> ProgramCostSummary {
 }
 
 fn summarize_function_cost(function: &LoweredFunction) -> FunctionCostSummary {
-    let bounded = function_cfg_is_acyclic(function);
+    let mut bounded = function_cfg_is_acyclic(function);
+    let mut bound_kind = if bounded { "acyclic-structural" } else { "cyclic-unknown" };
+    
+    let mut block_freqs = std::collections::HashMap::new();
+    
+    if !bounded {
+        if let Some((header_ix, body_ix, trip_count)) = try_prove_counted_loop(function) {
+            bounded = true;
+            bound_kind = "cyclic-counted-loop";
+            block_freqs.insert(header_ix, trip_count + 1);
+            block_freqs.insert(body_ix, trip_count);
+        }
+    }
+    
     let mut counts = CostCounts::default();
-    for instruction in function
-        .blocks
-        .iter()
-        .flat_map(|block| block.instructions.iter())
-    {
-        counts.instructions += 1;
-        match &instruction.kind {
-            LoweredInstructionKind::Branch { .. } => counts.branches += 1,
-            LoweredInstructionKind::Call { .. } => counts.calls += 1,
-            LoweredInstructionKind::Trap => counts.traps += 1,
-            LoweredInstructionKind::Memory { op } => match op {
-                LoweredMemoryOp::Alloc => counts.allocations += 1,
-                LoweredMemoryOp::Load => counts.memory_reads += 1,
-                LoweredMemoryOp::Store => counts.memory_writes += 1,
-                LoweredMemoryOp::Address => counts.memory_addresses += 1,
-            },
-            LoweredInstructionKind::Return | LoweredInstructionKind::Value => {}
+    for block in &function.blocks {
+        let freq = *block_freqs.get(&block.label.ix).unwrap_or(&1);
+        for instruction in &block.instructions {
+            counts.instructions += freq;
+            match &instruction.kind {
+                LoweredInstructionKind::Branch { .. } => counts.branches += freq,
+                LoweredInstructionKind::Call { .. } => counts.calls += freq,
+                LoweredInstructionKind::Trap => counts.traps += freq,
+                LoweredInstructionKind::Memory { op } => match op {
+                    LoweredMemoryOp::Alloc => counts.allocations += freq,
+                    LoweredMemoryOp::Load => counts.memory_reads += freq,
+                    LoweredMemoryOp::Store => counts.memory_writes += freq,
+                    LoweredMemoryOp::Address => counts.memory_addresses += freq,
+                },
+                LoweredInstructionKind::Return | LoweredInstructionKind::Value => {}
+            }
         }
     }
 
@@ -92,13 +104,100 @@ fn summarize_function_cost(function: &LoweredFunction) -> FunctionCostSummary {
         id: function.id,
         name: function.name.clone(),
         bounded,
-        bound_kind: if bounded {
-            "acyclic-structural"
-        } else {
-            "cyclic-unknown"
-        },
+        bound_kind,
         counts,
     }
+}
+
+fn try_prove_counted_loop(function: &LoweredFunction) -> Option<(BlockIx, BlockIx, u64)> {
+    let mut backedges = Vec::new();
+    for block in &function.blocks {
+        for succ in &block.successors {
+            if succ.block.ix.0 <= block.label.ix.0 {
+                backedges.push((block.label.ix, succ.block.ix));
+            }
+        }
+    }
+    
+    if backedges.len() != 1 {
+        return None;
+    }
+    
+    let (latch_ix, header_ix) = backedges[0];
+    let header = function.blocks.iter().find(|b| b.label.ix == header_ix)?;
+    let latch = function.blocks.iter().find(|b| b.label.ix == latch_ix)?;
+    
+    if header.successors.len() != 2 { return None; }
+    
+    let branch_insn = header.instructions.last()?;
+    let (cond_val, true_target, false_target) = match &branch_insn.kind {
+        crate::LoweredInstructionKind::Branch { targets } if targets.len() == 2 => {
+            let cond_val = branch_insn.reads.get(0)?;
+            (cond_val, targets[0].block.ix, targets[1].block.ix)
+        }
+        _ => return None,
+    };
+    
+    let body_ix = if true_target == latch_ix { true_target } else if false_target == latch_ix { false_target } else { return None; };
+    
+    let cond_insn = header.instructions.iter().find(|i| i.writes.contains(cond_val))?;
+    if cond_insn.reads.len() != 2 { return None; }
+    let counter_val = &cond_insn.reads[0];
+    let limit_val = &cond_insn.reads[1];
+    
+    let mut counter_init = None;
+    let mut limit_init = None;
+    for b in &function.blocks {
+        if b.label.ix == header_ix || b.label.ix == body_ix { continue; }
+        for i in &b.instructions {
+            if i.writes.contains(counter_val) { counter_init = Some(i); }
+            if i.writes.contains(limit_val) { limit_init = Some(i); }
+        }
+    }
+    
+    fn extract_const_u64(insn: &crate::lower::LoweredInstruction) -> Option<u64> {
+        for op in &insn.operands {
+            match op {
+                crate::lower::LoweredOperand::ImmI32(v) => return Some(*v as i64 as u64),
+                crate::lower::LoweredOperand::ImmU32(v) => return Some(*v as u64),
+                crate::lower::LoweredOperand::ImmI64(v) => return Some(*v as u64),
+                _ => {}
+            }
+        }
+        None
+    }
+    
+    let start_val = extract_const_u64(counter_init?)?;
+    let limit = extract_const_u64(limit_init?)?;
+    
+    let mut increment_insn = None;
+    for i in &latch.instructions {
+        if i.writes.contains(counter_val) {
+            increment_insn = Some(i);
+        }
+    }
+    let increment_insn = increment_insn?;
+    
+    let step_val = increment_insn.reads.iter().find(|&v| v != counter_val)?;
+    
+    let mut step_init = None;
+    for b in &function.blocks {
+        if b.label.ix == header_ix || b.label.ix == body_ix { continue; }
+        for i in &b.instructions {
+            if i.writes.contains(step_val) { step_init = Some(i); }
+        }
+    }
+    let step = extract_const_u64(step_init?)?;
+    
+    if step == 0 { return None; }
+    
+    let trip_count = if start_val < limit {
+        (limit - start_val + step - 1) / step
+    } else {
+        0
+    };
+    
+    Some((header_ix, body_ix, trip_count))
 }
 
 fn function_cfg_is_acyclic(function: &LoweredFunction) -> bool {

@@ -358,14 +358,14 @@ fn test_cost_valid_memory_effects() {
 }
 
 #[test]
-fn test_cost_loop_reports_unbounded() {
+fn test_cost_loop_reports_bounded() {
     let path = fixture_path("valid_loop.mircap.txt");
     let output = run_mirtool(&["cost", &path]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("cost module loop"));
-    assert!(stdout.contains("bounded: false"));
-    assert!(stdout.contains("bound_kind: cyclic-unknown"));
+    assert!(stdout.contains("bounded: true"));
+    assert!(stdout.contains("bound_kind: cyclic-counted-loop"));
 }
 
 #[test]
