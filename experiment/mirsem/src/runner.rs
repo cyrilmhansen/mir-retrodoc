@@ -71,6 +71,9 @@ impl Runner {
         match &result {
             Ok(result) => self.trace.outcome = TraceOutcome::Returned(result.values.clone()),
             Err(ExecutionError::Trap(trap)) => {
+                if let Some(function) = self.trace.current_function {
+                    self.trace.record_trap(function);
+                }
                 self.trace.outcome = TraceOutcome::Trapped(trap.clone())
             }
             Err(_) => {}
@@ -105,6 +108,42 @@ impl Runner {
                     FunctionTrace {
                         function: *function,
                         calls: *calls,
+                        executed_instructions: self
+                            .trace
+                            .function_instruction_counts
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
+                        allocations: self
+                            .trace
+                            .function_allocations
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
+                        memory_reads: self
+                            .trace
+                            .function_memory_reads
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
+                        memory_writes: self
+                            .trace
+                            .function_memory_writes
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
+                        returns: self
+                            .trace
+                            .function_returns
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
+                        traps: self
+                            .trace
+                            .function_traps
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
                         blocks,
                     }
                 })
@@ -116,6 +155,10 @@ impl Runner {
             entry_function: self.trace.entry_function.unwrap_or(FunctionId(0)),
             outcome: self.trace.outcome.clone(),
             executed_instruction_count: self.trace.executed_instruction_count,
+            memory_read_count: self.trace.memory_read_count,
+            memory_write_count: self.trace.memory_write_count,
+            return_count: self.trace.return_count,
+            trap_count: self.trace.trap_count,
             functions,
             maximum_call_depth_reached: self.trace.maximum_call_depth_reached,
             memory_profile: self.profile.clone(),
@@ -139,6 +182,7 @@ impl Runner {
             let frame = stack
                 .last()
                 .ok_or_else(|| ExecutionError::Internal("empty call stack".to_string()))?;
+            self.trace.current_function = Some(frame.function);
             let block = self.current_block(frame)?;
             let insn_id = *block.instructions.get(frame.instruction_position).ok_or(
                 ExecutionTrap::InvalidBlock {
@@ -155,6 +199,7 @@ impl Runner {
                 .clone();
 
             self.trace.executed_instruction_count += 1;
+            self.trace.record_instruction(frame.function);
             match insn.opcode {
                 Opcode::ConstI32 => self.exec_const_i32(&mut stack, &insn)?,
                 Opcode::ConstU32 => self.exec_const_u32(&mut stack, &insn)?,
@@ -544,18 +589,24 @@ impl Runner {
         let size = self.u32_operand(stack, insn, 0)?;
         let align = self.u32_operand(stack, insn, 1)?;
         let addr = self.memory.alloc(size, align)?;
+        self.trace
+            .record_allocation(self.current_frame(stack)?.function);
         self.write_result_and_advance(stack, insn, Value::Addr32(addr))
     }
 
     fn exec_load_i32(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
         let addr = self.addr_operand(stack, insn, 0)?;
         let value = self.memory.load_i32(addr)?;
+        self.trace
+            .record_memory_read(self.current_frame(stack)?.function);
         self.write_result_and_advance(stack, insn, Value::I32(value))
     }
 
     fn exec_load_u32(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
         let addr = self.addr_operand(stack, insn, 0)?;
         let value = self.memory.load_u32(addr)?;
+        self.trace
+            .record_memory_read(self.current_frame(stack)?.function);
         self.write_result_and_advance(stack, insn, Value::U32(value))
     }
 
@@ -568,6 +619,8 @@ impl Runner {
                     function: self.current_frame(stack)?.function,
                 })?;
         self.memory.store_i32(addr, value)?;
+        self.trace
+            .record_memory_write(self.current_frame(stack)?.function);
         self.current_frame_mut(stack)?.instruction_position += 1;
         Ok(())
     }
@@ -584,6 +637,8 @@ impl Runner {
             }
         };
         self.memory.store_u32(addr, value)?;
+        self.trace
+            .record_memory_write(self.current_frame(stack)?.function);
         self.current_frame_mut(stack)?.instruction_position += 1;
         Ok(())
     }
@@ -620,6 +675,7 @@ impl Runner {
         let finished = stack
             .pop()
             .ok_or_else(|| ExecutionError::Internal("return with empty stack".to_string()))?;
+        self.trace.record_return(finished.function);
         if let Some(caller) = stack.last_mut() {
             if finished.return_destinations.len() != values.len() {
                 return Err(ExecutionTrap::ReturnArityMismatch {
@@ -852,6 +908,8 @@ impl Runner {
     fn exec_load_u8(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
         let addr = self.addr_operand(stack, insn, 0)?;
         let value = self.memory.load_u8(addr)?;
+        self.trace
+            .record_memory_read(self.current_frame(stack)?.function);
         self.write_result_and_advance(stack, insn, Value::U32(value as u32))
     }
 
@@ -867,6 +925,8 @@ impl Runner {
             }
         };
         self.memory.store_u8(addr, (value & 0xFF) as u8)?;
+        self.trace
+            .record_memory_write(self.current_frame(stack)?.function);
         self.current_frame_mut(stack)?.instruction_position += 1;
         Ok(())
     }
@@ -917,6 +977,8 @@ impl Runner {
     fn exec_load_i64(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
         let addr = self.addr_operand(stack, insn, 0)?;
         let value = self.memory.load_i64(addr)?;
+        self.trace
+            .record_memory_read(self.current_frame(stack)?.function);
         self.write_result_and_advance(stack, insn, Value::I64(value))
     }
 
@@ -929,6 +991,8 @@ impl Runner {
                     function: self.current_frame(stack)?.function,
                 })?;
         self.memory.store_i64(addr, value)?;
+        self.trace
+            .record_memory_write(self.current_frame(stack)?.function);
         self.current_frame_mut(stack)?.instruction_position += 1;
         Ok(())
     }

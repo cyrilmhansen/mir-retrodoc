@@ -51,13 +51,15 @@ Status:
 - `mirspace` computes conservative static function effect summaries for
   allocation, memory effects, trap possibility, direct calls, CFG acyclicity,
   trivial termination, and pure-candidate detection;
+- `mirsem` traces now expose effect counters that can be compared with those
+  static summaries;
 - `mirplan` produces deterministic compile-plan and lowered artifacts;
 - lowered C emission is implemented while preserving the stable `ModuleImage`
   C compiler path;
 - optimization exists for local constant propagation/folding and dead-code
   elimination on lowered plans;
-- `mirtool analyze`, `mirtool plan`, `mirtool lower`, and `mirtool diff-all`
-  expose inspection and differential workflows;
+- `mirtool analyze`, `mirtool trace-check`, `mirtool plan`, `mirtool lower`,
+  and `mirtool diff-all` expose inspection and differential workflows;
 - `mirrv32` emits RV32I assembly for the supported integer/address/memory
   subset, including `i64` lowering through register-pair style codegen;
 - `mirjit` demonstrates dynamic in-process execution through generated RV32I
@@ -73,8 +75,9 @@ snapshots into a reflective runtime research platform. This phase should make
 program behavior inspectable and partially provable before attempting aggressive
 runtime replacement or speculative optimization.
 
-Status: first static slice started through `mirspace` effect summaries and
-`mirtool analyze`; the broader conceptual starting point remains
+Status: first static and trace-backed slice started through `mirspace` effect
+summaries, `mirsem` effect counters, `mirtool analyze`, and `mirtool
+trace-check`; the broader conceptual starting point remains
 `docs/design-perspectives/02-runtime-introspection-and-tracing.md`.
 
 Target capabilities:
@@ -123,13 +126,13 @@ Complexity analysis:
 ## Current Recommended Next Step
 
 The demo now has a coherent story from validation to interpretation, static
-effect analysis, lowering, C differential checks, Cap'n Proto serialization,
-float arithmetic, traps, and RV32I output. The best next demo-facing step is to
-add trace-backed checks for the new static summaries:
+effect analysis, trace-backed checking, lowering, C differential checks, Cap'n
+Proto serialization, float arithmetic, traps, and RV32I output. The best next
+demo-facing step is to make the trace comparison machine-readable and broader:
 
-- compare `mirtool analyze` output with `mirsem --trace` allocation, memory,
-  call, trap, and instruction counters;
-- mark static summaries as proven, conservative, or observed;
+- add JSON output for `mirtool analyze` and `mirtool trace-check`;
+- compare direct static call edges with observed caller/callee edges, not only
+  function entry counts;
 - keep float expansion deliberate by specifying comparisons, conversions, and
   the RV32FD versus soft-float backend decision separately.
 

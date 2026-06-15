@@ -5,6 +5,7 @@ use mircap::Opcode;
 use mirplan::{DataSegmentPlan, LoweredInstruction, LoweredOperand, LoweredProgram};
 use mirsem::runner::Runner;
 use mirsem::trap::ExecutionTrap;
+use std::collections::BTreeMap;
 use std::hint::black_box;
 use std::path::Path;
 use std::time::Instant;
@@ -153,6 +154,127 @@ pub fn cmd_analyze(input_path: &str, format_opt: Option<&str>) -> Result<(), Cli
         .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
     print!("{}", format_effect_summaries(&space));
     Ok(())
+}
+
+pub fn cmd_trace_check(
+    input_path: &str,
+    format_opt: Option<&str>,
+    entry_name: &str,
+) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let mut runner = Runner::new(image, mirsem::ExecutionProfile::default())?;
+    match runner.run_entry_by_name(entry_name, &[]) {
+        Ok(_) | Err(mirsem::RunError::Trap(_)) => {
+            let snapshot = runner.trace_snapshot();
+            print!("{}", format_trace_check(&space, &snapshot));
+            Ok(())
+        }
+        Err(err) => Err(CliError::Run(err)),
+    }
+}
+
+fn format_trace_check(space: &mirspace::ProgramSpace, snapshot: &mirsem::TraceSnapshot) -> String {
+    let trace_by_function = snapshot
+        .functions
+        .iter()
+        .map(|trace| (trace.function, trace))
+        .collect::<BTreeMap<_, _>>();
+    let mut out = String::new();
+    out.push_str(&format!("trace-check module {}\n", space.name));
+    out.push_str(&format!(
+        "  outcome: {}\n",
+        format_trace_outcome(&snapshot.outcome)
+    ));
+    out.push_str("  observed totals:\n");
+    out.push_str(&format!(
+        "    executed_instructions: {}\n",
+        snapshot.executed_instruction_count
+    ));
+    out.push_str(&format!("    allocations: {}\n", snapshot.allocation_count));
+    out.push_str(&format!(
+        "    memory_reads: {}\n",
+        snapshot.memory_read_count
+    ));
+    out.push_str(&format!(
+        "    memory_writes: {}\n",
+        snapshot.memory_write_count
+    ));
+    out.push_str(&format!("    returns: {}\n", snapshot.return_count));
+    out.push_str(&format!("    traps: {}\n", snapshot.trap_count));
+
+    for summary in space.function_effect_summaries() {
+        let function = &space.functions[summary.function.0];
+        let name = function_name(space, summary.function);
+        let trace = trace_by_function.get(&function.id);
+        let observed_calls = trace.map(|trace| trace.calls).unwrap_or(0);
+        let observed_instructions = trace.map(|trace| trace.executed_instructions).unwrap_or(0);
+        let observed_allocations = trace.map(|trace| trace.allocations).unwrap_or(0);
+        let observed_reads = trace.map(|trace| trace.memory_reads).unwrap_or(0);
+        let observed_writes = trace.map(|trace| trace.memory_writes).unwrap_or(0);
+        let observed_returns = trace.map(|trace| trace.returns).unwrap_or(0);
+        let observed_traps = trace.map(|trace| trace.traps).unwrap_or(0);
+
+        out.push_str(&format!(
+            "  fn f{}#{} {}\n",
+            summary.function.0, function.id.0, name
+        ));
+        out.push_str(&format!("    observed_calls: {}\n", observed_calls));
+        out.push_str(&format!(
+            "    observed_instructions: {}\n",
+            observed_instructions
+        ));
+        out.push_str(&format!(
+            "    allocates: static={} observed={} status={}\n",
+            summary.allocates,
+            observed_allocations,
+            effect_status(summary.allocates, observed_allocations > 0)
+        ));
+        out.push_str(&format!(
+            "    reads_memory: static={} observed={} status={}\n",
+            summary.reads_memory,
+            observed_reads,
+            effect_status(summary.reads_memory, observed_reads > 0)
+        ));
+        out.push_str(&format!(
+            "    writes_memory: static={} observed={} status={}\n",
+            summary.writes_memory,
+            observed_writes,
+            effect_status(summary.writes_memory, observed_writes > 0)
+        ));
+        out.push_str(&format!(
+            "    may_trap: static={} observed={} status={}\n",
+            summary.may_trap,
+            observed_traps,
+            effect_status(summary.may_trap, observed_traps > 0)
+        ));
+        out.push_str(&format!(
+            "    guaranteed_terminates_trivially: static={} observed_returns={}\n",
+            summary.guaranteed_terminates_trivially, observed_returns
+        ));
+    }
+    out
+}
+
+fn effect_status(static_may: bool, observed: bool) -> &'static str {
+    match (static_may, observed) {
+        (false, false) => "proven-absent",
+        (false, true) => "mismatch",
+        (true, false) => "conservative",
+        (true, true) => "observed",
+    }
+}
+
+fn format_trace_outcome(outcome: &mirsem::trace::TraceOutcome) -> String {
+    match outcome {
+        mirsem::trace::TraceOutcome::NotRun => "not-run".to_string(),
+        mirsem::trace::TraceOutcome::Returned(_) => "returned".to_string(),
+        mirsem::trace::TraceOutcome::Trapped(trap) => {
+            let (code, name) = trap_info(trap);
+            format!("trapped {code} {name}")
+        }
+    }
 }
 
 fn format_effect_summaries(space: &mirspace::ProgramSpace) -> String {
@@ -569,6 +691,10 @@ fn print_trace_summary(snapshot: &mirsem::TraceSnapshot) {
     );
     println!("Allocations: {}", snapshot.allocation_count);
     println!("Allocated Bytes: {}", snapshot.allocated_bytes);
+    println!("Memory Reads: {}", snapshot.memory_read_count);
+    println!("Memory Writes: {}", snapshot.memory_write_count);
+    println!("Returns: {}", snapshot.return_count);
+    println!("Traps: {}", snapshot.trap_count);
 }
 
 pub fn image_to_text(image: &ModuleImage) -> String {

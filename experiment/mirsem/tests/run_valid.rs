@@ -71,10 +71,21 @@ fn runs_alloc_store_load_i32() {
 
 #[test]
 fn runs_alloc_store_load_u32() {
-    let values = run_fixture(include_str!(
+    let (values, trace) = run_text(include_str!(
         "../../mircap/tests/fixtures/valid_alloc_store_load_u32.mircap.txt"
     ));
     assert_eq!(values, vec![Value::U32(42)]);
+    assert_eq!(trace.allocation_count, 1);
+    assert_eq!(trace.memory_read_count, 1);
+    assert_eq!(trace.memory_write_count, 1);
+    assert_eq!(trace.return_count, 1);
+    assert_eq!(trace.trap_count, 0);
+    let main = trace.functions.first().expect("main trace");
+    assert_eq!(main.allocations, 1);
+    assert_eq!(main.memory_reads, 1);
+    assert_eq!(main.memory_writes, 1);
+    assert_eq!(main.returns, 1);
+    assert_eq!(main.traps, 0);
 }
 
 #[test]
@@ -192,6 +203,11 @@ fn trace_counts_are_separate_from_image() {
     assert_eq!(trace.executed_instruction_count, 5);
     assert_eq!(trace.maximum_call_depth_reached, 2);
     assert_eq!(trace.functions.len(), 2);
+    assert_eq!(trace.return_count, 2);
     assert_eq!(trace.allocation_count, 0);
     assert_eq!(trace.allocated_bytes, 0);
+    assert!(trace
+        .functions
+        .iter()
+        .all(|function| function.executed_instructions > 0));
 }

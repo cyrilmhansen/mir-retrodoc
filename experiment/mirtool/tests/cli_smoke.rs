@@ -225,6 +225,44 @@ fn test_analyze_valid_loop() {
 }
 
 #[test]
+fn test_trace_check_valid_memory_effects() {
+    let path = fixture_path("valid_alloc_store_load_u32.mircap.txt");
+    let output = run_mirtool(&["trace-check", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("trace-check module alloc_store_load_u32"));
+    assert!(stdout.contains("outcome: returned"));
+    assert!(stdout.contains("allocates: static=true observed=1 status=observed"));
+    assert!(stdout.contains("reads_memory: static=true observed=1 status=observed"));
+    assert!(stdout.contains("writes_memory: static=true observed=1 status=observed"));
+    assert!(stdout.contains("may_trap: static=true observed=0 status=conservative"));
+}
+
+#[test]
+fn test_trace_check_valid_arithmetic_absent_effects() {
+    let path = fixture_path("valid_arithmetic_u32.mircap.txt");
+    let output = run_mirtool(&["trace-check", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("trace-check module arithmetic_u32"));
+    assert!(stdout.contains("allocates: static=false observed=0 status=proven-absent"));
+    assert!(stdout.contains("reads_memory: static=false observed=0 status=proven-absent"));
+    assert!(stdout.contains("writes_memory: static=false observed=0 status=proven-absent"));
+    assert!(stdout.contains("may_trap: static=false observed=0 status=proven-absent"));
+}
+
+#[test]
+fn test_trace_check_trap_fixture() {
+    let path = fixture_path("trap_load_oob.mircap.txt");
+    let output = run_mirtool(&["trace-check", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("trace-check module load_oob"));
+    assert!(stdout.contains("outcome: trapped 13 OutOfBoundsLoad"));
+    assert!(stdout.contains("may_trap: static=true observed=1 status=observed"));
+}
+
+#[test]
 fn test_bench_load_text() {
     let path = fixture_path("valid_data_segment_load.mircap.txt");
     let output = run_mirtool(&["bench-load", &path, "--iterations", "3"]);

@@ -31,6 +31,10 @@ insn 1 trap
         runner.trace_snapshot().outcome,
         mirsem::trace::TraceOutcome::Trapped(ExecutionTrap::ExplicitTrap { .. })
     ));
+    let trace = runner.trace_snapshot();
+    assert_eq!(trace.trap_count, 1);
+    assert_eq!(trace.return_count, 0);
+    assert_eq!(trace.functions[0].traps, 1);
 }
 
 #[test]

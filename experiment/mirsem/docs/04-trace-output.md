@@ -9,7 +9,12 @@
 - entry function;
 - result or trap;
 - executed instruction count;
+- memory read count;
+- memory write count;
+- return count;
+- trap count;
 - function call counts;
+- per-function instruction, allocation, memory, return, and trap counts;
 - block entry counts;
 - maximum call depth reached;
 - memory profile used;
@@ -18,4 +23,3 @@
 
 The trace is separate from `mircap::ModuleImage`. It is intended for
 differential tests against future baseline compiler output.
-

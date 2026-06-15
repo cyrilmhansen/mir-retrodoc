@@ -11,6 +11,10 @@ pub struct TraceSnapshot {
     pub entry_function: FunctionId,
     pub outcome: TraceOutcome,
     pub executed_instruction_count: u64,
+    pub memory_read_count: u64,
+    pub memory_write_count: u64,
+    pub return_count: u64,
+    pub trap_count: u64,
     pub functions: Vec<FunctionTrace>,
     pub maximum_call_depth_reached: usize,
     pub memory_profile: ExecutionProfile,
@@ -29,6 +33,12 @@ pub enum TraceOutcome {
 pub struct FunctionTrace {
     pub function: FunctionId,
     pub calls: u64,
+    pub executed_instructions: u64,
+    pub allocations: u64,
+    pub memory_reads: u64,
+    pub memory_writes: u64,
+    pub returns: u64,
+    pub traps: u64,
     pub blocks: Vec<BlockTrace>,
 }
 
@@ -41,9 +51,20 @@ pub struct BlockTrace {
 #[derive(Clone, Debug)]
 pub(crate) struct TraceState {
     pub entry_function: Option<FunctionId>,
+    pub current_function: Option<FunctionId>,
     pub outcome: TraceOutcome,
     pub executed_instruction_count: u64,
+    pub memory_read_count: u64,
+    pub memory_write_count: u64,
+    pub return_count: u64,
+    pub trap_count: u64,
     pub function_calls: BTreeMap<FunctionId, u64>,
+    pub function_instruction_counts: BTreeMap<FunctionId, u64>,
+    pub function_allocations: BTreeMap<FunctionId, u64>,
+    pub function_memory_reads: BTreeMap<FunctionId, u64>,
+    pub function_memory_writes: BTreeMap<FunctionId, u64>,
+    pub function_returns: BTreeMap<FunctionId, u64>,
+    pub function_traps: BTreeMap<FunctionId, u64>,
     pub block_entries: BTreeMap<BlockId, u64>,
     pub maximum_call_depth_reached: usize,
 }
@@ -52,9 +73,20 @@ impl Default for TraceState {
     fn default() -> Self {
         Self {
             entry_function: None,
+            current_function: None,
             outcome: TraceOutcome::NotRun,
             executed_instruction_count: 0,
+            memory_read_count: 0,
+            memory_write_count: 0,
+            return_count: 0,
+            trap_count: 0,
             function_calls: BTreeMap::new(),
+            function_instruction_counts: BTreeMap::new(),
+            function_allocations: BTreeMap::new(),
+            function_memory_reads: BTreeMap::new(),
+            function_memory_writes: BTreeMap::new(),
+            function_returns: BTreeMap::new(),
+            function_traps: BTreeMap::new(),
             block_entries: BTreeMap::new(),
             maximum_call_depth_reached: 0,
         }
@@ -69,5 +101,36 @@ impl TraceState {
 
     pub fn record_block_entry(&mut self, block: BlockId) {
         *self.block_entries.entry(block).or_default() += 1;
+    }
+
+    pub fn record_instruction(&mut self, function: FunctionId) {
+        *self
+            .function_instruction_counts
+            .entry(function)
+            .or_default() += 1;
+    }
+
+    pub fn record_allocation(&mut self, function: FunctionId) {
+        *self.function_allocations.entry(function).or_default() += 1;
+    }
+
+    pub fn record_memory_read(&mut self, function: FunctionId) {
+        self.memory_read_count += 1;
+        *self.function_memory_reads.entry(function).or_default() += 1;
+    }
+
+    pub fn record_memory_write(&mut self, function: FunctionId) {
+        self.memory_write_count += 1;
+        *self.function_memory_writes.entry(function).or_default() += 1;
+    }
+
+    pub fn record_return(&mut self, function: FunctionId) {
+        self.return_count += 1;
+        *self.function_returns.entry(function).or_default() += 1;
+    }
+
+    pub fn record_trap(&mut self, function: FunctionId) {
+        self.trap_count += 1;
+        *self.function_traps.entry(function).or_default() += 1;
     }
 }

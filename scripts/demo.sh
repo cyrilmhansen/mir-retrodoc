@@ -181,6 +181,8 @@ section "Step 4: analyze static function effects"
 explain "mirtool analyze is the first reflection-oriented slice. It reports conservative per-function facts such as allocation, memory effects, traps, direct calls, CFG acyclicity, trivial termination, and pure-candidate status."
 explain "This is intentionally structural today. Future work can compare these static summaries with mirsem traces and runtime performance counters."
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- analyze "$FIXTURE"
+explain "mirtool trace-check now performs that first comparison for one run: static facts beside observed mirsem counters."
+run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- trace-check "$FIXTURE"
 pause
 
 section "Step 5: inspect the MIR-F1 compile plan"
@@ -308,6 +310,6 @@ printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap
 printf '%s\n' "- f32/f64 constants and arithmetic validated in mircap, executed in mirsem, emitted by mirc0, and checked with C differential tests"
 printf '%s\n' "- linear scan register allocation with callee-saved register spill handling in the RV32I backend"
 printf '%s\n' "- target-neutral lowering and projection, tested using differential checks"
-printf '%s\n' "- static effect summaries through mirtool analyze for purity candidates, memory effects, calls, traps, and trivial termination"
+printf '%s\n' "- static effect summaries and trace-backed checks through mirtool analyze and mirtool trace-check"
 
 section "demo complete"

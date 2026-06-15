@@ -27,6 +27,8 @@ graph TD
 
     TextFile -->|mirtool analyze| Analysis[Function effect summaries]
     BinaryFile -->|mirtool analyze| Analysis
+    TextFile -->|mirtool trace-check| TraceCheck[Static vs observed effects]
+    BinaryFile -->|mirtool trace-check| TraceCheck
 
     TextFile -->|mirtool plan| Plan[mirplan compile plan]
     BinaryFile -->|mirtool plan| Plan
@@ -89,6 +91,13 @@ Prints conservative static per-function effect summaries.
 mirtool analyze <input_file> [--format text|binary]
 ```
 Reports allocation, memory reads/writes, trap possibility, direct calls, CFG acyclicity, trivial termination, and pure-candidate status. These are structural summaries for inspection and tests, not full interprocedural proofs.
+
+### `trace-check`
+Runs the entry function with `mirsem` and compares observed trace counters with static effect summaries.
+```bash
+mirtool trace-check <input_file> [--format text|binary] [--entry <name>]
+```
+Reports the runtime outcome, observed instruction/effect totals, and per-function statuses. `proven-absent` means the static summary ruled out an effect and the run did not observe it; `observed` means a statically possible effect happened; `conservative` means the static summary allowed an effect that this run did not exercise; `mismatch` would indicate a bug in the static summary or trace accounting.
 
 ### `plan`
 Prints the deterministic MIR-F1 compile-plan text for a module image.
