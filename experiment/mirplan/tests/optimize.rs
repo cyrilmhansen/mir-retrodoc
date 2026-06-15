@@ -55,3 +55,45 @@ fn test_branch_folding() {
         mirspace::EdgeKind::Unconditional
     );
 }
+
+#[test]
+fn test_static_branch_weights() {
+    let lowered = lowered_fixture("valid_branch_weights.mircap.txt");
+    let mut optimized = lowered.clone();
+    
+    // We only want to test branch weights directly
+    // Call the optimization pass manually if we just want weights
+    let main = &mut optimized.functions[0];
+    
+    // Use the functions from optimize.rs
+    mirplan::optimize_program(lowered);
+    
+    // It's easier to just run optimize_program and inspect
+    let optimized = mirplan::optimize_program(optimized);
+    let main = &optimized.functions[0];
+    
+    // The hot paths should be laid out in front, but let's just find the branch instructions
+    // and check their weights.
+    let mut do_while_weights = None;
+    let mut trap_branch_weights = None;
+    
+    for block in &main.blocks {
+        if let Some(insn) = block.instructions.last() {
+            if let mirplan::LoweredInstructionKind::Branch { targets, weights } = &insn.kind {
+                if targets.len() == 2 {
+                    if targets[0].block.ix.0 == 1 && targets[1].block.ix.0 == 2 {
+                        do_while_weights = weights.clone();
+                    } else if targets[0].block.ix.0 == 0 && targets[1].block.ix.0 == 3 {
+                        trap_branch_weights = weights.clone();
+                    }
+                }
+            }
+        }
+    }
+    
+    // The b2 -> b2, b3 branch has b2 as backedge. So b2 is hot (90), b3 is cold (10).
+    assert_eq!(do_while_weights, Some(vec![90, 10]));
+    
+    // The b3 -> b1, b4 branch has b4 as trap. So b1 is hot (99), b4 is cold (1).
+    assert_eq!(trap_branch_weights, Some(vec![99, 1]));
+}

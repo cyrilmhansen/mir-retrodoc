@@ -579,9 +579,53 @@ heap_buffer:
     Ok(())
 }
 
+fn run_branch_weights_demo() -> Result<(), Box<dyn Error>> {
+    println!("================================================================");
+    println!("PART 3: Branch Weight Analysis & Hot-Path Block Reordering");
+    println!("================================================================\n");
+
+    let branch_fixture_path = format!(
+        "{}/../mircap/tests/fixtures/valid_branch_weights.mircap.txt",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let bytes = fs::read(&branch_fixture_path)?;
+    let image = ModuleImage::from_bytes(&bytes).map_err(|e| format!("{:?}", e))?;
+    let space = mirspace::ProgramSpace::from_module_image(&image).map_err(|e| format!("{:?}", e))?;
+    let plan = build_compile_plan(&space);
+    let lowered = lower_compile_plan(&plan);
+
+    println!("Original Lowered Blocks (Unoptimized):");
+    for block in &lowered.functions[0].blocks {
+        println!("  Block b{}#{}", block.label.ix.0, block.label.id.0);
+    }
+
+    let optimized = mirplan::optimize_program(lowered);
+    println!("\nOptimized Blocks (After Hot-Path Reordering):");
+    for block in &optimized.functions[0].blocks {
+        println!("  Block b{}#{}", block.label.ix.0, block.label.id.0);
+        if let Some(insn) = block.instructions.last() {
+            if let mirplan::LoweredInstructionKind::Branch { weights, .. } = &insn.kind {
+                if let Some(w) = weights {
+                    let total: u64 = w.iter().sum();
+                    if total > 0 {
+                        let w_strs: Vec<String> = w.iter().map(|v| format!("{}%", (*v as f64 / total as f64 * 100.0).round())).collect();
+                        println!("    -> Branch Heuristics Applied: [{}]", w_strs.join(", "));
+                    }
+                }
+            }
+        }
+    }
+    
+    println!("\nBranch optimization applied successfully.");
+    println!("");
+
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     run_pedagogical_demo()?;
     run_riscv32_demo()?;
+    run_branch_weights_demo()?;
     run_performance_benchmarks()?;
     Ok(())
 }

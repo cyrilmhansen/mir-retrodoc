@@ -356,8 +356,13 @@ fn format_lowered_kind_name(kind: &LoweredInstructionKind) -> &'static str {
 
 fn format_lowered_kind_detail(kind: &LoweredInstructionKind) -> String {
     match kind {
-        LoweredInstructionKind::Branch { targets, .. } => {
-            format!(" targets=[{}]", format_lowered_targets(targets))
+        LoweredInstructionKind::Branch { targets, weights } => {
+            if let Some(w) = weights {
+                let w_strs: Vec<String> = w.iter().map(|v| v.to_string()).collect();
+                format!(" targets=[{}] weights=[{}]", format_lowered_targets(targets), w_strs.join(", "))
+            } else {
+                format!(" targets=[{}]", format_lowered_targets(targets))
+            }
         }
         LoweredInstructionKind::Call { callee } => {
             format!(" callee=f{}#{} {}", callee.ix.0, callee.id.0, callee.name)
