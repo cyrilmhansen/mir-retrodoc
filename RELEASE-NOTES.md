@@ -16,7 +16,7 @@ The long-term project plan lives in `ROADMAP.md`.
 - `mirspace` provides the indexed analysis layer used by `mirplan` and computes
   conservative static function effect summaries.
 - `mirsem` trace snapshots now include effect counters for memory reads/writes,
-  returns, traps, and per-function observations.
+  returns, traps, caller/callee edges, and per-function observations.
 - `mirplan` provides deterministic compile-plan artifacts and text rendering.
 - `mirtool analyze`, `mirtool trace-check`, `mirtool plan`, `mirtool lower`,
   and `mirtool diff-all` expose static analysis, trace-backed, lowered, and
@@ -43,9 +43,9 @@ The long-term project plan lives in `ROADMAP.md`.
 - F0 is the frozen validated baseline subset.
 - F1 now includes `mirspace`, `mirplan`, lowered C, optimization, RV32I, JIT
   demo execution, and differential tooling.
-- The next recommended demo-facing feature is observed call-edge tracing and a
-  first symbolic cost summary, followed by deliberate float comparison and
-  conversion specs plus an RV32FD versus soft-float backend decision.
+- The next recommended demo-facing feature is a first symbolic cost summary,
+  followed by deliberate float comparison and conversion specs plus an RV32FD
+  versus soft-float backend decision.
 
 ## Validation Commands
 

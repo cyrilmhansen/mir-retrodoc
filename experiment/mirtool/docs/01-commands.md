@@ -73,9 +73,11 @@ Runs the target entry function with `mirsem` and compares observed trace counter
   - `memory_writes: <n>`
   - `returns: <n>`
   - `traps: <n>`
+  - `call_edges: <n>`
   - per-function observed call/instruction counts
+  - per-function call-edge comparison lines
   - per-effect `static=<true|false> observed=<n> status=<status>` lines
-* **JSON Output**: `--json` emits `kind`, `module`, `outcome`, `observed_totals`, and `functions`, with per-effect `static`, `observed`, and `status` fields.
+* **JSON Output**: `--json` emits `kind`, `module`, `outcome`, `observed_totals`, and `functions`, with per-effect and per-call-edge `static`, `observed`, and `status` fields.
 * **Statuses**:
   - `proven-absent`: static analysis ruled out an effect and this run did not observe it.
   - `observed`: static analysis allowed an effect and this run observed it.

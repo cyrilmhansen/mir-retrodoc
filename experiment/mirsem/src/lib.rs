@@ -17,6 +17,6 @@ pub use error::{ExecutionError, RunError};
 pub use memory::LinearMemory;
 pub use profile::ExecutionProfile;
 pub use runner::{ExecutionResult, Runner};
-pub use trace::{FunctionTrace, TraceSnapshot};
+pub use trace::{CallEdgeTrace, FunctionTrace, TraceSnapshot};
 pub use trap::ExecutionTrap;
 pub use value::Value;

@@ -51,8 +51,8 @@ Status:
 - `mirspace` computes conservative static function effect summaries for
   allocation, memory effects, trap possibility, direct calls, CFG acyclicity,
   trivial termination, and pure-candidate detection;
-- `mirsem` traces now expose effect counters that can be compared with those
-  static summaries;
+- `mirsem` traces now expose effect counters and observed caller/callee edges
+  that can be compared with static summaries;
 - `mirplan` produces deterministic compile-plan and lowered artifacts;
 - lowered C emission is implemented while preserving the stable `ModuleImage`
   C compiler path;
@@ -78,8 +78,9 @@ program behavior inspectable and partially provable before attempting aggressive
 runtime replacement or speculative optimization.
 
 Status: first static and trace-backed slice started through `mirspace` effect
-summaries, `mirsem` effect counters, `mirtool analyze`, `mirtool trace-check`,
-and JSON output for both commands. The broader conceptual starting point remains
+summaries, `mirsem` effect counters and call-edge counters, `mirtool analyze`,
+`mirtool trace-check`, and JSON output for both commands. The broader
+conceptual starting point remains
 `docs/design-perspectives/02-runtime-introspection-and-tracing.md`.
 
 Target capabilities:
@@ -89,7 +90,8 @@ Target capabilities:
 - add first-class function property summaries such as `pure`, `reads-memory`,
   `writes-memory`, `allocates`, `may-trap`, `may-call`, and `may-not-return`;
 - let `mirsem` act as a semantic checker for those summaries by recording
-  memory effects, allocation events, calls, traps, fuel use, and return paths;
+  memory effects, allocation events, caller/callee edges, traps, fuel use, and
+  return paths;
 - distinguish proven facts from observed facts. For example, "does not allocate
   in this run" is weaker than "cannot allocate for any input";
 - add simple proof-oriented analyses for narrow cases: no allocation, no memory
@@ -130,15 +132,15 @@ Complexity analysis:
 ## Current Recommended Next Step
 
 The demo now has a coherent story from validation to interpretation, static
-effect analysis, trace-backed checking, machine-readable JSON reports,
-lowering, C differential checks, Cap'n Proto serialization, float arithmetic,
-traps, and RV32I output. The best next demo-facing step is to broaden the
-reflection data beyond per-function totals:
+effect analysis, trace-backed call-edge checking, machine-readable JSON
+reports, lowering, C differential checks, Cap'n Proto serialization, float
+arithmetic, traps, and RV32I output. The best next demo-facing step is to add
+the first symbolic cost summaries:
 
-- compare direct static call edges with observed caller/callee edges, not only
-  function entry counts;
-- add a first symbolic cost summary over straight-line and acyclic lowered
-  plans;
+- summarize straight-line and acyclic lowered plans in abstract units:
+  instructions, branches, calls, memory reads/writes, allocations, and traps;
+- expose that cost summary in text and JSON so it can be compared with
+  `mirsem` trace counters;
 - keep float expansion deliberate by specifying comparisons, conversions, and
   the RV32FD versus soft-float backend decision separately.
 

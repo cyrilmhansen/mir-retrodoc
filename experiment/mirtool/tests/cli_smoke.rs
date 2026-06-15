@@ -254,6 +254,16 @@ fn test_trace_check_valid_memory_effects() {
 }
 
 #[test]
+fn test_trace_check_valid_direct_call_edges() {
+    let path = fixture_path("valid_direct_call.mircap.txt");
+    let output = run_mirtool(&["trace-check", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("call_edges: 1"));
+    assert!(stdout.contains("f0#1 main -> f1#2 callee static=true observed=1 status=observed"));
+}
+
+#[test]
 fn test_trace_check_json_valid_memory_effects() {
     let path = fixture_path("valid_alloc_store_load_u32.mircap.txt");
     let output = run_mirtool(&["trace-check", &path, "--json"]);
@@ -274,6 +284,27 @@ fn test_trace_check_json_valid_memory_effects() {
         json["functions"][0]["effects"]["may_trap"]["status"],
         "conservative"
     );
+}
+
+#[test]
+fn test_trace_check_json_valid_direct_call_edges() {
+    let path = fixture_path("valid_direct_call.mircap.txt");
+    let output = run_mirtool(&["trace-check", &path, "--json"]);
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid trace-check JSON");
+    assert_eq!(json["observed_totals"]["call_edges"], 1);
+    assert_eq!(
+        json["functions"][0]["call_edges"][0]["caller"]["name"],
+        "main"
+    );
+    assert_eq!(
+        json["functions"][0]["call_edges"][0]["callee"]["name"],
+        "callee"
+    );
+    assert_eq!(json["functions"][0]["call_edges"][0]["static"], true);
+    assert_eq!(json["functions"][0]["call_edges"][0]["observed"], 1);
+    assert_eq!(json["functions"][0]["call_edges"][0]["status"], "observed");
 }
 
 #[test]

@@ -203,6 +203,10 @@ fn trace_counts_are_separate_from_image() {
     assert_eq!(trace.executed_instruction_count, 5);
     assert_eq!(trace.maximum_call_depth_reached, 2);
     assert_eq!(trace.functions.len(), 2);
+    assert_eq!(trace.call_edges.len(), 1);
+    assert_eq!(trace.call_edges[0].caller.0, 1);
+    assert_eq!(trace.call_edges[0].callee.0, 2);
+    assert_eq!(trace.call_edges[0].calls, 1);
     assert_eq!(trace.return_count, 2);
     assert_eq!(trace.allocation_count, 0);
     assert_eq!(trace.allocated_bytes, 0);

@@ -1,7 +1,7 @@
 use crate::error::CliError;
 use crate::io::{detect_format, load_image, FileFormat};
 use mircap::image::ModuleImage;
-use mircap::Opcode;
+use mircap::{FunctionId, Opcode};
 use mirplan::{DataSegmentPlan, LoweredInstruction, LoweredOperand, LoweredProgram};
 use mirsem::runner::Runner;
 use mirsem::trap::ExecutionTrap;
@@ -198,6 +198,7 @@ fn format_trace_check_json(
         .iter()
         .map(|trace| (trace.function, trace))
         .collect::<BTreeMap<_, _>>();
+    let observed_call_edges = observed_call_edge_map(snapshot);
     let functions = space
         .function_effect_summaries()
         .into_iter()
@@ -211,12 +212,14 @@ fn format_trace_check_json(
             let observed_writes = trace.map(|trace| trace.memory_writes).unwrap_or(0);
             let observed_returns = trace.map(|trace| trace.returns).unwrap_or(0);
             let observed_traps = trace.map(|trace| trace.traps).unwrap_or(0);
+            let call_edges = call_edge_checks_json(space, &summary, &observed_call_edges);
             json!({
                 "index": summary.function.0,
                 "id": function.id.0,
                 "name": function_name(space, summary.function),
                 "observed_calls": observed_calls,
                 "observed_instructions": observed_instructions,
+                "call_edges": call_edges,
                 "effects": {
                     "allocates": effect_check_json(summary.allocates, observed_allocations),
                     "reads_memory": effect_check_json(summary.reads_memory, observed_reads),
@@ -242,7 +245,8 @@ fn format_trace_check_json(
             "memory_reads": snapshot.memory_read_count,
             "memory_writes": snapshot.memory_write_count,
             "returns": snapshot.return_count,
-            "traps": snapshot.trap_count
+            "traps": snapshot.trap_count,
+            "call_edges": snapshot.call_edges.iter().map(|edge| edge.calls).sum::<u64>()
         },
         "functions": functions
     })
@@ -278,6 +282,7 @@ fn format_trace_check(space: &mirspace::ProgramSpace, snapshot: &mirsem::TraceSn
         .iter()
         .map(|trace| (trace.function, trace))
         .collect::<BTreeMap<_, _>>();
+    let observed_call_edges = observed_call_edge_map(snapshot);
     let mut out = String::new();
     out.push_str(&format!("trace-check module {}\n", space.name));
     out.push_str(&format!(
@@ -300,6 +305,14 @@ fn format_trace_check(space: &mirspace::ProgramSpace, snapshot: &mirsem::TraceSn
     ));
     out.push_str(&format!("    returns: {}\n", snapshot.return_count));
     out.push_str(&format!("    traps: {}\n", snapshot.trap_count));
+    out.push_str(&format!(
+        "    call_edges: {}\n",
+        snapshot
+            .call_edges
+            .iter()
+            .map(|edge| edge.calls)
+            .sum::<u64>()
+    ));
 
     for summary in space.function_effect_summaries() {
         let function = &space.functions[summary.function.0];
@@ -322,6 +335,22 @@ fn format_trace_check(space: &mirspace::ProgramSpace, snapshot: &mirsem::TraceSn
             "    observed_instructions: {}\n",
             observed_instructions
         ));
+        let call_edges = call_edge_checks(space, &summary, &observed_call_edges);
+        if call_edges.is_empty() {
+            out.push_str("    call_edges: -\n");
+        } else {
+            out.push_str("    call_edges:\n");
+            for edge in call_edges {
+                out.push_str(&format!(
+                    "      {} -> {} static={} observed={} status={}\n",
+                    format_function_ref(space, edge.caller),
+                    format_function_ref(space, edge.callee),
+                    edge.static_edge,
+                    edge.observed,
+                    effect_status(edge.static_edge, edge.observed > 0)
+                ));
+            }
+        }
         out.push_str(&format!(
             "    allocates: static={} observed={} status={}\n",
             summary.allocates,
@@ -352,6 +381,100 @@ fn format_trace_check(space: &mirspace::ProgramSpace, snapshot: &mirsem::TraceSn
         ));
     }
     out
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct CallEdgeCheck {
+    caller: FunctionId,
+    callee: FunctionId,
+    static_edge: bool,
+    observed: u64,
+}
+
+fn observed_call_edge_map(
+    snapshot: &mirsem::TraceSnapshot,
+) -> BTreeMap<(FunctionId, FunctionId), u64> {
+    snapshot
+        .call_edges
+        .iter()
+        .map(|edge| ((edge.caller, edge.callee), edge.calls))
+        .collect()
+}
+
+fn call_edge_checks(
+    space: &mirspace::ProgramSpace,
+    summary: &mirspace::FunctionEffectSummary,
+    observed_call_edges: &BTreeMap<(FunctionId, FunctionId), u64>,
+) -> Vec<CallEdgeCheck> {
+    let caller_id = space.functions[summary.function.0].id;
+    let mut checks = summary
+        .calls
+        .iter()
+        .map(|callee| {
+            let callee_id = space.functions[callee.0].id;
+            CallEdgeCheck {
+                caller: caller_id,
+                callee: callee_id,
+                static_edge: true,
+                observed: observed_call_edges
+                    .get(&(caller_id, callee_id))
+                    .copied()
+                    .unwrap_or(0),
+            }
+        })
+        .collect::<Vec<_>>();
+    for (&(observed_caller, observed_callee), &observed) in observed_call_edges {
+        if observed_caller == caller_id
+            && !checks.iter().any(|check| check.callee == observed_callee)
+        {
+            checks.push(CallEdgeCheck {
+                caller: observed_caller,
+                callee: observed_callee,
+                static_edge: false,
+                observed,
+            });
+        }
+    }
+    checks.sort_by_key(|check| (check.caller.0, check.callee.0));
+    checks
+}
+
+fn call_edge_checks_json(
+    space: &mirspace::ProgramSpace,
+    summary: &mirspace::FunctionEffectSummary,
+    observed_call_edges: &BTreeMap<(FunctionId, FunctionId), u64>,
+) -> Vec<JsonValue> {
+    call_edge_checks(space, summary, observed_call_edges)
+        .into_iter()
+        .map(|edge| {
+            json!({
+                "caller": function_ref_json(space, edge.caller),
+                "callee": function_ref_json(space, edge.callee),
+                "static": edge.static_edge,
+                "observed": edge.observed,
+                "status": effect_status(edge.static_edge, edge.observed > 0)
+            })
+        })
+        .collect()
+}
+
+fn format_function_ref(space: &mirspace::ProgramSpace, function: FunctionId) -> String {
+    let function_ix = space.maps.functions[&function];
+    format!(
+        "f{}#{} {}",
+        function_ix.0,
+        function.0,
+        function_name(space, function_ix)
+    )
+}
+
+fn function_ref_json(space: &mirspace::ProgramSpace, function: FunctionId) -> JsonValue {
+    let function_ix = space.maps.functions[&function];
+    json!({
+        "index": function_ix.0,
+        "id": function.0,
+        "name": function_name(space, function_ix)
+    })
 }
 
 fn effect_status(static_may: bool, observed: bool) -> &'static str {

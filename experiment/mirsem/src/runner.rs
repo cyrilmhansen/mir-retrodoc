@@ -2,7 +2,9 @@ use crate::error::{ExecutionError, RunError};
 use crate::frame::Frame;
 use crate::memory::LinearMemory;
 use crate::profile::ExecutionProfile;
-use crate::trace::{BlockTrace, FunctionTrace, TraceOutcome, TraceSnapshot, TraceState};
+use crate::trace::{
+    BlockTrace, CallEdgeTrace, FunctionTrace, TraceOutcome, TraceSnapshot, TraceState,
+};
 use crate::trap::ExecutionTrap;
 use crate::value::Value;
 use mircap::image::Function;
@@ -149,6 +151,17 @@ impl Runner {
                 })
                 .collect();
 
+        let call_edges = self
+            .trace
+            .call_edges
+            .iter()
+            .map(|((caller, callee), calls)| CallEdgeTrace {
+                caller: *caller,
+                callee: *callee,
+                calls: *calls,
+            })
+            .collect();
+
         TraceSnapshot {
             module_id: self.image.module.id,
             module_name: self.image.module.name.clone(),
@@ -160,6 +173,7 @@ impl Runner {
             return_count: self.trace.return_count,
             trap_count: self.trace.trap_count,
             functions,
+            call_edges,
             maximum_call_depth_reached: self.trace.maximum_call_depth_reached,
             memory_profile: self.profile.clone(),
             allocation_count: self.memory.allocation_count(),
@@ -561,6 +575,7 @@ impl Runner {
     }
 
     fn exec_call(&mut self, stack: &mut Vec<Frame>, insn: &Instruction) -> Result<(), RunError> {
+        let caller = self.current_frame(stack)?.function;
         let callee = match insn.operands.first() {
             Some(Operand::Function(function)) => *function,
             _ => {
@@ -582,6 +597,7 @@ impl Runner {
             .into());
         }
         self.current_frame_mut(stack)?.instruction_position += 1;
+        self.trace.record_call_edge(caller, callee);
         self.push_frame(stack, callee, &args, insn.results.clone())
     }
 

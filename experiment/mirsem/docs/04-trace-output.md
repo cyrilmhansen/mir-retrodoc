@@ -14,6 +14,7 @@
 - return count;
 - trap count;
 - function call counts;
+- observed caller/callee edge counts;
 - per-function instruction, allocation, memory, return, and trap counts;
 - block entry counts;
 - maximum call depth reached;

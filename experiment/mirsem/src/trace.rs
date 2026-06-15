@@ -16,6 +16,7 @@ pub struct TraceSnapshot {
     pub return_count: u64,
     pub trap_count: u64,
     pub functions: Vec<FunctionTrace>,
+    pub call_edges: Vec<CallEdgeTrace>,
     pub maximum_call_depth_reached: usize,
     pub memory_profile: ExecutionProfile,
     pub allocation_count: u64,
@@ -43,6 +44,13 @@ pub struct FunctionTrace {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CallEdgeTrace {
+    pub caller: FunctionId,
+    pub callee: FunctionId,
+    pub calls: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BlockTrace {
     pub block: BlockId,
     pub entries: u64,
@@ -65,6 +73,7 @@ pub(crate) struct TraceState {
     pub function_memory_writes: BTreeMap<FunctionId, u64>,
     pub function_returns: BTreeMap<FunctionId, u64>,
     pub function_traps: BTreeMap<FunctionId, u64>,
+    pub call_edges: BTreeMap<(FunctionId, FunctionId), u64>,
     pub block_entries: BTreeMap<BlockId, u64>,
     pub maximum_call_depth_reached: usize,
 }
@@ -87,6 +96,7 @@ impl Default for TraceState {
             function_memory_writes: BTreeMap::new(),
             function_returns: BTreeMap::new(),
             function_traps: BTreeMap::new(),
+            call_edges: BTreeMap::new(),
             block_entries: BTreeMap::new(),
             maximum_call_depth_reached: 0,
         }
@@ -97,6 +107,10 @@ impl TraceState {
     pub fn record_function_call(&mut self, function: FunctionId, depth: usize) {
         *self.function_calls.entry(function).or_default() += 1;
         self.maximum_call_depth_reached = self.maximum_call_depth_reached.max(depth);
+    }
+
+    pub fn record_call_edge(&mut self, caller: FunctionId, callee: FunctionId) {
+        *self.call_edges.entry((caller, callee)).or_default() += 1;
     }
 
     pub fn record_block_entry(&mut self, block: BlockId) {

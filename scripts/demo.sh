@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 MIRTOOL_MANIFEST="$ROOT_DIR/experiment/mirtool/Cargo.toml"
 FIXTURE="$ROOT_DIR/experiment/mircap/tests/fixtures/valid_data_segment_load.mircap.txt"
+DIRECT_CALL_FIXTURE="$ROOT_DIR/experiment/mircap/tests/fixtures/valid_direct_call.mircap.txt"
 FLOAT_FIXTURE="$ROOT_DIR/experiment/mircap/tests/fixtures/valid_float_arithmetic.mircap.txt"
 TRAP_FIXTURE="$ROOT_DIR/experiment/mircap/tests/fixtures/trap_load_oob.mircap.txt"
 NO_CC=0
@@ -186,6 +187,9 @@ run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- trace-check "$FIXTU
 explain "Both reports also have JSON output for tests, dashboards, IDE tooling, or future runtime monitors. Here is a compact preview of the trace-check contract."
 printf '\n%s\n' "$ mirtool trace-check $FIXTURE --json | cut -c1-220"
 mirtool trace-check "$FIXTURE" --json | cut -c1-220
+explain "For direct calls, trace-check compares static direct-call edges with observed caller/callee counts."
+printf '\n%s\n' "$ mirtool trace-check $DIRECT_CALL_FIXTURE | sed -n '1,22p'"
+mirtool trace-check "$DIRECT_CALL_FIXTURE" | sed -n '1,22p'
 pause
 
 section "Step 5: inspect the MIR-F1 compile plan"
@@ -313,6 +317,6 @@ printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap
 printf '%s\n' "- f32/f64 constants and arithmetic validated in mircap, executed in mirsem, emitted by mirc0, and checked with C differential tests"
 printf '%s\n' "- linear scan register allocation with callee-saved register spill handling in the RV32I backend"
 printf '%s\n' "- target-neutral lowering and projection, tested using differential checks"
-printf '%s\n' "- static effect summaries, trace-backed checks, and JSON reflection reports through mirtool analyze and mirtool trace-check"
+printf '%s\n' "- static effect summaries, trace-backed call-edge checks, and JSON reflection reports through mirtool analyze and mirtool trace-check"
 
 section "demo complete"
