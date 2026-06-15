@@ -7,7 +7,7 @@ pub mod import;
 pub mod space;
 pub mod views;
 
-pub use analysis::{DefUseIndex, ValueDefUse};
+pub use analysis::{DefUseIndex, FunctionEffectSummary, ValueDefUse};
 pub use error::SpaceError;
 pub use ids::{
     BlockIx, DataSegmentIx, EdgeIx, FunctionIx, InstructionIx, OperandIx, SymbolIx, ValueIx,

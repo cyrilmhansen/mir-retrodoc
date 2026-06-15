@@ -48,13 +48,16 @@ language surface or adding new targets.
 Status:
 
 - `mirspace::ProgramSpace` is the indexed analysis view;
+- `mirspace` computes conservative static function effect summaries for
+  allocation, memory effects, trap possibility, direct calls, CFG acyclicity,
+  trivial termination, and pure-candidate detection;
 - `mirplan` produces deterministic compile-plan and lowered artifacts;
 - lowered C emission is implemented while preserving the stable `ModuleImage`
   C compiler path;
 - optimization exists for local constant propagation/folding and dead-code
   elimination on lowered plans;
-- `mirtool plan`, `mirtool lower`, and `mirtool diff-all` expose inspection and
-  differential workflows;
+- `mirtool analyze`, `mirtool plan`, `mirtool lower`, and `mirtool diff-all`
+  expose inspection and differential workflows;
 - `mirrv32` emits RV32I assembly for the supported integer/address/memory
   subset, including `i64` lowering through register-pair style codegen;
 - `mirjit` demonstrates dynamic in-process execution through generated RV32I
@@ -70,7 +73,8 @@ snapshots into a reflective runtime research platform. This phase should make
 program behavior inspectable and partially provable before attempting aggressive
 runtime replacement or speculative optimization.
 
-Status: future design track. The conceptual starting point is
+Status: first static slice started through `mirspace` effect summaries and
+`mirtool analyze`; the broader conceptual starting point remains
 `docs/design-perspectives/02-runtime-introspection-and-tracing.md`.
 
 Target capabilities:
@@ -118,19 +122,19 @@ Complexity analysis:
 
 ## Current Recommended Next Step
 
-The first floating-point C differential path is now implemented for constants
-and arithmetic. The best next demo-facing step is to choose the next float
-expansion carefully:
+The demo now has a coherent story from validation to interpretation, static
+effect analysis, lowering, C differential checks, Cap'n Proto serialization,
+float arithmetic, traps, and RV32I output. The best next demo-facing step is to
+add trace-backed checks for the new static summaries:
 
-- specify float comparisons, especially NaN behavior;
-- specify integer/float conversions, especially invalid and out-of-range cases;
-- decide whether RV32 float support should start with soft-float helpers or
-  RV32F/RV32D hardware registers and instructions;
-- keep the demo focused on the already-working interpreter/C differential path
-  until that backend decision is made.
+- compare `mirtool analyze` output with `mirsem --trace` allocation, memory,
+  call, trap, and instruction counters;
+- mark static summaries as proven, conservative, or observed;
+- keep float expansion deliberate by specifying comparisons, conversions, and
+  the RV32FD versus soft-float backend decision separately.
 
-This keeps the project easy to demonstrate while postponing the harder RV32FD
-or soft-float backend decision.
+This keeps the public demo concrete while moving toward the F2 reflection and
+runtime-intelligence vision.
 
 ## Deferred Work
 

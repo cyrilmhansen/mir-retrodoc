@@ -13,10 +13,11 @@ The long-term project plan lives in `ROADMAP.md`.
   testing.
 - `mircap`, `mirsem`, `mirc0`, `mirtool`, `mirspace`, `mirplan`, `mirrv32`, and
   `mirjit` all have passing test suites in the current workspace state.
-- `mirspace` provides the indexed analysis layer used by `mirplan`.
+- `mirspace` provides the indexed analysis layer used by `mirplan` and now
+  computes conservative static function effect summaries.
 - `mirplan` provides deterministic compile-plan artifacts and text rendering.
-- `mirtool plan`, `mirtool lower`, and `mirtool diff-all` expose analysis,
-  lowered, and differential workflows through the CLI.
+- `mirtool analyze`, `mirtool plan`, `mirtool lower`, and `mirtool diff-all`
+  expose static analysis, lowered, and differential workflows through the CLI.
 - `i64` operations and byte memory operations are implemented across the
   interpreter and supported backend paths.
 - `f32` and `f64` constants and arithmetic are implemented in `mircap`,
@@ -37,8 +38,9 @@ The long-term project plan lives in `ROADMAP.md`.
 - F0 is the frozen validated baseline subset.
 - F1 now includes `mirspace`, `mirplan`, lowered C, optimization, RV32I, JIT
   demo execution, and differential tooling.
-- The next recommended demo-facing feature is a deliberate float comparison and
-  conversion spec, followed by an RV32FD versus soft-float backend decision.
+- The next recommended demo-facing feature is trace-backed verification of the
+  new static effect summaries, followed by deliberate float comparison and
+  conversion specs plus an RV32FD versus soft-float backend decision.
 
 ## Validation Commands
 

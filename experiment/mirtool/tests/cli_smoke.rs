@@ -180,6 +180,51 @@ fn test_lower_binary_input() {
 }
 
 #[test]
+fn test_analyze_valid_arithmetic_u32() {
+    let path = fixture_path("valid_arithmetic_u32.mircap.txt");
+    let output = run_mirtool(&["analyze", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("analysis module arithmetic_u32"));
+    assert!(stdout.contains("pure_candidate: true"));
+    assert!(stdout.contains("guaranteed_terminates_trivially: true"));
+    assert!(stdout.contains("calls: -"));
+}
+
+#[test]
+fn test_analyze_valid_memory_effects() {
+    let path = fixture_path("valid_alloc_store_load_u32.mircap.txt");
+    let output = run_mirtool(&["analyze", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("allocates: true"));
+    assert!(stdout.contains("reads_memory: true"));
+    assert!(stdout.contains("writes_memory: true"));
+    assert!(stdout.contains("may_trap: true"));
+    assert!(stdout.contains("pure_candidate: false"));
+}
+
+#[test]
+fn test_analyze_valid_direct_call() {
+    let path = fixture_path("valid_direct_call.mircap.txt");
+    let output = run_mirtool(&["analyze", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("calls: f1#2 callee"));
+    assert!(stdout.contains("pure_candidate: false"));
+}
+
+#[test]
+fn test_analyze_valid_loop() {
+    let path = fixture_path("valid_loop.mircap.txt");
+    let output = run_mirtool(&["analyze", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("acyclic_cfg: false"));
+    assert!(stdout.contains("guaranteed_terminates_trivially: false"));
+}
+
+#[test]
 fn test_bench_load_text() {
     let path = fixture_path("valid_data_segment_load.mircap.txt");
     let output = run_mirtool(&["bench-load", &path, "--iterations", "3"]);

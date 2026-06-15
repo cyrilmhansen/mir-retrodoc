@@ -10,8 +10,9 @@ The pipeline consists of the following components:
 1. **Serialization Format (`mircap`)**: Loads/saves either the textual representation (`.mircap.txt`) or the compiled Cap'n Proto binary serialization format (`.mircap`).
 2. **Interpreter (`mirsem`)**: Reference semantic interpreter used to execute the module image as a strict oracle.
 3. **C Transpiler (`mirc0`)**: Baseline C transpiler that converts the module image to C11 code, allowing comparison of compiled C execution against interpreted `mirsem` outcomes.
-4. **Compile Plan (`mirspace` + `mirplan`)**: Builds deterministic planning and lowering artifacts for future compiler work without generating code.
-5. **CLI Wrapper (`mirtool`)**: Unifies the validator, compiler, interpreter, planning, and differential testing tools into a single developer utility.
+4. **Static Analysis (`mirspace`)**: Builds indexed analysis views and conservative per-function effect summaries for reflection-oriented tooling.
+5. **Compile Plan (`mirspace` + `mirplan`)**: Builds deterministic planning and lowering artifacts for future compiler work without generating code.
+6. **CLI Wrapper (`mirtool`)**: Unifies the validator, compiler, interpreter, analysis, planning, and differential testing tools into a single developer utility.
 
 ```mermaid
 graph TD
@@ -23,6 +24,9 @@ graph TD
     
     TextFile -->|mirtool run| Interpreter[mirsem interpreter]
     BinaryFile -->|mirtool run| Interpreter
+
+    TextFile -->|mirtool analyze| Analysis[Function effect summaries]
+    BinaryFile -->|mirtool analyze| Analysis
 
     TextFile -->|mirtool plan| Plan[mirplan compile plan]
     BinaryFile -->|mirtool plan| Plan
@@ -78,6 +82,13 @@ Executes the entry function using the `mirsem` interpreter.
 mirtool run <input_file> [--format text|binary] [--entry <name>] [--trace]
 ```
 Outputs the execution results in scriptable format (e.g. `Result: i32 42`, `Result: f32 -16 bits=0xc1800000`, or `Trap: 13 OutOfBoundsLoad`). If `--trace` is provided, prints a summary of executed instructions, maximum call depth, and allocator profiling stats.
+
+### `analyze`
+Prints conservative static per-function effect summaries.
+```bash
+mirtool analyze <input_file> [--format text|binary]
+```
+Reports allocation, memory reads/writes, trap possibility, direct calls, CFG acyclicity, trivial termination, and pure-candidate status. These are structural summaries for inspection and tests, not full interprocedural proofs.
 
 ### `plan`
 Prints the deterministic MIR-F1 compile-plan text for a module image.

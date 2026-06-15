@@ -177,13 +177,19 @@ explain "mirsem is the reference interpreter. It is the semantic oracle used by 
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- run "$FIXTURE"
 pause
 
-section "Step 4: inspect the MIR-F1 compile plan"
+section "Step 4: analyze static function effects"
+explain "mirtool analyze is the first reflection-oriented slice. It reports conservative per-function facts such as allocation, memory effects, traps, direct calls, CFG acyclicity, trivial termination, and pure-candidate status."
+explain "This is intentionally structural today. Future work can compare these static summaries with mirsem traces and runtime performance counters."
+run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- analyze "$FIXTURE"
+pause
+
+section "Step 5: inspect the MIR-F1 compile plan"
 explain "mirtool plan builds ProgramSpace and CompilePlan. This is not code generation; it is a deterministic compiler-facing description of functions, blocks, instructions, data, calls, and memory operations."
 printf '\n%s\n' "$ mirtool plan $FIXTURE | sed -n '1,40p'"
 mirtool plan "$FIXTURE" | sed -n '1,40p'
 pause
 
-section "Step 5: inspect the MIR-F1 lowered projection"
+section "Step 6: inspect the MIR-F1 lowered projection"
 explain "mirtool lower projects the plan into a backend-facing shape: explicit reads, writes, branch targets, direct calls, memory operations, and data segment summaries."
 explain "This is the current candidate contract for future backends. It deliberately avoids choosing RISC-V, fantasy-computer details, register allocation, or optimization."
 printf '\n%s\n' "$ mirtool lower $FIXTURE | sed -n '1,40p'"
@@ -195,7 +201,7 @@ LARGE_FIXTURE="$TMP_DIR/unrolled_sum.mircap.txt"
 LARGE_BIN_FILE="$TMP_DIR/unrolled_sum.mircap"
 C_FILE="$TMP_DIR/demo.c"
 
-section "Step 6: encode to Cap'n Proto and validate the binary path"
+section "Step 7: encode to Cap'n Proto and validate the binary path"
 explain "The same immutable ModuleImage can be loaded from text or from the Cap'n Proto binary encoding. First, the small hand-written fixture proves the binary path against the same example used earlier."
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- encode "$FIXTURE" "$BIN_FILE" --force
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- validate "$BIN_FILE"
@@ -208,7 +214,7 @@ run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- encode "$LARGE_FIXT
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- validate "$LARGE_BIN_FILE"
 pause
 
-section "Step 7: Cap'n Proto binary view and load-time comparison"
+section "Step 8: Cap'n Proto binary view and load-time comparison"
 explain "The text format is useful for humans and fixtures. Cap'n Proto is the structured binary path intended for stable serialized module images and faster tool loading."
 TEXT_SIZE=$(file_size "$LARGE_FIXTURE")
 BIN_SIZE=$(file_size "$LARGE_BIN_FILE")
@@ -228,7 +234,7 @@ awk -v text="$TEXT_AVG" -v bin="$BIN_AVG" 'BEGIN { if (text > bin) print "  load
 explain "The exact ratios depend on the machine and generated program shape. The pedagogical point is that the project keeps readable source fixtures while proving a structured binary load path on a non-trivial module."
 pause
 
-section "Step 8: compile to C and compare against the interpreter"
+section "Step 9: compile to C and compare against the interpreter"
 if [ "$NO_CC" -eq 1 ]; then
     explain "Skipping C compile and differential check because --no-cc was passed."
 elif have_cc; then
@@ -243,7 +249,7 @@ else
 fi
 pause
 
-section "Step 9: float arithmetic C differential path"
+section "Step 10: float arithmetic C differential path"
 explain "The current float slice supports f32/f64 constants and arithmetic in mircap validation, mirsem execution, and mirc0 C differential testing."
 explain "Results include both decimal text and the exact IEEE-754 bit pattern, which keeps the demo deterministic while comparisons/conversions remain unspecified."
 cat_file "$FLOAT_FIXTURE"
@@ -257,14 +263,14 @@ else
 fi
 pause
 
-section "Step 10: inspect and run a trap case"
+section "Step 11: inspect and run a trap case"
 explain "F0 traps are part of the contract. This fixture validates structurally, then traps at runtime with an out-of-bounds load."
 cat_file "$TRAP_FIXTURE"
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- validate "$TRAP_FIXTURE"
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- run "$TRAP_FIXTURE"
 pause
 
-section "Step 11: compile to RISC-V 32-bit Assembly (MIR-F1 candidate RV32I backend)"
+section "Step 12: compile to RISC-V 32-bit Assembly (MIR-F1 candidate RV32I backend)"
 explain "mirtool compile-rv32i compiles the module image to RISC-V assembly using the newly integrated RV32I backend with linear scan register allocation and spill handling."
 run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- compile-rv32i "$FIXTURE" "$TMP_DIR/demo.s"
 printf '\n%s\n' "Generated RISC-V Assembly preview (first 40 lines):"
@@ -302,5 +308,6 @@ printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap
 printf '%s\n' "- f32/f64 constants and arithmetic validated in mircap, executed in mirsem, emitted by mirc0, and checked with C differential tests"
 printf '%s\n' "- linear scan register allocation with callee-saved register spill handling in the RV32I backend"
 printf '%s\n' "- target-neutral lowering and projection, tested using differential checks"
+printf '%s\n' "- static effect summaries through mirtool analyze for purity candidates, memory effects, calls, traps, and trivial termination"
 
 section "demo complete"

@@ -187,3 +187,83 @@ fn def_use_index_preserves_multiple_definitions_for_reused_values() {
         ]
     );
 }
+
+#[test]
+fn effect_summary_marks_straight_line_arithmetic_as_pure_candidate() {
+    let image = load_fixture("valid_arithmetic_u32.mircap.txt");
+    let space = ProgramSpace::from_module_image(&image).expect("space");
+    let main = space.maps.functions[&FunctionId(1)];
+    let summary = space.function_effect_summary(main);
+
+    assert!(!summary.allocates);
+    assert!(!summary.reads_memory);
+    assert!(!summary.writes_memory);
+    assert!(!summary.may_trap);
+    assert!(summary.calls.is_empty());
+    assert!(summary.acyclic_cfg);
+    assert!(summary.guaranteed_terminates_trivially);
+    assert!(summary.pure_candidate);
+}
+
+#[test]
+fn effect_summary_marks_memory_and_allocation_effects() {
+    let image = load_fixture("valid_alloc_store_load_u32.mircap.txt");
+    let space = ProgramSpace::from_module_image(&image).expect("space");
+    let main = space.maps.functions[&FunctionId(1)];
+    let summary = space.function_effect_summary(main);
+
+    assert!(summary.allocates);
+    assert!(summary.reads_memory);
+    assert!(summary.writes_memory);
+    assert!(summary.may_trap);
+    assert!(!summary.pure_candidate);
+}
+
+#[test]
+fn effect_summary_lists_direct_calls_conservatively() {
+    let image = load_fixture("valid_direct_call.mircap.txt");
+    let space = ProgramSpace::from_module_image(&image).expect("space");
+    let main = space.maps.functions[&FunctionId(1)];
+    let callee = space.maps.functions[&FunctionId(2)];
+    let summary = space.function_effect_summary(main);
+
+    assert_eq!(summary.calls, vec![callee]);
+    assert!(!summary.guaranteed_terminates_trivially);
+    assert!(!summary.pure_candidate);
+}
+
+#[test]
+fn effect_summary_detects_cfg_cycles() {
+    let image = load_fixture("valid_loop.mircap.txt");
+    let space = ProgramSpace::from_module_image(&image).expect("space");
+    let main = space.maps.functions[&FunctionId(1)];
+    let summary = space.function_effect_summary(main);
+
+    assert!(!summary.acyclic_cfg);
+    assert!(!summary.guaranteed_terminates_trivially);
+    assert!(!summary.pure_candidate);
+}
+
+#[test]
+fn effect_summary_marks_explicit_traps() {
+    let image = ModuleImage::from_text(
+        r#"
+mircap mircap
+version 0
+module 1 explicit_trap
+symbol 1 main function
+function 1 1 - - 0 0 -
+func_block 1 1
+block 1 1 1
+insn 1 trap
+"#,
+    )
+    .expect("load fixture");
+    let space = ProgramSpace::from_module_image(&image).expect("space");
+    let main = space.maps.functions[&FunctionId(1)];
+    let summary = space.function_effect_summary(main);
+
+    assert!(summary.may_trap);
+    assert!(!summary.guaranteed_terminates_trivially);
+    assert!(!summary.pure_candidate);
+}

@@ -147,6 +147,69 @@ pub fn cmd_plan(input_path: &str, format_opt: Option<&str>) -> Result<(), CliErr
     Ok(())
 }
 
+pub fn cmd_analyze(input_path: &str, format_opt: Option<&str>) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    print!("{}", format_effect_summaries(&space));
+    Ok(())
+}
+
+fn format_effect_summaries(space: &mirspace::ProgramSpace) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("analysis module {}\n", space.name));
+    for summary in space.function_effect_summaries() {
+        let function = &space.functions[summary.function.0];
+        let name = function_name(space, summary.function);
+        out.push_str(&format!(
+            "  fn f{}#{} {}\n",
+            summary.function.0, function.id.0, name
+        ));
+        out.push_str(&format!("    allocates: {}\n", summary.allocates));
+        out.push_str(&format!("    reads_memory: {}\n", summary.reads_memory));
+        out.push_str(&format!("    writes_memory: {}\n", summary.writes_memory));
+        out.push_str(&format!("    may_trap: {}\n", summary.may_trap));
+        out.push_str(&format!("    acyclic_cfg: {}\n", summary.acyclic_cfg));
+        out.push_str(&format!(
+            "    guaranteed_terminates_trivially: {}\n",
+            summary.guaranteed_terminates_trivially
+        ));
+        out.push_str(&format!("    pure_candidate: {}\n", summary.pure_candidate));
+        let calls = summary
+            .calls
+            .iter()
+            .map(|callee| {
+                let callee_rec = &space.functions[callee.0];
+                format!(
+                    "f{}#{} {}",
+                    callee.0,
+                    callee_rec.id.0,
+                    function_name(space, *callee)
+                )
+            })
+            .collect::<Vec<_>>();
+        out.push_str(&format!(
+            "    calls: {}\n",
+            if calls.is_empty() {
+                "-".to_string()
+            } else {
+                calls.join(", ")
+            }
+        ));
+    }
+    out
+}
+
+fn function_name(space: &mirspace::ProgramSpace, function: mirspace::FunctionIx) -> &str {
+    let function_rec = &space.functions[function.0];
+    space
+        .maps
+        .symbols
+        .get(&function_rec.symbol)
+        .map(|symbol_ix| space.symbols[symbol_ix.0].name.as_str())
+        .unwrap_or("<unnamed>")
+}
+
 pub fn cmd_lower(
     input_path: &str,
     format_opt: Option<&str>,
