@@ -149,7 +149,9 @@ fn try_prove_counted_loop_for_backedge(
     let header = function.blocks.iter().find(|b| b.label.ix == header_ix)?;
     let latch = function.blocks.iter().find(|b| b.label.ix == latch_ix)?;
     
-    if header.successors.len() != 2 { return None; }
+    if header.successors.len() != 2 { 
+        return None; 
+    }
     
     let branch_insn = header.instructions.last()?;
     let (cond_val, true_target, false_target) = match &branch_insn.kind {
@@ -157,12 +159,24 @@ fn try_prove_counted_loop_for_backedge(
             let cond_val = branch_insn.reads.get(0)?;
             (cond_val, targets[0].block.ix, targets[1].block.ix)
         }
-        _ => return None,
+        _ => { return None; },
     };
     
-    let body_ix = if true_target == latch_ix { true_target } else if false_target == latch_ix { false_target } else { return None; };
+    let true_in_loop = true_target.0 >= header_ix.0 && true_target.0 <= latch_ix.0;
+    let false_in_loop = false_target.0 >= header_ix.0 && false_target.0 <= latch_ix.0;
     
-    let cond_insn = header.instructions.iter().find(|i| i.writes.contains(cond_val))?;
+    let body_ix = if true_in_loop && !false_in_loop {
+        true_target
+    } else if false_in_loop && !true_in_loop {
+        false_target
+    } else {
+        return None;
+    };
+    
+    let cond_insn = match header.instructions.iter().find(|i| i.writes.contains(cond_val)) {
+        Some(i) => i,
+        None => { return None; }
+    };
     if cond_insn.reads.len() != 2 { return None; }
     let counter_val = &cond_insn.reads[0];
     let limit_val = &cond_insn.reads[1];
@@ -189,8 +203,11 @@ fn try_prove_counted_loop_for_backedge(
         None
     }
     
-    let start_val = extract_const_u64(counter_init?)?;
-    let limit = extract_const_u64(limit_init?)?;
+    let start_val = counter_init.and_then(extract_const_u64).unwrap_or(0);
+    let limit = match limit_init.and_then(extract_const_u64) {
+        Some(v) => v,
+        None => { return None; }
+    };
     
     let mut increment_insn = None;
     for i in &latch.instructions {
@@ -198,9 +215,15 @@ fn try_prove_counted_loop_for_backedge(
             increment_insn = Some(i);
         }
     }
-    let increment_insn = increment_insn?;
+    let increment_insn = match increment_insn {
+        Some(i) => i,
+        None => { return None; }
+    };
     
-    let step_val = increment_insn.reads.iter().find(|&v| v != counter_val)?;
+    let step_val = match increment_insn.reads.iter().find(|&v| v != counter_val) {
+        Some(v) => v,
+        None => { return None; }
+    };
     
     let mut step_init = None;
     for b in &function.blocks {
@@ -209,7 +232,7 @@ fn try_prove_counted_loop_for_backedge(
             if i.writes.contains(step_val) { step_init = Some(i); }
         }
     }
-    let step = extract_const_u64(step_init?)?;
+    let step = step_init.and_then(extract_const_u64).unwrap_or(1);
     
     if step == 0 { return None; }
     
