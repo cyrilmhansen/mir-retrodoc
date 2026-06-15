@@ -2789,13 +2789,17 @@ pub fn cmd_diff_all(keep_temp: bool, optimize: bool) -> Result<(), CliError> {
     println!("=====================================================================\n");
 
     let mut paths = Vec::new();
-    for entry in std::fs::read_dir(fixtures_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_file() {
+    let entries = std::fs::read_dir(fixtures_dir)?;
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                 if name.starts_with("valid_") || name.starts_with("trap_") {
                     if name.ends_with(".mircap.txt") {
+                        println!("Running {}", name);
+                        print!("{:<40} | ", name);
+                        use std::io::Write;
+                        let _ = std::io::stdout().flush();
                         paths.push(path);
                     }
                 }

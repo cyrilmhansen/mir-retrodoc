@@ -165,6 +165,19 @@ impl Runner {
                             .copied()
                             .unwrap_or(0),
                         blocks,
+                        branch_targets: {
+                            let mut bt = std::collections::BTreeMap::new();
+                            for ((f, insn), counts) in &self.trace.branch_targets {
+                                if f == function {
+                                    let mut counts_vec = vec![0; counts.keys().max().copied().unwrap_or(0) + 1];
+                                    for (&idx, &count) in counts {
+                                        counts_vec[idx] = count;
+                                    }
+                                    bt.insert(*insn, counts_vec);
+                                }
+                            }
+                            bt
+                        },
                     }
                 })
                 .collect();
@@ -676,6 +689,8 @@ impl Runner {
     }
 
     fn exec_branch(&mut self, stack: &mut [Frame], insn: &Instruction) -> Result<(), RunError> {
+        let func = self.current_frame(stack)?.function;
+        self.trace.record_branch_target(func, insn.id, 0);
         let target = match insn.operands.first() {
             Some(Operand::Block(block)) => *block,
             _ => {
@@ -716,9 +731,12 @@ impl Runner {
                 .into())
             }
         };
+        let func = self.current_frame(stack)?.function;
         if cond {
+            self.trace.record_branch_target(func, insn.id, 0);
             self.enter_block(stack, target)
         } else {
+            self.trace.record_branch_target(func, insn.id, 1);
             self.enter_block(stack, false_target)
         }
     }

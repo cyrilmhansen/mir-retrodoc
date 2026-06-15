@@ -47,6 +47,7 @@ pub struct FunctionTrace {
     pub returns: u64,
     pub traps: u64,
     pub blocks: Vec<BlockTrace>,
+    pub branch_targets: BTreeMap<mircap::InstructionId, Vec<u64>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -87,6 +88,7 @@ pub(crate) struct TraceState {
     pub function_traps: BTreeMap<FunctionId, u64>,
     pub call_edges: BTreeMap<(FunctionId, FunctionId), u64>,
     pub block_entries: BTreeMap<BlockId, u64>,
+    pub branch_targets: BTreeMap<(FunctionId, mircap::InstructionId), BTreeMap<usize, u64>>,
     pub maximum_call_depth_reached: usize,
 }
 
@@ -116,6 +118,7 @@ impl Default for TraceState {
             function_traps: BTreeMap::new(),
             call_edges: BTreeMap::new(),
             block_entries: BTreeMap::new(),
+            branch_targets: BTreeMap::new(),
             maximum_call_depth_reached: 0,
         }
     }
@@ -145,6 +148,14 @@ impl TraceState {
     pub fn record_branch(&mut self, function: FunctionId) {
         self.branch_count += 1;
         *self.function_branch_counts.entry(function).or_default() += 1;
+    }
+
+    pub fn record_branch_target(&mut self, function: FunctionId, instruction: mircap::InstructionId, target_index: usize) {
+        *self.branch_targets
+            .entry((function, instruction))
+            .or_default()
+            .entry(target_index)
+            .or_default() += 1;
     }
 
     pub fn record_call_instruction(&mut self, function: FunctionId) {

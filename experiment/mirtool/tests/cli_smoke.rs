@@ -666,7 +666,7 @@ fn test_diff_all() {
 }
 
 #[test]
-fn test_growth_table() {
+fn test_growth_all() {
     let output = run_mirtool(&["growth"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -675,10 +675,6 @@ fn test_growth_table() {
     assert!(stdout.contains("branch-heavy code"));
     assert!(stdout.contains("memory loop / summation"));
     assert!(stdout.contains("direct-call chain"));
-}
-
-#[test]
-fn test_growth_json() {
     let output = run_mirtool(&["growth", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);

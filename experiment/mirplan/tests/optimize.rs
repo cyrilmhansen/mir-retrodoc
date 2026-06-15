@@ -58,7 +58,7 @@ fn test_branch_folding() {
 
 #[test]
 fn test_static_branch_weights() {
-    let lowered = lowered_fixture("valid_branch_weights.mircap.txt");
+    let lowered = lowered_fixture("trap_branch_weights.mircap.txt");
     let mut optimized = lowered.clone();
     
     // We only want to test branch weights directly

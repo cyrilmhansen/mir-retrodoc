@@ -585,7 +585,7 @@ fn run_branch_weights_demo() -> Result<(), Box<dyn Error>> {
     println!("================================================================\n");
 
     let branch_fixture_path = format!(
-        "{}/../mircap/tests/fixtures/valid_branch_weights.mircap.txt",
+        "{}/../mircap/tests/fixtures/trap_branch_weights.mircap.txt",
         env!("CARGO_MANIFEST_DIR")
     );
     let bytes = fs::read(&branch_fixture_path)?;
