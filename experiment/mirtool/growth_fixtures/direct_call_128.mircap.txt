@@ -1,0 +1,778 @@
+mircap mircap
+version 0
+module 1 direct_call_chain_128
+type 1 i32
+symbol 1 main function
+symbol 2 f1 function
+symbol 3 f2 function
+symbol 4 f3 function
+symbol 5 f4 function
+symbol 6 f5 function
+symbol 7 f6 function
+symbol 8 f7 function
+symbol 9 f8 function
+symbol 10 f9 function
+symbol 11 f10 function
+symbol 12 f11 function
+symbol 13 f12 function
+symbol 14 f13 function
+symbol 15 f14 function
+symbol 16 f15 function
+symbol 17 f16 function
+symbol 18 f17 function
+symbol 19 f18 function
+symbol 20 f19 function
+symbol 21 f20 function
+symbol 22 f21 function
+symbol 23 f22 function
+symbol 24 f23 function
+symbol 25 f24 function
+symbol 26 f25 function
+symbol 27 f26 function
+symbol 28 f27 function
+symbol 29 f28 function
+symbol 30 f29 function
+symbol 31 f30 function
+symbol 32 f31 function
+symbol 33 f32 function
+symbol 34 f33 function
+symbol 35 f34 function
+symbol 36 f35 function
+symbol 37 f36 function
+symbol 38 f37 function
+symbol 39 f38 function
+symbol 40 f39 function
+symbol 41 f40 function
+symbol 42 f41 function
+symbol 43 f42 function
+symbol 44 f43 function
+symbol 45 f44 function
+symbol 46 f45 function
+symbol 47 f46 function
+symbol 48 f47 function
+symbol 49 f48 function
+symbol 50 f49 function
+symbol 51 f50 function
+symbol 52 f51 function
+symbol 53 f52 function
+symbol 54 f53 function
+symbol 55 f54 function
+symbol 56 f55 function
+symbol 57 f56 function
+symbol 58 f57 function
+symbol 59 f58 function
+symbol 60 f59 function
+symbol 61 f60 function
+symbol 62 f61 function
+symbol 63 f62 function
+symbol 64 f63 function
+symbol 65 f64 function
+symbol 66 f65 function
+symbol 67 f66 function
+symbol 68 f67 function
+symbol 69 f68 function
+symbol 70 f69 function
+symbol 71 f70 function
+symbol 72 f71 function
+symbol 73 f72 function
+symbol 74 f73 function
+symbol 75 f74 function
+symbol 76 f75 function
+symbol 77 f76 function
+symbol 78 f77 function
+symbol 79 f78 function
+symbol 80 f79 function
+symbol 81 f80 function
+symbol 82 f81 function
+symbol 83 f82 function
+symbol 84 f83 function
+symbol 85 f84 function
+symbol 86 f85 function
+symbol 87 f86 function
+symbol 88 f87 function
+symbol 89 f88 function
+symbol 90 f89 function
+symbol 91 f90 function
+symbol 92 f91 function
+symbol 93 f92 function
+symbol 94 f93 function
+symbol 95 f94 function
+symbol 96 f95 function
+symbol 97 f96 function
+symbol 98 f97 function
+symbol 99 f98 function
+symbol 100 f99 function
+symbol 101 f100 function
+symbol 102 f101 function
+symbol 103 f102 function
+symbol 104 f103 function
+symbol 105 f104 function
+symbol 106 f105 function
+symbol 107 f106 function
+symbol 108 f107 function
+symbol 109 f108 function
+symbol 110 f109 function
+symbol 111 f110 function
+symbol 112 f111 function
+symbol 113 f112 function
+symbol 114 f113 function
+symbol 115 f114 function
+symbol 116 f115 function
+symbol 117 f116 function
+symbol 118 f117 function
+symbol 119 f118 function
+symbol 120 f119 function
+symbol 121 f120 function
+symbol 122 f121 function
+symbol 123 f122 function
+symbol 124 f123 function
+symbol 125 f124 function
+symbol 126 f125 function
+symbol 127 f126 function
+symbol 128 f127 function
+symbol 129 f128 function
+function 1 1 - 1 1 0 1
+function 2 1 - 1 1 0 1
+function 3 1 - 1 1 0 1
+function 4 1 - 1 1 0 1
+function 5 1 - 1 1 0 1
+function 6 1 - 1 1 0 1
+function 7 1 - 1 1 0 1
+function 8 1 - 1 1 0 1
+function 9 1 - 1 1 0 1
+function 10 1 - 1 1 0 1
+function 11 1 - 1 1 0 1
+function 12 1 - 1 1 0 1
+function 13 1 - 1 1 0 1
+function 14 1 - 1 1 0 1
+function 15 1 - 1 1 0 1
+function 16 1 - 1 1 0 1
+function 17 1 - 1 1 0 1
+function 18 1 - 1 1 0 1
+function 19 1 - 1 1 0 1
+function 20 1 - 1 1 0 1
+function 21 1 - 1 1 0 1
+function 22 1 - 1 1 0 1
+function 23 1 - 1 1 0 1
+function 24 1 - 1 1 0 1
+function 25 1 - 1 1 0 1
+function 26 1 - 1 1 0 1
+function 27 1 - 1 1 0 1
+function 28 1 - 1 1 0 1
+function 29 1 - 1 1 0 1
+function 30 1 - 1 1 0 1
+function 31 1 - 1 1 0 1
+function 32 1 - 1 1 0 1
+function 33 1 - 1 1 0 1
+function 34 1 - 1 1 0 1
+function 35 1 - 1 1 0 1
+function 36 1 - 1 1 0 1
+function 37 1 - 1 1 0 1
+function 38 1 - 1 1 0 1
+function 39 1 - 1 1 0 1
+function 40 1 - 1 1 0 1
+function 41 1 - 1 1 0 1
+function 42 1 - 1 1 0 1
+function 43 1 - 1 1 0 1
+function 44 1 - 1 1 0 1
+function 45 1 - 1 1 0 1
+function 46 1 - 1 1 0 1
+function 47 1 - 1 1 0 1
+function 48 1 - 1 1 0 1
+function 49 1 - 1 1 0 1
+function 50 1 - 1 1 0 1
+function 51 1 - 1 1 0 1
+function 52 1 - 1 1 0 1
+function 53 1 - 1 1 0 1
+function 54 1 - 1 1 0 1
+function 55 1 - 1 1 0 1
+function 56 1 - 1 1 0 1
+function 57 1 - 1 1 0 1
+function 58 1 - 1 1 0 1
+function 59 1 - 1 1 0 1
+function 60 1 - 1 1 0 1
+function 61 1 - 1 1 0 1
+function 62 1 - 1 1 0 1
+function 63 1 - 1 1 0 1
+function 64 1 - 1 1 0 1
+function 65 1 - 1 1 0 1
+function 66 1 - 1 1 0 1
+function 67 1 - 1 1 0 1
+function 68 1 - 1 1 0 1
+function 69 1 - 1 1 0 1
+function 70 1 - 1 1 0 1
+function 71 1 - 1 1 0 1
+function 72 1 - 1 1 0 1
+function 73 1 - 1 1 0 1
+function 74 1 - 1 1 0 1
+function 75 1 - 1 1 0 1
+function 76 1 - 1 1 0 1
+function 77 1 - 1 1 0 1
+function 78 1 - 1 1 0 1
+function 79 1 - 1 1 0 1
+function 80 1 - 1 1 0 1
+function 81 1 - 1 1 0 1
+function 82 1 - 1 1 0 1
+function 83 1 - 1 1 0 1
+function 84 1 - 1 1 0 1
+function 85 1 - 1 1 0 1
+function 86 1 - 1 1 0 1
+function 87 1 - 1 1 0 1
+function 88 1 - 1 1 0 1
+function 89 1 - 1 1 0 1
+function 90 1 - 1 1 0 1
+function 91 1 - 1 1 0 1
+function 92 1 - 1 1 0 1
+function 93 1 - 1 1 0 1
+function 94 1 - 1 1 0 1
+function 95 1 - 1 1 0 1
+function 96 1 - 1 1 0 1
+function 97 1 - 1 1 0 1
+function 98 1 - 1 1 0 1
+function 99 1 - 1 1 0 1
+function 100 1 - 1 1 0 1
+function 101 1 - 1 1 0 1
+function 102 1 - 1 1 0 1
+function 103 1 - 1 1 0 1
+function 104 1 - 1 1 0 1
+function 105 1 - 1 1 0 1
+function 106 1 - 1 1 0 1
+function 107 1 - 1 1 0 1
+function 108 1 - 1 1 0 1
+function 109 1 - 1 1 0 1
+function 110 1 - 1 1 0 1
+function 111 1 - 1 1 0 1
+function 112 1 - 1 1 0 1
+function 113 1 - 1 1 0 1
+function 114 1 - 1 1 0 1
+function 115 1 - 1 1 0 1
+function 116 1 - 1 1 0 1
+function 117 1 - 1 1 0 1
+function 118 1 - 1 1 0 1
+function 119 1 - 1 1 0 1
+function 120 1 - 1 1 0 1
+function 121 1 - 1 1 0 1
+function 122 1 - 1 1 0 1
+function 123 1 - 1 1 0 1
+function 124 1 - 1 1 0 1
+function 125 1 - 1 1 0 1
+function 126 1 - 1 1 0 1
+function 127 1 - 1 1 0 1
+function 128 1 - 1 1 0 1
+function 129 1 - 1 1 0 1
+func_block 1 1
+func_block 2 2
+func_block 3 3
+func_block 4 4
+func_block 5 5
+func_block 6 6
+func_block 7 7
+func_block 8 8
+func_block 9 9
+func_block 10 10
+func_block 11 11
+func_block 12 12
+func_block 13 13
+func_block 14 14
+func_block 15 15
+func_block 16 16
+func_block 17 17
+func_block 18 18
+func_block 19 19
+func_block 20 20
+func_block 21 21
+func_block 22 22
+func_block 23 23
+func_block 24 24
+func_block 25 25
+func_block 26 26
+func_block 27 27
+func_block 28 28
+func_block 29 29
+func_block 30 30
+func_block 31 31
+func_block 32 32
+func_block 33 33
+func_block 34 34
+func_block 35 35
+func_block 36 36
+func_block 37 37
+func_block 38 38
+func_block 39 39
+func_block 40 40
+func_block 41 41
+func_block 42 42
+func_block 43 43
+func_block 44 44
+func_block 45 45
+func_block 46 46
+func_block 47 47
+func_block 48 48
+func_block 49 49
+func_block 50 50
+func_block 51 51
+func_block 52 52
+func_block 53 53
+func_block 54 54
+func_block 55 55
+func_block 56 56
+func_block 57 57
+func_block 58 58
+func_block 59 59
+func_block 60 60
+func_block 61 61
+func_block 62 62
+func_block 63 63
+func_block 64 64
+func_block 65 65
+func_block 66 66
+func_block 67 67
+func_block 68 68
+func_block 69 69
+func_block 70 70
+func_block 71 71
+func_block 72 72
+func_block 73 73
+func_block 74 74
+func_block 75 75
+func_block 76 76
+func_block 77 77
+func_block 78 78
+func_block 79 79
+func_block 80 80
+func_block 81 81
+func_block 82 82
+func_block 83 83
+func_block 84 84
+func_block 85 85
+func_block 86 86
+func_block 87 87
+func_block 88 88
+func_block 89 89
+func_block 90 90
+func_block 91 91
+func_block 92 92
+func_block 93 93
+func_block 94 94
+func_block 95 95
+func_block 96 96
+func_block 97 97
+func_block 98 98
+func_block 99 99
+func_block 100 100
+func_block 101 101
+func_block 102 102
+func_block 103 103
+func_block 104 104
+func_block 105 105
+func_block 106 106
+func_block 107 107
+func_block 108 108
+func_block 109 109
+func_block 110 110
+func_block 111 111
+func_block 112 112
+func_block 113 113
+func_block 114 114
+func_block 115 115
+func_block 116 116
+func_block 117 117
+func_block 118 118
+func_block 119 119
+func_block 120 120
+func_block 121 121
+func_block 122 122
+func_block 123 123
+func_block 124 124
+func_block 125 125
+func_block 126 126
+func_block 127 127
+func_block 128 128
+func_block 129 129
+block 1 1 1 2
+block 2 2 3 4
+block 3 3 5 6
+block 4 4 7 8
+block 5 5 9 10
+block 6 6 11 12
+block 7 7 13 14
+block 8 8 15 16
+block 9 9 17 18
+block 10 10 19 20
+block 11 11 21 22
+block 12 12 23 24
+block 13 13 25 26
+block 14 14 27 28
+block 15 15 29 30
+block 16 16 31 32
+block 17 17 33 34
+block 18 18 35 36
+block 19 19 37 38
+block 20 20 39 40
+block 21 21 41 42
+block 22 22 43 44
+block 23 23 45 46
+block 24 24 47 48
+block 25 25 49 50
+block 26 26 51 52
+block 27 27 53 54
+block 28 28 55 56
+block 29 29 57 58
+block 30 30 59 60
+block 31 31 61 62
+block 32 32 63 64
+block 33 33 65 66
+block 34 34 67 68
+block 35 35 69 70
+block 36 36 71 72
+block 37 37 73 74
+block 38 38 75 76
+block 39 39 77 78
+block 40 40 79 80
+block 41 41 81 82
+block 42 42 83 84
+block 43 43 85 86
+block 44 44 87 88
+block 45 45 89 90
+block 46 46 91 92
+block 47 47 93 94
+block 48 48 95 96
+block 49 49 97 98
+block 50 50 99 100
+block 51 51 101 102
+block 52 52 103 104
+block 53 53 105 106
+block 54 54 107 108
+block 55 55 109 110
+block 56 56 111 112
+block 57 57 113 114
+block 58 58 115 116
+block 59 59 117 118
+block 60 60 119 120
+block 61 61 121 122
+block 62 62 123 124
+block 63 63 125 126
+block 64 64 127 128
+block 65 65 129 130
+block 66 66 131 132
+block 67 67 133 134
+block 68 68 135 136
+block 69 69 137 138
+block 70 70 139 140
+block 71 71 141 142
+block 72 72 143 144
+block 73 73 145 146
+block 74 74 147 148
+block 75 75 149 150
+block 76 76 151 152
+block 77 77 153 154
+block 78 78 155 156
+block 79 79 157 158
+block 80 80 159 160
+block 81 81 161 162
+block 82 82 163 164
+block 83 83 165 166
+block 84 84 167 168
+block 85 85 169 170
+block 86 86 171 172
+block 87 87 173 174
+block 88 88 175 176
+block 89 89 177 178
+block 90 90 179 180
+block 91 91 181 182
+block 92 92 183 184
+block 93 93 185 186
+block 94 94 187 188
+block 95 95 189 190
+block 96 96 191 192
+block 97 97 193 194
+block 98 98 195 196
+block 99 99 197 198
+block 100 100 199 200
+block 101 101 201 202
+block 102 102 203 204
+block 103 103 205 206
+block 104 104 207 208
+block 105 105 209 210
+block 106 106 211 212
+block 107 107 213 214
+block 108 108 215 216
+block 109 109 217 218
+block 110 110 219 220
+block 111 111 221 222
+block 112 112 223 224
+block 113 113 225 226
+block 114 114 227 228
+block 115 115 229 230
+block 116 116 231 232
+block 117 117 233 234
+block 118 118 235 236
+block 119 119 237 238
+block 120 120 239 240
+block 121 121 241 242
+block 122 122 243 244
+block 123 123 245 246
+block 124 124 247 248
+block 125 125 249 250
+block 126 126 251 252
+block 127 127 253 254
+block 128 128 255 256
+block 129 129 257 258
+insn 1 call r:0 f:2
+insn 2 ret v:0
+insn 3 call r:0 f:3
+insn 4 ret v:0
+insn 5 call r:0 f:4
+insn 6 ret v:0
+insn 7 call r:0 f:5
+insn 8 ret v:0
+insn 9 call r:0 f:6
+insn 10 ret v:0
+insn 11 call r:0 f:7
+insn 12 ret v:0
+insn 13 call r:0 f:8
+insn 14 ret v:0
+insn 15 call r:0 f:9
+insn 16 ret v:0
+insn 17 call r:0 f:10
+insn 18 ret v:0
+insn 19 call r:0 f:11
+insn 20 ret v:0
+insn 21 call r:0 f:12
+insn 22 ret v:0
+insn 23 call r:0 f:13
+insn 24 ret v:0
+insn 25 call r:0 f:14
+insn 26 ret v:0
+insn 27 call r:0 f:15
+insn 28 ret v:0
+insn 29 call r:0 f:16
+insn 30 ret v:0
+insn 31 call r:0 f:17
+insn 32 ret v:0
+insn 33 call r:0 f:18
+insn 34 ret v:0
+insn 35 call r:0 f:19
+insn 36 ret v:0
+insn 37 call r:0 f:20
+insn 38 ret v:0
+insn 39 call r:0 f:21
+insn 40 ret v:0
+insn 41 call r:0 f:22
+insn 42 ret v:0
+insn 43 call r:0 f:23
+insn 44 ret v:0
+insn 45 call r:0 f:24
+insn 46 ret v:0
+insn 47 call r:0 f:25
+insn 48 ret v:0
+insn 49 call r:0 f:26
+insn 50 ret v:0
+insn 51 call r:0 f:27
+insn 52 ret v:0
+insn 53 call r:0 f:28
+insn 54 ret v:0
+insn 55 call r:0 f:29
+insn 56 ret v:0
+insn 57 call r:0 f:30
+insn 58 ret v:0
+insn 59 call r:0 f:31
+insn 60 ret v:0
+insn 61 call r:0 f:32
+insn 62 ret v:0
+insn 63 call r:0 f:33
+insn 64 ret v:0
+insn 65 call r:0 f:34
+insn 66 ret v:0
+insn 67 call r:0 f:35
+insn 68 ret v:0
+insn 69 call r:0 f:36
+insn 70 ret v:0
+insn 71 call r:0 f:37
+insn 72 ret v:0
+insn 73 call r:0 f:38
+insn 74 ret v:0
+insn 75 call r:0 f:39
+insn 76 ret v:0
+insn 77 call r:0 f:40
+insn 78 ret v:0
+insn 79 call r:0 f:41
+insn 80 ret v:0
+insn 81 call r:0 f:42
+insn 82 ret v:0
+insn 83 call r:0 f:43
+insn 84 ret v:0
+insn 85 call r:0 f:44
+insn 86 ret v:0
+insn 87 call r:0 f:45
+insn 88 ret v:0
+insn 89 call r:0 f:46
+insn 90 ret v:0
+insn 91 call r:0 f:47
+insn 92 ret v:0
+insn 93 call r:0 f:48
+insn 94 ret v:0
+insn 95 call r:0 f:49
+insn 96 ret v:0
+insn 97 call r:0 f:50
+insn 98 ret v:0
+insn 99 call r:0 f:51
+insn 100 ret v:0
+insn 101 call r:0 f:52
+insn 102 ret v:0
+insn 103 call r:0 f:53
+insn 104 ret v:0
+insn 105 call r:0 f:54
+insn 106 ret v:0
+insn 107 call r:0 f:55
+insn 108 ret v:0
+insn 109 call r:0 f:56
+insn 110 ret v:0
+insn 111 call r:0 f:57
+insn 112 ret v:0
+insn 113 call r:0 f:58
+insn 114 ret v:0
+insn 115 call r:0 f:59
+insn 116 ret v:0
+insn 117 call r:0 f:60
+insn 118 ret v:0
+insn 119 call r:0 f:61
+insn 120 ret v:0
+insn 121 call r:0 f:62
+insn 122 ret v:0
+insn 123 call r:0 f:63
+insn 124 ret v:0
+insn 125 call r:0 f:64
+insn 126 ret v:0
+insn 127 call r:0 f:65
+insn 128 ret v:0
+insn 129 call r:0 f:66
+insn 130 ret v:0
+insn 131 call r:0 f:67
+insn 132 ret v:0
+insn 133 call r:0 f:68
+insn 134 ret v:0
+insn 135 call r:0 f:69
+insn 136 ret v:0
+insn 137 call r:0 f:70
+insn 138 ret v:0
+insn 139 call r:0 f:71
+insn 140 ret v:0
+insn 141 call r:0 f:72
+insn 142 ret v:0
+insn 143 call r:0 f:73
+insn 144 ret v:0
+insn 145 call r:0 f:74
+insn 146 ret v:0
+insn 147 call r:0 f:75
+insn 148 ret v:0
+insn 149 call r:0 f:76
+insn 150 ret v:0
+insn 151 call r:0 f:77
+insn 152 ret v:0
+insn 153 call r:0 f:78
+insn 154 ret v:0
+insn 155 call r:0 f:79
+insn 156 ret v:0
+insn 157 call r:0 f:80
+insn 158 ret v:0
+insn 159 call r:0 f:81
+insn 160 ret v:0
+insn 161 call r:0 f:82
+insn 162 ret v:0
+insn 163 call r:0 f:83
+insn 164 ret v:0
+insn 165 call r:0 f:84
+insn 166 ret v:0
+insn 167 call r:0 f:85
+insn 168 ret v:0
+insn 169 call r:0 f:86
+insn 170 ret v:0
+insn 171 call r:0 f:87
+insn 172 ret v:0
+insn 173 call r:0 f:88
+insn 174 ret v:0
+insn 175 call r:0 f:89
+insn 176 ret v:0
+insn 177 call r:0 f:90
+insn 178 ret v:0
+insn 179 call r:0 f:91
+insn 180 ret v:0
+insn 181 call r:0 f:92
+insn 182 ret v:0
+insn 183 call r:0 f:93
+insn 184 ret v:0
+insn 185 call r:0 f:94
+insn 186 ret v:0
+insn 187 call r:0 f:95
+insn 188 ret v:0
+insn 189 call r:0 f:96
+insn 190 ret v:0
+insn 191 call r:0 f:97
+insn 192 ret v:0
+insn 193 call r:0 f:98
+insn 194 ret v:0
+insn 195 call r:0 f:99
+insn 196 ret v:0
+insn 197 call r:0 f:100
+insn 198 ret v:0
+insn 199 call r:0 f:101
+insn 200 ret v:0
+insn 201 call r:0 f:102
+insn 202 ret v:0
+insn 203 call r:0 f:103
+insn 204 ret v:0
+insn 205 call r:0 f:104
+insn 206 ret v:0
+insn 207 call r:0 f:105
+insn 208 ret v:0
+insn 209 call r:0 f:106
+insn 210 ret v:0
+insn 211 call r:0 f:107
+insn 212 ret v:0
+insn 213 call r:0 f:108
+insn 214 ret v:0
+insn 215 call r:0 f:109
+insn 216 ret v:0
+insn 217 call r:0 f:110
+insn 218 ret v:0
+insn 219 call r:0 f:111
+insn 220 ret v:0
+insn 221 call r:0 f:112
+insn 222 ret v:0
+insn 223 call r:0 f:113
+insn 224 ret v:0
+insn 225 call r:0 f:114
+insn 226 ret v:0
+insn 227 call r:0 f:115
+insn 228 ret v:0
+insn 229 call r:0 f:116
+insn 230 ret v:0
+insn 231 call r:0 f:117
+insn 232 ret v:0
+insn 233 call r:0 f:118
+insn 234 ret v:0
+insn 235 call r:0 f:119
+insn 236 ret v:0
+insn 237 call r:0 f:120
+insn 238 ret v:0
+insn 239 call r:0 f:121
+insn 240 ret v:0
+insn 241 call r:0 f:122
+insn 242 ret v:0
+insn 243 call r:0 f:123
+insn 244 ret v:0
+insn 245 call r:0 f:124
+insn 246 ret v:0
+insn 247 call r:0 f:125
+insn 248 ret v:0
+insn 249 call r:0 f:126
+insn 250 ret v:0
+insn 251 call r:0 f:127
+insn 252 ret v:0
+insn 253 call r:0 f:128
+insn 254 ret v:0
+insn 255 call r:0 f:129
+insn 256 ret v:0
+insn 257 const_i32 r:0 i:42
+insn 258 ret v:0

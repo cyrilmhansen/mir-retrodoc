@@ -1,0 +1,394 @@
+mircap mircap
+version 0
+module 1 direct_call_chain_64
+type 1 i32
+symbol 1 main function
+symbol 2 f1 function
+symbol 3 f2 function
+symbol 4 f3 function
+symbol 5 f4 function
+symbol 6 f5 function
+symbol 7 f6 function
+symbol 8 f7 function
+symbol 9 f8 function
+symbol 10 f9 function
+symbol 11 f10 function
+symbol 12 f11 function
+symbol 13 f12 function
+symbol 14 f13 function
+symbol 15 f14 function
+symbol 16 f15 function
+symbol 17 f16 function
+symbol 18 f17 function
+symbol 19 f18 function
+symbol 20 f19 function
+symbol 21 f20 function
+symbol 22 f21 function
+symbol 23 f22 function
+symbol 24 f23 function
+symbol 25 f24 function
+symbol 26 f25 function
+symbol 27 f26 function
+symbol 28 f27 function
+symbol 29 f28 function
+symbol 30 f29 function
+symbol 31 f30 function
+symbol 32 f31 function
+symbol 33 f32 function
+symbol 34 f33 function
+symbol 35 f34 function
+symbol 36 f35 function
+symbol 37 f36 function
+symbol 38 f37 function
+symbol 39 f38 function
+symbol 40 f39 function
+symbol 41 f40 function
+symbol 42 f41 function
+symbol 43 f42 function
+symbol 44 f43 function
+symbol 45 f44 function
+symbol 46 f45 function
+symbol 47 f46 function
+symbol 48 f47 function
+symbol 49 f48 function
+symbol 50 f49 function
+symbol 51 f50 function
+symbol 52 f51 function
+symbol 53 f52 function
+symbol 54 f53 function
+symbol 55 f54 function
+symbol 56 f55 function
+symbol 57 f56 function
+symbol 58 f57 function
+symbol 59 f58 function
+symbol 60 f59 function
+symbol 61 f60 function
+symbol 62 f61 function
+symbol 63 f62 function
+symbol 64 f63 function
+symbol 65 f64 function
+function 1 1 - 1 1 0 1
+function 2 1 - 1 1 0 1
+function 3 1 - 1 1 0 1
+function 4 1 - 1 1 0 1
+function 5 1 - 1 1 0 1
+function 6 1 - 1 1 0 1
+function 7 1 - 1 1 0 1
+function 8 1 - 1 1 0 1
+function 9 1 - 1 1 0 1
+function 10 1 - 1 1 0 1
+function 11 1 - 1 1 0 1
+function 12 1 - 1 1 0 1
+function 13 1 - 1 1 0 1
+function 14 1 - 1 1 0 1
+function 15 1 - 1 1 0 1
+function 16 1 - 1 1 0 1
+function 17 1 - 1 1 0 1
+function 18 1 - 1 1 0 1
+function 19 1 - 1 1 0 1
+function 20 1 - 1 1 0 1
+function 21 1 - 1 1 0 1
+function 22 1 - 1 1 0 1
+function 23 1 - 1 1 0 1
+function 24 1 - 1 1 0 1
+function 25 1 - 1 1 0 1
+function 26 1 - 1 1 0 1
+function 27 1 - 1 1 0 1
+function 28 1 - 1 1 0 1
+function 29 1 - 1 1 0 1
+function 30 1 - 1 1 0 1
+function 31 1 - 1 1 0 1
+function 32 1 - 1 1 0 1
+function 33 1 - 1 1 0 1
+function 34 1 - 1 1 0 1
+function 35 1 - 1 1 0 1
+function 36 1 - 1 1 0 1
+function 37 1 - 1 1 0 1
+function 38 1 - 1 1 0 1
+function 39 1 - 1 1 0 1
+function 40 1 - 1 1 0 1
+function 41 1 - 1 1 0 1
+function 42 1 - 1 1 0 1
+function 43 1 - 1 1 0 1
+function 44 1 - 1 1 0 1
+function 45 1 - 1 1 0 1
+function 46 1 - 1 1 0 1
+function 47 1 - 1 1 0 1
+function 48 1 - 1 1 0 1
+function 49 1 - 1 1 0 1
+function 50 1 - 1 1 0 1
+function 51 1 - 1 1 0 1
+function 52 1 - 1 1 0 1
+function 53 1 - 1 1 0 1
+function 54 1 - 1 1 0 1
+function 55 1 - 1 1 0 1
+function 56 1 - 1 1 0 1
+function 57 1 - 1 1 0 1
+function 58 1 - 1 1 0 1
+function 59 1 - 1 1 0 1
+function 60 1 - 1 1 0 1
+function 61 1 - 1 1 0 1
+function 62 1 - 1 1 0 1
+function 63 1 - 1 1 0 1
+function 64 1 - 1 1 0 1
+function 65 1 - 1 1 0 1
+func_block 1 1
+func_block 2 2
+func_block 3 3
+func_block 4 4
+func_block 5 5
+func_block 6 6
+func_block 7 7
+func_block 8 8
+func_block 9 9
+func_block 10 10
+func_block 11 11
+func_block 12 12
+func_block 13 13
+func_block 14 14
+func_block 15 15
+func_block 16 16
+func_block 17 17
+func_block 18 18
+func_block 19 19
+func_block 20 20
+func_block 21 21
+func_block 22 22
+func_block 23 23
+func_block 24 24
+func_block 25 25
+func_block 26 26
+func_block 27 27
+func_block 28 28
+func_block 29 29
+func_block 30 30
+func_block 31 31
+func_block 32 32
+func_block 33 33
+func_block 34 34
+func_block 35 35
+func_block 36 36
+func_block 37 37
+func_block 38 38
+func_block 39 39
+func_block 40 40
+func_block 41 41
+func_block 42 42
+func_block 43 43
+func_block 44 44
+func_block 45 45
+func_block 46 46
+func_block 47 47
+func_block 48 48
+func_block 49 49
+func_block 50 50
+func_block 51 51
+func_block 52 52
+func_block 53 53
+func_block 54 54
+func_block 55 55
+func_block 56 56
+func_block 57 57
+func_block 58 58
+func_block 59 59
+func_block 60 60
+func_block 61 61
+func_block 62 62
+func_block 63 63
+func_block 64 64
+func_block 65 65
+block 1 1 1 2
+block 2 2 3 4
+block 3 3 5 6
+block 4 4 7 8
+block 5 5 9 10
+block 6 6 11 12
+block 7 7 13 14
+block 8 8 15 16
+block 9 9 17 18
+block 10 10 19 20
+block 11 11 21 22
+block 12 12 23 24
+block 13 13 25 26
+block 14 14 27 28
+block 15 15 29 30
+block 16 16 31 32
+block 17 17 33 34
+block 18 18 35 36
+block 19 19 37 38
+block 20 20 39 40
+block 21 21 41 42
+block 22 22 43 44
+block 23 23 45 46
+block 24 24 47 48
+block 25 25 49 50
+block 26 26 51 52
+block 27 27 53 54
+block 28 28 55 56
+block 29 29 57 58
+block 30 30 59 60
+block 31 31 61 62
+block 32 32 63 64
+block 33 33 65 66
+block 34 34 67 68
+block 35 35 69 70
+block 36 36 71 72
+block 37 37 73 74
+block 38 38 75 76
+block 39 39 77 78
+block 40 40 79 80
+block 41 41 81 82
+block 42 42 83 84
+block 43 43 85 86
+block 44 44 87 88
+block 45 45 89 90
+block 46 46 91 92
+block 47 47 93 94
+block 48 48 95 96
+block 49 49 97 98
+block 50 50 99 100
+block 51 51 101 102
+block 52 52 103 104
+block 53 53 105 106
+block 54 54 107 108
+block 55 55 109 110
+block 56 56 111 112
+block 57 57 113 114
+block 58 58 115 116
+block 59 59 117 118
+block 60 60 119 120
+block 61 61 121 122
+block 62 62 123 124
+block 63 63 125 126
+block 64 64 127 128
+block 65 65 129 130
+insn 1 call r:0 f:2
+insn 2 ret v:0
+insn 3 call r:0 f:3
+insn 4 ret v:0
+insn 5 call r:0 f:4
+insn 6 ret v:0
+insn 7 call r:0 f:5
+insn 8 ret v:0
+insn 9 call r:0 f:6
+insn 10 ret v:0
+insn 11 call r:0 f:7
+insn 12 ret v:0
+insn 13 call r:0 f:8
+insn 14 ret v:0
+insn 15 call r:0 f:9
+insn 16 ret v:0
+insn 17 call r:0 f:10
+insn 18 ret v:0
+insn 19 call r:0 f:11
+insn 20 ret v:0
+insn 21 call r:0 f:12
+insn 22 ret v:0
+insn 23 call r:0 f:13
+insn 24 ret v:0
+insn 25 call r:0 f:14
+insn 26 ret v:0
+insn 27 call r:0 f:15
+insn 28 ret v:0
+insn 29 call r:0 f:16
+insn 30 ret v:0
+insn 31 call r:0 f:17
+insn 32 ret v:0
+insn 33 call r:0 f:18
+insn 34 ret v:0
+insn 35 call r:0 f:19
+insn 36 ret v:0
+insn 37 call r:0 f:20
+insn 38 ret v:0
+insn 39 call r:0 f:21
+insn 40 ret v:0
+insn 41 call r:0 f:22
+insn 42 ret v:0
+insn 43 call r:0 f:23
+insn 44 ret v:0
+insn 45 call r:0 f:24
+insn 46 ret v:0
+insn 47 call r:0 f:25
+insn 48 ret v:0
+insn 49 call r:0 f:26
+insn 50 ret v:0
+insn 51 call r:0 f:27
+insn 52 ret v:0
+insn 53 call r:0 f:28
+insn 54 ret v:0
+insn 55 call r:0 f:29
+insn 56 ret v:0
+insn 57 call r:0 f:30
+insn 58 ret v:0
+insn 59 call r:0 f:31
+insn 60 ret v:0
+insn 61 call r:0 f:32
+insn 62 ret v:0
+insn 63 call r:0 f:33
+insn 64 ret v:0
+insn 65 call r:0 f:34
+insn 66 ret v:0
+insn 67 call r:0 f:35
+insn 68 ret v:0
+insn 69 call r:0 f:36
+insn 70 ret v:0
+insn 71 call r:0 f:37
+insn 72 ret v:0
+insn 73 call r:0 f:38
+insn 74 ret v:0
+insn 75 call r:0 f:39
+insn 76 ret v:0
+insn 77 call r:0 f:40
+insn 78 ret v:0
+insn 79 call r:0 f:41
+insn 80 ret v:0
+insn 81 call r:0 f:42
+insn 82 ret v:0
+insn 83 call r:0 f:43
+insn 84 ret v:0
+insn 85 call r:0 f:44
+insn 86 ret v:0
+insn 87 call r:0 f:45
+insn 88 ret v:0
+insn 89 call r:0 f:46
+insn 90 ret v:0
+insn 91 call r:0 f:47
+insn 92 ret v:0
+insn 93 call r:0 f:48
+insn 94 ret v:0
+insn 95 call r:0 f:49
+insn 96 ret v:0
+insn 97 call r:0 f:50
+insn 98 ret v:0
+insn 99 call r:0 f:51
+insn 100 ret v:0
+insn 101 call r:0 f:52
+insn 102 ret v:0
+insn 103 call r:0 f:53
+insn 104 ret v:0
+insn 105 call r:0 f:54
+insn 106 ret v:0
+insn 107 call r:0 f:55
+insn 108 ret v:0
+insn 109 call r:0 f:56
+insn 110 ret v:0
+insn 111 call r:0 f:57
+insn 112 ret v:0
+insn 113 call r:0 f:58
+insn 114 ret v:0
+insn 115 call r:0 f:59
+insn 116 ret v:0
+insn 117 call r:0 f:60
+insn 118 ret v:0
+insn 119 call r:0 f:61
+insn 120 ret v:0
+insn 121 call r:0 f:62
+insn 122 ret v:0
+insn 123 call r:0 f:63
+insn 124 ret v:0
+insn 125 call r:0 f:64
+insn 126 ret v:0
+insn 127 call r:0 f:65
+insn 128 ret v:0
+insn 129 const_i32 r:0 i:42
+insn 130 ret v:0

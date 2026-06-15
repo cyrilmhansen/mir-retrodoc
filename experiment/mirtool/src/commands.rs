@@ -1200,8 +1200,9 @@ pub fn cmd_diff(
         .and_then(|n| n.to_str())
         .unwrap_or("temp")
         .replace('.', "_");
-    let c_path = cur_dir.join(format!("temp_mirtool_diff_{}.c", input_name));
-    let bin_path = cur_dir.join(format!("temp_mirtool_diff_{}", input_name));
+    let pid = std::process::id();
+    let c_path = cur_dir.join(format!("temp_mirtool_diff_{}_{}.c", input_name, pid));
+    let bin_path = cur_dir.join(format!("temp_mirtool_diff_{}_{}", input_name, pid));
 
     std::fs::write(&c_path, c_code)?;
 
@@ -2916,4 +2917,392 @@ fn find_fixtures_dir() -> Option<std::path::PathBuf> {
         }
     }
     None
+}
+
+pub fn cmd_growth(emit_json: bool, keep_temp: bool) -> Result<(), CliError> {
+    let dir = Path::new("growth_fixtures");
+    std::fs::create_dir_all(dir)?;
+
+    let families = vec![
+        ("straight-line arithmetic", "arithmetic"),
+        ("branch-heavy code", "branch_heavy"),
+        ("memory loop / summation", "memory_loop"),
+        ("direct-call chain", "direct_call"),
+    ];
+
+    let sizes = vec![8, 16, 32, 64, 128];
+
+    #[derive(Clone, Debug)]
+    struct FamilyMeasurement {
+        size: u32,
+        instructions: u64,
+        branches: u64,
+        calls: u64,
+        memory_reads: u64,
+        memory_writes: u64,
+        allocations: u64,
+    }
+
+    struct FamilyResult {
+        name: &'static str,
+        measurements: Vec<FamilyMeasurement>,
+        classifications: BTreeMap<String, String>,
+    }
+
+    let mut results = Vec::new();
+
+    for &(family_name, family_code) in &families {
+        let mut measurements = Vec::new();
+
+        for &size in &sizes {
+            let content = match family_code {
+                "arithmetic" => generate_straight_line_arithmetic(size),
+                "branch_heavy" => generate_branch_heavy(size),
+                "memory_loop" => generate_memory_loop_sum(size),
+                "direct_call" => generate_direct_call_chain(size),
+                _ => unreachable!(),
+            };
+
+            let file_name = format!("{}_{}.mircap.txt", family_code, size);
+            let file_path = dir.join(&file_name);
+            std::fs::write(&file_path, content)?;
+
+            let path_str = file_path.to_string_lossy().to_string();
+
+            let image = load_image(&path_str, Some("text"))?;
+            image.validate().map_err(CliError::Validation)?;
+
+            let mut runner = Runner::new(image.clone(), mirsem::ExecutionProfile::default())?;
+            runner.run_entry_by_name("main", &[]).map_err(CliError::Run)?;
+            let snapshot = runner.trace_snapshot();
+            let observed = observed_total_cost_counts(&snapshot);
+
+            if size == 8 || size == 16 {
+                let diff_ok = cmd_diff(&path_str, Some("text"), "main", keep_temp, false, true)?;
+                if !diff_ok {
+                    return Err(CliError::Generic(format!(
+                        "Differential check failed for family '{}' at size {}",
+                        family_name, size
+                    )));
+                }
+            }
+
+            measurements.push(FamilyMeasurement {
+                size,
+                instructions: observed.instructions,
+                branches: observed.branches,
+                calls: observed.calls,
+                memory_reads: observed.memory_reads,
+                memory_writes: observed.memory_writes,
+                allocations: observed.allocations,
+            });
+        }
+
+        let mut classifications = BTreeMap::new();
+        let x: Vec<f64> = sizes.iter().map(|&s| s as f64).collect();
+
+        let y_insn: Vec<f64> = measurements.iter().map(|m| m.instructions as f64).collect();
+        classifications.insert("instructions".to_string(), classify_growth(&x, &y_insn).to_string());
+
+        let y_branch: Vec<f64> = measurements.iter().map(|m| m.branches as f64).collect();
+        classifications.insert("branches".to_string(), classify_growth(&x, &y_branch).to_string());
+
+        let y_call: Vec<f64> = measurements.iter().map(|m| m.calls as f64).collect();
+        classifications.insert("calls".to_string(), classify_growth(&x, &y_call).to_string());
+
+        let y_mem_read: Vec<f64> = measurements.iter().map(|m| m.memory_reads as f64).collect();
+        classifications.insert("memory_reads".to_string(), classify_growth(&x, &y_mem_read).to_string());
+
+        let y_mem_write: Vec<f64> = measurements.iter().map(|m| m.memory_writes as f64).collect();
+        classifications.insert("memory_writes".to_string(), classify_growth(&x, &y_mem_write).to_string());
+
+        let y_alloc: Vec<f64> = measurements.iter().map(|m| m.allocations as f64).collect();
+        classifications.insert("allocations".to_string(), classify_growth(&x, &y_alloc).to_string());
+
+        results.push(FamilyResult {
+            name: family_name,
+            measurements,
+            classifications,
+        });
+    }
+
+    if emit_json {
+        let json_families: Vec<serde_json::Value> = results.iter().map(|r| {
+            let json_measurements: Vec<serde_json::Value> = r.measurements.iter().map(|m| {
+                json!({
+                    "size": m.size,
+                    "instructions": m.instructions,
+                    "branches": m.branches,
+                    "calls": m.calls,
+                    "memory_reads": m.memory_reads,
+                    "memory_writes": m.memory_writes,
+                    "allocations": m.allocations,
+                })
+            }).collect();
+
+            json!({
+                "name": r.name,
+                "sizes": sizes,
+                "measurements": json_measurements,
+                "classifications": r.classifications,
+            })
+        }).collect();
+
+        let json_report = json!({
+            "kind": "growth-analysis",
+            "fixtures_directory": "growth_fixtures",
+            "families": json_families
+        });
+
+        println!("{}", serde_json::to_string_pretty(&json_report).unwrap());
+    } else {
+        println!("\n=================================================================================");
+        println!("Empirical Growth Analysis Report (v0)");
+        println!("=================================================================================");
+        println!("Generated fixtures stored in: ./growth_fixtures/");
+        println!("=================================================================================\n");
+
+        for r in &results {
+            println!("Family: {}", r.name);
+            println!("{:<8} | {:<10} | {:<8} | {:<8} | {:<10} | {:<10} | {:<8}", 
+                "Size", "Insn", "Branch", "Call", "MemRead", "MemWrite", "Alloc");
+            println!("{}", "-".repeat(81));
+            for m in &r.measurements {
+                println!("{:<8} | {:<10} | {:<8} | {:<8} | {:<10} | {:<10} | {:<8}",
+                    m.size, m.instructions, m.branches, m.calls, m.memory_reads, m.memory_writes, m.allocations);
+            }
+            println!("{}", "-".repeat(81));
+            println!("{:<8} | {:<10} | {:<8} | {:<8} | {:<10} | {:<10} | {:<8}",
+                "Growth",
+                r.classifications.get("instructions").unwrap(),
+                r.classifications.get("branches").unwrap(),
+                r.classifications.get("calls").unwrap(),
+                r.classifications.get("memory_reads").unwrap(),
+                r.classifications.get("memory_writes").unwrap(),
+                r.classifications.get("allocations").unwrap()
+            );
+            println!("=================================================================================\n");
+        }
+
+        println!("=================================================================================");
+        println!("Complexity Classification Summary");
+        println!("=================================================================================");
+        println!("{:<28} | {:<10} | {:<8} | {:<8} | {:<8} | {:<8} | {:<8}",
+            "Family", "Insn", "Branch", "Call", "MemRead", "MemWrite", "Alloc");
+        println!("{}", "-".repeat(81));
+        for r in &results {
+            println!("{:<28} | {:<10} | {:<8} | {:<8} | {:<8} | {:<8} | {:<8}",
+                r.name,
+                r.classifications.get("instructions").unwrap(),
+                r.classifications.get("branches").unwrap(),
+                r.classifications.get("calls").unwrap(),
+                r.classifications.get("memory_reads").unwrap(),
+                r.classifications.get("memory_writes").unwrap(),
+                r.classifications.get("allocations").unwrap()
+            );
+        }
+        println!("=================================================================================\n");
+    }
+
+    Ok(())
+}
+
+fn generate_straight_line_arithmetic(n: u32) -> String {
+    let mut s = String::new();
+    s.push_str("mircap mircap\nversion 0\nmodule 1 straight_line_arithmetic\ntype 1 i32\nsymbol 1 main function\n");
+    let val_count = n + 2;
+    let val_types = vec!["1"; val_count as usize];
+    s.push_str(&format!("function 1 1 - 1 {} 0 {}\n", val_count, val_types.join(",")));
+    s.push_str("func_block 1 1\n");
+    
+    let mut insn_ids = Vec::new();
+    s.push_str("insn 1 const_i32 r:0 i:0\n");
+    insn_ids.push("1".to_string());
+    s.push_str("insn 2 const_i32 r:1 i:1\n");
+    insn_ids.push("2".to_string());
+    for i in 0..n {
+        let insn_id = 3 + i;
+        let dest_reg = 2 + i;
+        let src_reg = if i == 0 { 0 } else { 2 + i - 1 };
+        s.push_str(&format!("insn {} add_i32 r:{} v:{} v:1\n", insn_id, dest_reg, src_reg));
+        insn_ids.push(insn_id.to_string());
+    }
+    let ret_insn_id = 3 + n;
+    let ret_reg = if n == 0 { 0 } else { 2 + n - 1 };
+    s.push_str(&format!("insn {} ret v:{}\n", ret_insn_id, ret_reg));
+    insn_ids.push(ret_insn_id.to_string());
+    
+    s.push_str(&format!("block 1 1 {}\n", insn_ids.join(" ")));
+    s
+}
+
+fn generate_branch_heavy(n: u32) -> String {
+    let mut s = String::new();
+    s.push_str("mircap mircap\nversion 0\nmodule 1 branch_heavy\ntype 1 i32\ntype 2 u32\nsymbol 1 main function\n");
+    s.push_str("function 1 1 - 1 4 0 1,1,2,1\n");
+    s.push_str("func_block 1 1\n");
+    s.push_str("func_block 1 2\n");
+    s.push_str("func_block 1 3\n");
+    s.push_str("func_block 1 4\n");
+    s.push_str("block 1 1 1 2 3 4\n");
+    s.push_str("block 2 1 5 6\n");
+    s.push_str("block 3 1 7 8\n");
+    s.push_str("block 4 1 9\n");
+    s.push_str("insn 1 const_i32 r:0 i:0\n");
+    s.push_str(&format!("insn 2 const_i32 r:1 i:{}\n", n));
+    s.push_str("insn 3 const_i32 r:3 i:1\n");
+    s.push_str("insn 4 branch b:2\n");
+    s.push_str("insn 5 lt_i32 r:2 v:0 v:1\n");
+    s.push_str("insn 6 branch_if v:2 b:3 b:4\n");
+    s.push_str("insn 7 add_i32 r:0 v:0 v:3\n");
+    s.push_str("insn 8 branch b:2\n");
+    s.push_str("insn 9 ret v:0\n");
+    s
+}
+
+fn generate_memory_loop_sum(n: u32) -> String {
+    let mut s = String::new();
+    s.push_str("mircap mircap\nversion 0\nmodule 1 memory_loop_sum\ntype 1 i32\ntype 2 u32\ntype 3 addr32\nsymbol 1 main function\n");
+    let mut val_types = vec!["3", "2", "3", "1", "1", "1", "1", "2", "1"];
+    for _ in 0..n {
+        val_types.push("2");
+    }
+    let val_count = val_types.len();
+    s.push_str(&format!("function 1 1 - 1 {} 0 {}\n", val_count, val_types.join(",")));
+    
+    s.push_str("func_block 1 1\n");
+    s.push_str("func_block 1 2\n");
+    s.push_str("func_block 1 3\n");
+    s.push_str("func_block 1 4\n");
+    
+    let mut init_insns = vec![
+        format!("insn 1 alloc r:0 u:{} u:4", n * 4),
+        format!("insn 2 const_u32 r:1 u:4"),
+        format!("insn 3 copy r:2 v:0"),
+    ];
+    
+    let mut insn_id = 4;
+    for i in 0..n {
+        init_insns.push(format!("insn {} const_u32 r:{} u:{}", insn_id, 9 + i, i));
+        insn_id += 1;
+        init_insns.push(format!("insn {} store_u32 v:2 v:{}", insn_id, 9 + i));
+        insn_id += 1;
+        if i < n - 1 {
+            init_insns.push(format!("insn {} addr_add r:2 v:2 v:1", insn_id));
+            insn_id += 1;
+        }
+    }
+    
+    let mut block1_ids: Vec<String> = (1..insn_id).map(|x| x.to_string()).collect();
+    let setup_insns = vec![
+        format!("insn {} const_i32 r:3 i:0", insn_id),
+        format!("insn {} const_i32 r:4 i:{}", insn_id + 1, n),
+        format!("insn {} const_i32 r:5 i:1", insn_id + 2),
+        format!("insn {} const_i32 r:6 i:0", insn_id + 3),
+        format!("insn {} copy r:2 v:0", insn_id + 4),
+        format!("insn {} branch b:2", insn_id + 5),
+    ];
+    for id in insn_id..(insn_id + 6) {
+        block1_ids.push(id.to_string());
+    }
+    insn_id += 6;
+    
+    let lt_insn_id = insn_id;
+    let branch_if_insn_id = insn_id + 1;
+    let ret_insn_id = insn_id + 2;
+    let load_insn_id = insn_id + 3;
+    let add_insn_id = insn_id + 4;
+    let addr_add_insn_id = insn_id + 5;
+    let loop_add_insn_id = insn_id + 6;
+    let loop_branch_insn_id = insn_id + 7;
+    
+    for insn in &init_insns {
+        s.push_str(insn);
+        s.push_str("\n");
+    }
+    for insn in &setup_insns {
+        s.push_str(insn);
+        s.push_str("\n");
+    }
+    s.push_str(&format!("insn {} lt_i32 r:7 v:6 v:4\n", lt_insn_id));
+    s.push_str(&format!("insn {} branch_if v:7 b:4 b:3\n", branch_if_insn_id));
+    s.push_str(&format!("insn {} ret v:3\n", ret_insn_id));
+    s.push_str(&format!("insn {} load_i32 r:8 v:2\n", load_insn_id));
+    s.push_str(&format!("insn {} add_i32 r:3 v:3 v:8\n", add_insn_id));
+    s.push_str(&format!("insn {} addr_add r:2 v:2 v:1\n", addr_add_insn_id));
+    s.push_str(&format!("insn {} add_i32 r:6 v:6 v:5\n", loop_add_insn_id));
+    s.push_str(&format!("insn {} branch b:2\n", loop_branch_insn_id));
+    
+    s.push_str(&format!("block 1 1 {}\n", block1_ids.join(" ")));
+    s.push_str(&format!("block 2 1 {} {}\n", lt_insn_id, branch_if_insn_id));
+    s.push_str(&format!("block 3 1 {}\n", ret_insn_id));
+    s.push_str(&format!("block 4 1 {} {} {} {} {}\n", load_insn_id, add_insn_id, addr_add_insn_id, loop_add_insn_id, loop_branch_insn_id));
+    
+    s
+}
+
+fn generate_direct_call_chain(n: u32) -> String {
+    let mut s = String::new();
+    s.push_str("mircap mircap\nversion 0\n");
+    s.push_str(&format!("module 1 direct_call_chain_{}\n", n));
+    s.push_str("type 1 i32\n");
+    
+    s.push_str("symbol 1 main function\n");
+    for i in 1..=n {
+        s.push_str(&format!("symbol {} f{} function\n", i + 1, i));
+    }
+    
+    for i in 1..=n {
+        s.push_str(&format!("function {} 1 - 1 1 0 1\n", i));
+    }
+    s.push_str(&format!("function {} 1 - 1 1 0 1\n", n + 1));
+    
+    for i in 1..=(n + 1) {
+        s.push_str(&format!("func_block {} {}\n", i, i));
+    }
+    
+    for i in 1..=n {
+        let insn_call = 2 * i - 1;
+        let insn_ret = 2 * i;
+        s.push_str(&format!("block {} {} {} {}\n", i, i, insn_call, insn_ret));
+    }
+    let last_const = 2 * n + 1;
+    let last_ret = 2 * n + 2;
+    s.push_str(&format!("block {} {} {} {}\n", n + 1, n + 1, last_const, last_ret));
+    
+    for i in 1..=n {
+        let insn_call = 2 * i - 1;
+        let insn_ret = 2 * i;
+        s.push_str(&format!("insn {} call r:0 f:{}\n", insn_call, i + 1));
+        s.push_str(&format!("insn {} ret v:0\n", insn_ret));
+    }
+    s.push_str(&format!("insn {} const_i32 r:0 i:42\n", last_const));
+    s.push_str(&format!("insn {} ret v:0\n", last_ret));
+    
+    s
+}
+
+fn classify_growth(x: &[f64], y: &[f64]) -> &'static str {
+    if y.iter().all(|&val| (val - y[0]).abs() < 1e-9) {
+        return "constant";
+    }
+    
+    if x.len() >= 2 {
+        let a = (y[1] - y[0]) / (x[1] - x[0]);
+        let b = y[0] - a * x[0];
+        
+        let mut is_linear = true;
+        for i in 2..x.len() {
+            let expected = a * x[i] + b;
+            if (y[i] - expected).abs() > 1e-2 {
+                is_linear = false;
+                break;
+            }
+        }
+        if is_linear && a.abs() > 1e-9 {
+            return "linear";
+        }
+    }
+    
+    "unknown"
 }

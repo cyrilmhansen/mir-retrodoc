@@ -1,0 +1,19 @@
+mircap mircap
+version 0
+module 1 straight_line_arithmetic
+type 1 i32
+symbol 1 main function
+function 1 1 - 1 10 0 1,1,1,1,1,1,1,1,1,1
+func_block 1 1
+insn 1 const_i32 r:0 i:0
+insn 2 const_i32 r:1 i:1
+insn 3 add_i32 r:2 v:0 v:1
+insn 4 add_i32 r:3 v:2 v:1
+insn 5 add_i32 r:4 v:3 v:1
+insn 6 add_i32 r:5 v:4 v:1
+insn 7 add_i32 r:6 v:5 v:1
+insn 8 add_i32 r:7 v:6 v:1
+insn 9 add_i32 r:8 v:7 v:1
+insn 10 add_i32 r:9 v:8 v:1
+insn 11 ret v:9
+block 1 1 1 2 3 4 5 6 7 8 9 10 11

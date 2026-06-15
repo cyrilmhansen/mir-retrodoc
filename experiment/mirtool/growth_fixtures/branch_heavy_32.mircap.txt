@@ -1,0 +1,24 @@
+mircap mircap
+version 0
+module 1 branch_heavy
+type 1 i32
+type 2 u32
+symbol 1 main function
+function 1 1 - 1 4 0 1,1,2,1
+func_block 1 1
+func_block 1 2
+func_block 1 3
+func_block 1 4
+block 1 1 1 2 3 4
+block 2 1 5 6
+block 3 1 7 8
+block 4 1 9
+insn 1 const_i32 r:0 i:0
+insn 2 const_i32 r:1 i:32
+insn 3 const_i32 r:3 i:1
+insn 4 branch b:2
+insn 5 lt_i32 r:2 v:0 v:1
+insn 6 branch_if v:2 b:3 b:4
+insn 7 add_i32 r:0 v:0 v:3
+insn 8 branch b:2
+insn 9 ret v:0

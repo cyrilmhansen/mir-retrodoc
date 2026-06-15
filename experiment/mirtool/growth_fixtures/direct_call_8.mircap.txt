@@ -1,0 +1,58 @@
+mircap mircap
+version 0
+module 1 direct_call_chain_8
+type 1 i32
+symbol 1 main function
+symbol 2 f1 function
+symbol 3 f2 function
+symbol 4 f3 function
+symbol 5 f4 function
+symbol 6 f5 function
+symbol 7 f6 function
+symbol 8 f7 function
+symbol 9 f8 function
+function 1 1 - 1 1 0 1
+function 2 1 - 1 1 0 1
+function 3 1 - 1 1 0 1
+function 4 1 - 1 1 0 1
+function 5 1 - 1 1 0 1
+function 6 1 - 1 1 0 1
+function 7 1 - 1 1 0 1
+function 8 1 - 1 1 0 1
+function 9 1 - 1 1 0 1
+func_block 1 1
+func_block 2 2
+func_block 3 3
+func_block 4 4
+func_block 5 5
+func_block 6 6
+func_block 7 7
+func_block 8 8
+func_block 9 9
+block 1 1 1 2
+block 2 2 3 4
+block 3 3 5 6
+block 4 4 7 8
+block 5 5 9 10
+block 6 6 11 12
+block 7 7 13 14
+block 8 8 15 16
+block 9 9 17 18
+insn 1 call r:0 f:2
+insn 2 ret v:0
+insn 3 call r:0 f:3
+insn 4 ret v:0
+insn 5 call r:0 f:4
+insn 6 ret v:0
+insn 7 call r:0 f:5
+insn 8 ret v:0
+insn 9 call r:0 f:6
+insn 10 ret v:0
+insn 11 call r:0 f:7
+insn 12 ret v:0
+insn 13 call r:0 f:8
+insn 14 ret v:0
+insn 15 call r:0 f:9
+insn 16 ret v:0
+insn 17 const_i32 r:0 i:42
+insn 18 ret v:0

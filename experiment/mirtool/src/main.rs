@@ -53,7 +53,8 @@ fn show_help() -> String {
     s.push_str("  diff <input_file>                         Runs differential execution comparison between mirsem and compiled C.\n");
     s.push_str("  diff-upstream <input_file>                Runs differential execution comparison between mirsem and original MIR.\n");
     s.push_str("  diff-rv32i <input_file>                   Runs differential execution comparison between mirsem and compiled RV32I (under QEMU).\n");
-    s.push_str("  diff-all                                  Runs differential tests on all valid/trap fixtures.\n\n");
+    s.push_str("  diff-all                                  Runs differential tests on all valid/trap fixtures.\n");
+    s.push_str("  growth                                    Generates MIR fixtures at multiple sizes, executes them, and classifies complexity.\n\n");
     s.push_str("Options:\n");
     s.push_str(
         "  --format <text|binary>                    Explicitly specify input file format.\n",
@@ -160,7 +161,7 @@ fn parse_args() -> Result<Args, String> {
             }
             (positional[0].clone(), None)
         }
-        "diff-all" => {
+        "diff-all" | "growth" => {
             if !positional.is_empty() {
                 return Err(format!(
                     "Command '{}' does not accept positional arguments.\n\n{}",
@@ -305,6 +306,7 @@ fn main() {
             }
         }
         "diff-all" => commands::cmd_diff_all(args.keep_temp, args.optimize),
+        "growth" => commands::cmd_growth(args.json, args.keep_temp),
         _ => unreachable!(),
     };
 

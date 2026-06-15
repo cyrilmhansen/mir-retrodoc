@@ -664,3 +664,25 @@ fn test_diff_all() {
     assert!(stdout.contains("Summary:"));
     assert!(stdout.contains("Passed"));
 }
+
+#[test]
+fn test_growth_table() {
+    let output = run_mirtool(&["growth"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Complexity Classification Summary"));
+    assert!(stdout.contains("straight-line arithmetic"));
+    assert!(stdout.contains("branch-heavy code"));
+    assert!(stdout.contains("memory loop / summation"));
+    assert!(stdout.contains("direct-call chain"));
+}
+
+#[test]
+fn test_growth_json() {
+    let output = run_mirtool(&["growth", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"kind\": \"growth-analysis\""));
+    assert!(stdout.contains("\"fixtures_directory\": \"growth_fixtures\""));
+    assert!(stdout.contains("\"straight-line arithmetic\""));
+}
