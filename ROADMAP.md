@@ -123,7 +123,7 @@ Complexity analysis:
 
 - compute symbolic cost summaries over the lowered plan for simple patterns;
   the current pass counts straight-line and acyclic structural units, and
-  reports cyclic CFGs as unbounded/unknown until loop-bound inference exists;
+  infers exact bounds for simple counted loops, upgrading them to exact costs;
 - report costs in abstract units first: instruction count, branch count, memory
   access count, allocation count, and call count;
 - compare symbolic predictions with runtime measurements from `mirsem` traces;
@@ -131,8 +131,8 @@ Complexity analysis:
   interpreter counters and classifies each unit as `exact`,
   `within-structural-bound`, `exceeds-structural-bound`, or `observed-only`;
 - keep the current comparison deliberately structural: acyclic functions can
-  provide exact or upper-bound checks, while cyclic CFGs remain observation-only
-  until loop-bound inference exists;
+  provide exact or upper-bound checks, while cyclic CFGs are observation-only
+  unless recognized as bounded counted loops;
 - classify empirical growth by running generated fixture families over multiple
   input sizes. `mirtool growth` now generates fixtures (arithmetic, branch-heavy,
   memory loop, direct calls) and classifies empirical growth as constant, linear,
@@ -151,11 +151,9 @@ output, and empirical complexity classification (`mirtool growth`).
 
 The best next strategic steps to deepen the analysis and backend coverage are:
 
-- keep cyclic CFGs conservative until loop-bound inference exists, then add
-  narrow proof rules for simple counted loops to upgrade cyclic CFGs from
-  unknown to symbolic cost bounds;
-- keep float expansion deliberate by specifying comparisons, conversions, and
-  the RV32FD versus soft-float backend decision separately;
+- expand floating-point support deliberately by specifying comparisons,
+  conversions, and deciding between an RV32FD or soft-float backend
+  implementation;
 - begin evaluating host C ABI, varargs, or aggregate lowering to expand the
   functional subset.
 
