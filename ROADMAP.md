@@ -83,8 +83,8 @@ runtime replacement or speculative optimization.
 Status: first static, trace-backed, and symbolic-cost slices started through
 `mirspace` effect summaries, `mirsem` effect counters and call-edge counters,
 `mirplan` cost summaries, `mirtool analyze`, `mirtool trace-check`, `mirtool
-cost`, and JSON output for report commands. The broader conceptual starting
-point remains
+cost`, `mirtool trace-cost`, and JSON output for report commands. The broader
+conceptual starting point remains
 `docs/design-perspectives/02-runtime-introspection-and-tracing.md`.
 
 Target capabilities:
@@ -112,6 +112,8 @@ Target capabilities:
 Runtime performance monitoring:
 
 - collect function, block, and edge execution counts;
+- collect runtime branch, direct-call instruction, address computation,
+  allocation, memory read/write, return, and trap counters;
 - measure wall-clock and instruction/fuel cost per function or region;
 - count allocations, memory reads/writes, traps, calls, and backend transitions;
 - track generated C/RV32/JIT code size and compilation time where available;
@@ -124,8 +126,13 @@ Complexity analysis:
   reports cyclic CFGs as unbounded/unknown until loop-bound inference exists;
 - report costs in abstract units first: instruction count, branch count, memory
   access count, allocation count, and call count;
-- compare symbolic predictions with runtime measurements from `mirsem` traces
-  and backend differential runs;
+- compare symbolic predictions with runtime measurements from `mirsem` traces;
+  `mirtool trace-cost` now reports predicted lowered-plan units beside observed
+  interpreter counters and classifies each unit as `exact`,
+  `within-structural-bound`, `exceeds-structural-bound`, or `observed-only`;
+- keep the current comparison deliberately structural: acyclic functions can
+  provide exact or upper-bound checks, while cyclic CFGs remain observation-only
+  until loop-bound inference exists;
 - classify empirical growth by running generated fixture families over multiple
   input sizes, then fitting simple families such as constant, linear,
   log-linear, quadratic, and exponential;
@@ -137,14 +144,18 @@ Complexity analysis:
 
 The demo now has a coherent story from validation to interpretation, static
 effect analysis, trace-backed call-edge checking, symbolic cost summaries,
-machine-readable JSON reports, lowering, C differential checks, Cap'n Proto
-serialization, float arithmetic, traps, and RV32I output. The best next
-demo-facing step is to compare symbolic cost predictions with observed trace
-counters:
+trace-backed cost checks, machine-readable JSON reports, lowering, C
+differential checks, Cap'n Proto serialization, float arithmetic, traps, and
+RV32I output. The best next demo-facing step is to generate small families of
+fixtures over increasing input sizes and compare observed growth against the
+symbolic summaries:
 
-- add a `trace-cost` or `cost --trace-check` mode that reports static cost
-  units beside `mirsem` observed instruction/effect counts;
-- keep cyclic CFGs conservative until loop-bound inference exists;
+- add a generated fixture family for straight-line, branch-heavy, memory-heavy,
+  and loop-based examples;
+- add an empirical growth report that runs `trace-cost` over those generated
+  examples and classifies the observed trend as constant, linear, or unknown;
+- keep cyclic CFGs conservative until loop-bound inference exists, then add
+  narrow proof rules for simple counted loops;
 - keep float expansion deliberate by specifying comparisons, conversions, and
   the RV32FD versus soft-float backend decision separately.
 

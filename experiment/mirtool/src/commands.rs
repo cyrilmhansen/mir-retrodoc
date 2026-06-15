@@ -208,6 +208,34 @@ pub fn cmd_cost(
     Ok(())
 }
 
+pub fn cmd_trace_cost(
+    input_path: &str,
+    format_opt: Option<&str>,
+    entry_name: &str,
+    emit_json: bool,
+) -> Result<(), CliError> {
+    let image = load_image(input_path, format_opt)?;
+    let space = mirspace::ProgramSpace::from_module_image(&image)
+        .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
+    let plan = mirplan::build_compile_plan(&space);
+    let lowered = mirplan::lower_compile_plan(&plan);
+    let cost = mirplan::summarize_cost(&lowered);
+    let mut runner = Runner::new(image, mirsem::ExecutionProfile::default())?;
+    match runner.run_entry_by_name(entry_name, &[]) {
+        Ok(_) | Err(mirsem::RunError::Trap(_)) => {
+            let snapshot = runner.trace_snapshot();
+            let report = build_trace_cost_report(&cost, &snapshot);
+            if emit_json {
+                println!("{}", format_trace_cost_json(&snapshot, &report));
+            } else {
+                print!("{}", format_trace_cost(&snapshot, &report));
+            }
+            Ok(())
+        }
+        Err(err) => Err(CliError::Run(err)),
+    }
+}
+
 fn format_cost_summary(cost: &mirplan::ProgramCostSummary) -> String {
     let mut out = String::new();
     out.push_str(&format!("cost module {}\n", cost.module_name));
@@ -282,6 +310,304 @@ fn cost_counts_json(counts: &mirplan::CostCounts) -> JsonValue {
     })
 }
 
+#[derive(Clone, Debug)]
+struct TraceCostReport {
+    module_name: String,
+    bounded: bool,
+    totals: TraceCostFunctionComparison,
+    functions: Vec<TraceCostFunctionComparison>,
+}
+
+#[derive(Clone, Debug)]
+struct TraceCostFunctionComparison {
+    function: Option<usize>,
+    id: Option<FunctionId>,
+    name: String,
+    bounded: bool,
+    bound_kind: &'static str,
+    predicted: mirplan::CostCounts,
+    observed: mirplan::CostCounts,
+}
+
+fn build_trace_cost_report(
+    cost: &mirplan::ProgramCostSummary,
+    snapshot: &mirsem::TraceSnapshot,
+) -> TraceCostReport {
+    let trace_by_function = snapshot
+        .functions
+        .iter()
+        .map(|trace| (trace.function, trace))
+        .collect::<BTreeMap<_, _>>();
+    let functions = cost
+        .functions
+        .iter()
+        .map(|function| {
+            let trace = trace_by_function.get(&function.id).copied();
+            TraceCostFunctionComparison {
+                function: Some(function.function.0),
+                id: Some(function.id),
+                name: function.name.clone(),
+                bounded: function.bounded,
+                bound_kind: function.bound_kind,
+                predicted: function.counts.clone(),
+                observed: trace.map(observed_function_cost_counts).unwrap_or_default(),
+            }
+        })
+        .collect::<Vec<_>>();
+    TraceCostReport {
+        module_name: cost.module_name.clone(),
+        bounded: cost.bounded,
+        totals: TraceCostFunctionComparison {
+            function: None,
+            id: None,
+            name: "totals".to_string(),
+            bounded: cost.bounded,
+            bound_kind: if cost.bounded {
+                "acyclic-structural"
+            } else {
+                "cyclic-unknown"
+            },
+            predicted: cost.totals.clone(),
+            observed: observed_total_cost_counts(snapshot),
+        },
+        functions,
+    }
+}
+
+fn observed_total_cost_counts(snapshot: &mirsem::TraceSnapshot) -> mirplan::CostCounts {
+    mirplan::CostCounts {
+        instructions: snapshot.executed_instruction_count,
+        branches: snapshot.branch_count,
+        calls: snapshot.call_instruction_count,
+        memory_reads: snapshot.memory_read_count,
+        memory_writes: snapshot.memory_write_count,
+        memory_addresses: snapshot.address_instruction_count,
+        allocations: snapshot.allocation_count,
+        traps: snapshot.trap_count,
+    }
+}
+
+fn observed_function_cost_counts(trace: &mirsem::FunctionTrace) -> mirplan::CostCounts {
+    mirplan::CostCounts {
+        instructions: trace.executed_instructions,
+        branches: trace.branches,
+        calls: trace.call_instructions,
+        memory_reads: trace.memory_reads,
+        memory_writes: trace.memory_writes,
+        memory_addresses: trace.address_instructions,
+        allocations: trace.allocations,
+        traps: trace.traps,
+    }
+}
+
+fn format_trace_cost(snapshot: &mirsem::TraceSnapshot, report: &TraceCostReport) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("trace-cost module {}\n", report.module_name));
+    out.push_str(&format!(
+        "  outcome: {}\n",
+        format_trace_outcome(&snapshot.outcome)
+    ));
+    out.push_str(&format!("  bounded: {}\n", report.bounded));
+    out.push_str("  totals:\n");
+    append_cost_comparison(&mut out, &report.totals, 4);
+    for function in &report.functions {
+        out.push_str(&format!(
+            "  fn f{}#{} {}\n",
+            function.function.unwrap_or_default(),
+            function.id.map(|id| id.0).unwrap_or_default(),
+            function.name
+        ));
+        out.push_str(&format!("    bounded: {}\n", function.bounded));
+        out.push_str(&format!("    bound_kind: {}\n", function.bound_kind));
+        out.push_str("    comparison:\n");
+        append_cost_comparison(&mut out, function, 6);
+    }
+    out
+}
+
+fn append_cost_comparison(
+    out: &mut String,
+    comparison: &TraceCostFunctionComparison,
+    indent: usize,
+) {
+    let pad = " ".repeat(indent);
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "instructions",
+        comparison.predicted.instructions,
+        comparison.observed.instructions,
+        comparison.bounded,
+    );
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "branches",
+        comparison.predicted.branches,
+        comparison.observed.branches,
+        comparison.bounded,
+    );
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "calls",
+        comparison.predicted.calls,
+        comparison.observed.calls,
+        comparison.bounded,
+    );
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "memory_reads",
+        comparison.predicted.memory_reads,
+        comparison.observed.memory_reads,
+        comparison.bounded,
+    );
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "memory_writes",
+        comparison.predicted.memory_writes,
+        comparison.observed.memory_writes,
+        comparison.bounded,
+    );
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "memory_addresses",
+        comparison.predicted.memory_addresses,
+        comparison.observed.memory_addresses,
+        comparison.bounded,
+    );
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "allocations",
+        comparison.predicted.allocations,
+        comparison.observed.allocations,
+        comparison.bounded,
+    );
+    append_cost_comparison_line(
+        out,
+        &pad,
+        "traps",
+        comparison.predicted.traps,
+        comparison.observed.traps,
+        comparison.bounded,
+    );
+}
+
+fn append_cost_comparison_line(
+    out: &mut String,
+    pad: &str,
+    name: &str,
+    predicted: u64,
+    observed: u64,
+    bounded: bool,
+) {
+    out.push_str(&format!(
+        "{pad}{name}: predicted={} observed={} status={}\n",
+        predicted,
+        observed,
+        cost_comparison_status(predicted, observed, bounded)
+    ));
+}
+
+fn format_trace_cost_json(snapshot: &mirsem::TraceSnapshot, report: &TraceCostReport) -> String {
+    let functions = report
+        .functions
+        .iter()
+        .map(trace_cost_function_json)
+        .collect::<Vec<_>>();
+    json!({
+        "kind": "trace-cost",
+        "module": {
+            "name": report.module_name
+        },
+        "outcome": trace_outcome_json(&snapshot.outcome),
+        "bounded": report.bounded,
+        "totals": trace_cost_comparison_json(&report.totals),
+        "functions": functions
+    })
+    .to_string()
+}
+
+fn trace_cost_function_json(function: &TraceCostFunctionComparison) -> JsonValue {
+    json!({
+        "index": function.function,
+        "id": function.id.map(|id| id.0),
+        "name": function.name,
+        "bounded": function.bounded,
+        "bound_kind": function.bound_kind,
+        "comparison": trace_cost_comparison_json(function)
+    })
+}
+
+fn trace_cost_comparison_json(comparison: &TraceCostFunctionComparison) -> JsonValue {
+    json!({
+        "instructions": cost_comparison_json(
+            comparison.predicted.instructions,
+            comparison.observed.instructions,
+            comparison.bounded
+        ),
+        "branches": cost_comparison_json(
+            comparison.predicted.branches,
+            comparison.observed.branches,
+            comparison.bounded
+        ),
+        "calls": cost_comparison_json(
+            comparison.predicted.calls,
+            comparison.observed.calls,
+            comparison.bounded
+        ),
+        "memory_reads": cost_comparison_json(
+            comparison.predicted.memory_reads,
+            comparison.observed.memory_reads,
+            comparison.bounded
+        ),
+        "memory_writes": cost_comparison_json(
+            comparison.predicted.memory_writes,
+            comparison.observed.memory_writes,
+            comparison.bounded
+        ),
+        "memory_addresses": cost_comparison_json(
+            comparison.predicted.memory_addresses,
+            comparison.observed.memory_addresses,
+            comparison.bounded
+        ),
+        "allocations": cost_comparison_json(
+            comparison.predicted.allocations,
+            comparison.observed.allocations,
+            comparison.bounded
+        ),
+        "traps": cost_comparison_json(
+            comparison.predicted.traps,
+            comparison.observed.traps,
+            comparison.bounded
+        )
+    })
+}
+
+fn cost_comparison_json(predicted: u64, observed: u64, bounded: bool) -> JsonValue {
+    json!({
+        "predicted": predicted,
+        "observed": observed,
+        "status": cost_comparison_status(predicted, observed, bounded)
+    })
+}
+
+fn cost_comparison_status(predicted: u64, observed: u64, bounded: bool) -> &'static str {
+    if !bounded {
+        "observed-only"
+    } else if predicted == observed {
+        "exact"
+    } else if observed <= predicted {
+        "within-structural-bound"
+    } else {
+        "exceeds-structural-bound"
+    }
+}
+
 fn format_trace_check_json(
     space: &mirspace::ProgramSpace,
     snapshot: &mirsem::TraceSnapshot,
@@ -334,6 +660,9 @@ fn format_trace_check_json(
         "outcome": trace_outcome_json(&snapshot.outcome),
         "observed_totals": {
             "executed_instructions": snapshot.executed_instruction_count,
+            "branches": snapshot.branch_count,
+            "calls": snapshot.call_instruction_count,
+            "memory_addresses": snapshot.address_instruction_count,
             "allocations": snapshot.allocation_count,
             "memory_reads": snapshot.memory_read_count,
             "memory_writes": snapshot.memory_write_count,
@@ -386,6 +715,12 @@ fn format_trace_check(space: &mirspace::ProgramSpace, snapshot: &mirsem::TraceSn
     out.push_str(&format!(
         "    executed_instructions: {}\n",
         snapshot.executed_instruction_count
+    ));
+    out.push_str(&format!("    branches: {}\n", snapshot.branch_count));
+    out.push_str(&format!("    calls: {}\n", snapshot.call_instruction_count));
+    out.push_str(&format!(
+        "    memory_addresses: {}\n",
+        snapshot.address_instruction_count
     ));
     out.push_str(&format!("    allocations: {}\n", snapshot.allocation_count));
     out.push_str(&format!(
@@ -1040,6 +1375,12 @@ fn print_trace_summary(snapshot: &mirsem::TraceSnapshot) {
     println!(
         "Executed Instructions: {}",
         snapshot.executed_instruction_count
+    );
+    println!("Branches: {}", snapshot.branch_count);
+    println!("Call Instructions: {}", snapshot.call_instruction_count);
+    println!(
+        "Address Instructions: {}",
+        snapshot.address_instruction_count
     );
     println!(
         "Maximum Call Depth: {}",

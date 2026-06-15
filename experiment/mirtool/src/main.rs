@@ -36,6 +36,9 @@ fn show_help() -> String {
     s.push_str(
         "  cost <input_file>                         Prints symbolic lowered-plan cost summaries.\n",
     );
+    s.push_str(
+        "  trace-cost <input_file>                   Compares symbolic cost summaries with a mirsem trace.\n",
+    );
     s.push_str("  plan <input_file>                         Prints deterministic MIR-F1 compile-plan text.\n");
     s.push_str(
         "  lower <input_file>                        Prints deterministic MIR-F1 lowered-plan text.\n",
@@ -137,8 +140,9 @@ fn parse_args() -> Result<Args, String> {
     }
 
     let (input, output) = match command.as_str() {
-        "validate" | "decode" | "dump" | "run" | "analyze" | "trace-check" | "cost" | "plan"
-        | "lower" | "bench-load" | "diff" | "diff-upstream" | "diff-rv32i" => {
+        "validate" | "decode" | "dump" | "run" | "analyze" | "trace-check" | "cost"
+        | "trace-cost" | "plan" | "lower" | "bench-load" | "diff" | "diff-upstream"
+        | "diff-rv32i" => {
             if positional.is_empty() {
                 return Err(format!(
                     "Command '{}' requires an input file path.\n\n{}",
@@ -229,6 +233,9 @@ fn main() {
             commands::cmd_trace_check(&args.input, args.format.as_deref(), entry_name, args.json)
         }
         "cost" => commands::cmd_cost(&args.input, args.format.as_deref(), args.json),
+        "trace-cost" => {
+            commands::cmd_trace_cost(&args.input, args.format.as_deref(), entry_name, args.json)
+        }
         "plan" => commands::cmd_plan(&args.input, args.format.as_deref()),
         "lower" => commands::cmd_lower(&args.input, args.format.as_deref(), args.optimize),
         "bench-load" => {

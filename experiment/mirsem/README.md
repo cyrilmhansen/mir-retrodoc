@@ -11,7 +11,7 @@ The executor consumes validated MIR-F0 images, runs supported instructions
 deterministically, and emits a separate trace snapshot. It does not mutate the
 immutable module image.
 
-Memory execution is limited to the current `mircap` opcodes: `alloc`,
-`load_i32`, `load_u32`, `store_i32`, `store_u32`, and `addr_add`. The executor
-uses a deterministic `LinearMemory` helper and treats bounds, alignment, and
-heap/stack collisions as traps.
+Memory execution is limited to the current `mircap` opcodes: `alloc`, typed
+loads/stores for supported integer and byte widths, `addr_add`, and
+`data_addr`. The executor uses a deterministic `LinearMemory` helper and treats
+bounds, alignment, and heap/stack collisions as traps.

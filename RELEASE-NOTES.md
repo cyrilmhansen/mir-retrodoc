@@ -15,16 +15,21 @@ The long-term project plan lives in `ROADMAP.md`.
   `mirjit` all have passing test suites in the current workspace state.
 - `mirspace` provides the indexed analysis layer used by `mirplan` and computes
   conservative static function effect summaries.
-- `mirsem` trace snapshots now include effect counters for memory reads/writes,
-  returns, traps, caller/callee edges, and per-function observations.
+- `mirsem` trace snapshots now include effect counters for branches, direct
+  call instructions, address computations, memory reads/writes, returns, traps,
+  caller/callee edges, and per-function observations.
 - `mirplan` provides deterministic compile-plan artifacts and text rendering.
-- `mirtool analyze`, `mirtool trace-check`, `mirtool plan`, `mirtool lower`,
-  and `mirtool diff-all` expose static analysis, trace-backed, lowered, and
-  differential workflows through the CLI.
+- `mirtool analyze`, `mirtool trace-check`, `mirtool trace-cost`,
+  `mirtool plan`, `mirtool lower`, and `mirtool diff-all` expose static
+  analysis, trace-backed, lowered, and differential workflows through the CLI.
 - `mirtool analyze --json` and `mirtool trace-check --json` provide the first
   machine-readable reflection reports.
 - `mirtool cost` and `mirtool cost --json` expose conservative symbolic cost
   summaries over lowered plans, with cyclic CFGs marked unbounded/unknown.
+- `mirtool trace-cost` and `mirtool trace-cost --json` compare symbolic cost
+  summaries with observed `mirsem` counters and classify each unit as exact,
+  within structural bound, exceeding the structural bound, or observation-only
+  for cyclic CFGs.
 - `i64` operations and byte memory operations are implemented across the
   interpreter and supported backend paths.
 - `f32` and `f64` constants and arithmetic are implemented in `mircap`,
@@ -45,10 +50,10 @@ The long-term project plan lives in `ROADMAP.md`.
 - F0 is the frozen validated baseline subset.
 - F1 now includes `mirspace`, `mirplan`, lowered C, optimization, RV32I, JIT
   demo execution, and differential tooling.
-- The next recommended demo-facing feature is comparing symbolic cost summaries
-  with observed `mirsem` trace counters, followed by deliberate float
-  comparison and conversion specs plus an RV32FD versus soft-float backend
-  decision.
+- The next recommended demo-facing feature is generating fixture families over
+  increasing input sizes and using `trace-cost` to classify empirical growth,
+  followed by deliberate float comparison and conversion specs plus an RV32FD
+  versus soft-float backend decision.
 
 ## Validation Commands
 

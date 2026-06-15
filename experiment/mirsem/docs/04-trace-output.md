@@ -9,13 +9,17 @@
 - entry function;
 - result or trap;
 - executed instruction count;
+- branch instruction count;
+- direct call instruction count;
+- address computation instruction count;
 - memory read count;
 - memory write count;
 - return count;
 - trap count;
 - function call counts;
 - observed caller/callee edge counts;
-- per-function instruction, allocation, memory, return, and trap counts;
+- per-function instruction, branch, call-instruction, address-instruction,
+  allocation, memory, return, and trap counts;
 - block entry counts;
 - maximum call depth reached;
 - memory profile used;

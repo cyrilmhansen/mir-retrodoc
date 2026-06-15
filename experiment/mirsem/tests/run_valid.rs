@@ -39,10 +39,13 @@ fn runs_arithmetic_u32() {
 
 #[test]
 fn runs_branch() {
-    let values = run_fixture(include_str!(
+    let (values, trace) = run_text(include_str!(
         "../../mircap/tests/fixtures/valid_branch.mircap.txt"
     ));
     assert_eq!(values, vec![Value::I32(7)]);
+    assert_eq!(trace.branch_count, 1);
+    let main = trace.functions.first().expect("main trace");
+    assert_eq!(main.branches, 1);
 }
 
 #[test]
@@ -55,10 +58,13 @@ fn runs_loop() {
 
 #[test]
 fn runs_direct_call() {
-    let values = run_fixture(include_str!(
+    let (values, trace) = run_text(include_str!(
         "../../mircap/tests/fixtures/valid_direct_call.mircap.txt"
     ));
     assert_eq!(values, vec![Value::I32(41)]);
+    assert_eq!(trace.call_instruction_count, 1);
+    let main = trace.functions.first().expect("main trace");
+    assert_eq!(main.call_instructions, 1);
 }
 
 #[test]
@@ -134,10 +140,13 @@ fn runs_sieve_32_u32() {
 
 #[test]
 fn runs_data_segment_load() {
-    let values = run_fixture(include_str!(
+    let (values, trace) = run_text(include_str!(
         "../../mircap/tests/fixtures/valid_data_segment_load.mircap.txt"
     ));
     assert_eq!(values, vec![Value::U32(43)]);
+    assert_eq!(trace.address_instruction_count, 2);
+    let main = trace.functions.first().expect("main trace");
+    assert_eq!(main.address_instructions, 2);
 }
 
 #[test]

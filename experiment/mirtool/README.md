@@ -31,6 +31,8 @@ graph TD
     BinaryFile -->|mirtool trace-check| TraceCheck
     TextFile -->|mirtool cost| Cost[Symbolic cost summary]
     BinaryFile -->|mirtool cost| Cost
+    TextFile -->|mirtool trace-cost| TraceCost[Predicted vs observed cost]
+    BinaryFile -->|mirtool trace-cost| TraceCost
 
     TextFile -->|mirtool plan| Plan[mirplan compile plan]
     BinaryFile -->|mirtool plan| Plan
@@ -85,7 +87,7 @@ Executes the entry function using the `mirsem` interpreter.
 ```bash
 mirtool run <input_file> [--format text|binary] [--entry <name>] [--trace]
 ```
-Outputs the execution results in scriptable format (e.g. `Result: i32 42`, `Result: f32 -16 bits=0xc1800000`, or `Trap: 13 OutOfBoundsLoad`). If `--trace` is provided, prints a summary of executed instructions, maximum call depth, and allocator profiling stats.
+Outputs the execution results in scriptable format (e.g. `Result: i32 42`, `Result: f32 -16 bits=0xc1800000`, or `Trap: 13 OutOfBoundsLoad`). If `--trace` is provided, prints a summary of executed instructions, branches, call instructions, address instructions, maximum call depth, and allocator profiling stats.
 
 ### `analyze`
 Prints conservative static per-function effect summaries.
@@ -109,6 +111,13 @@ Prints conservative symbolic cost summaries over the lowered plan.
 mirtool cost <input_file> [--format text|binary] [--json]
 ```
 Counts abstract structural units: instructions, branches, direct calls, memory reads/writes/address computations, allocations, and traps. Acyclic functions are reported as `bounded: true` with `bound_kind: acyclic-structural`; cyclic CFGs are reported as `bounded: false` with `bound_kind: cyclic-unknown`.
+
+### `trace-cost`
+Runs the entry function with `mirsem` and compares observed runtime counters with the lowered-plan cost summary.
+```bash
+mirtool trace-cost <input_file> [--format text|binary] [--entry <name>] [--json]
+```
+Reports each unit as `exact`, `within-structural-bound`, `exceeds-structural-bound`, or `observed-only`. The structural bound is intentionally path-insensitive: a branch fixture can execute fewer instructions than the lowered plan contains and still be valid.
 
 ### `plan`
 Prints the deterministic MIR-F1 compile-plan text for a module image.

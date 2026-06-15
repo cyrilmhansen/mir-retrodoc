@@ -195,6 +195,11 @@ printf '\n%s\n' "$ mirtool cost $FIXTURE"
 mirtool cost "$FIXTURE"
 printf '\n%s\n' "$ mirtool cost $DIRECT_CALL_FIXTURE --json | cut -c1-220"
 mirtool cost "$DIRECT_CALL_FIXTURE" --json | cut -c1-220
+explain "mirtool trace-cost closes the loop: the symbolic lowered-plan units are shown beside observed mirsem runtime counters. Exact matches are useful for straight-line code; branchy code can be within the structural bound because only one path executes."
+printf '\n%s\n' "$ mirtool trace-cost $FIXTURE | sed -n '1,18p'"
+mirtool trace-cost "$FIXTURE" | sed -n '1,18p'
+printf '\n%s\n' "$ mirtool trace-cost $DIRECT_CALL_FIXTURE --json | cut -c1-220"
+mirtool trace-cost "$DIRECT_CALL_FIXTURE" --json | cut -c1-220
 pause
 
 section "Step 5: inspect the MIR-F1 compile plan"
@@ -322,6 +327,6 @@ printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap
 printf '%s\n' "- f32/f64 constants and arithmetic validated in mircap, executed in mirsem, emitted by mirc0, and checked with C differential tests"
 printf '%s\n' "- linear scan register allocation with callee-saved register spill handling in the RV32I backend"
 printf '%s\n' "- target-neutral lowering and projection, tested using differential checks"
-printf '%s\n' "- static effect summaries, trace-backed call-edge checks, symbolic cost summaries, and JSON reflection reports"
+printf '%s\n' "- static effect summaries, trace-backed call-edge checks, symbolic cost summaries, trace-backed cost checks, and JSON reflection reports"
 
 section "demo complete"

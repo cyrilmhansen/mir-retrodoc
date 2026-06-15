@@ -383,6 +383,45 @@ fn test_cost_json_valid_direct_call() {
 }
 
 #[test]
+fn test_trace_cost_valid_arithmetic_u32_exact() {
+    let path = fixture_path("valid_arithmetic_u32.mircap.txt");
+    let output = run_mirtool(&["trace-cost", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("trace-cost module arithmetic_u32"));
+    assert!(stdout.contains("outcome: returned"));
+    assert!(stdout.contains("instructions: predicted=6 observed=6 status=exact"));
+    assert!(stdout.contains("branches: predicted=0 observed=0 status=exact"));
+}
+
+#[test]
+fn test_trace_cost_valid_branch_within_structural_bound() {
+    let path = fixture_path("valid_branch.mircap.txt");
+    let output = run_mirtool(&["trace-cost", &path]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("trace-cost module branch"));
+    assert!(stdout.contains("instructions: predicted=6 observed=4 status=within-structural-bound"));
+    assert!(stdout.contains("branches: predicted=1 observed=1 status=exact"));
+}
+
+#[test]
+fn test_trace_cost_json_valid_direct_call() {
+    let path = fixture_path("valid_direct_call.mircap.txt");
+    let output = run_mirtool(&["trace-cost", &path, "--json"]);
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid trace-cost JSON");
+    assert_eq!(json["kind"], "trace-cost");
+    assert_eq!(json["module"]["name"], "direct_call");
+    assert_eq!(json["totals"]["instructions"]["predicted"], 5);
+    assert_eq!(json["totals"]["instructions"]["observed"], 5);
+    assert_eq!(json["totals"]["instructions"]["status"], "exact");
+    assert_eq!(json["totals"]["calls"]["predicted"], 1);
+    assert_eq!(json["totals"]["calls"]["observed"], 1);
+}
+
+#[test]
 fn test_bench_load_text() {
     let path = fixture_path("valid_data_segment_load.mircap.txt");
     let output = run_mirtool(&["bench-load", &path, "--iterations", "3"]);

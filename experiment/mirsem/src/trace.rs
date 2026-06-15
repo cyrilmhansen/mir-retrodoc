@@ -11,6 +11,9 @@ pub struct TraceSnapshot {
     pub entry_function: FunctionId,
     pub outcome: TraceOutcome,
     pub executed_instruction_count: u64,
+    pub branch_count: u64,
+    pub call_instruction_count: u64,
+    pub address_instruction_count: u64,
     pub memory_read_count: u64,
     pub memory_write_count: u64,
     pub return_count: u64,
@@ -35,6 +38,9 @@ pub struct FunctionTrace {
     pub function: FunctionId,
     pub calls: u64,
     pub executed_instructions: u64,
+    pub branches: u64,
+    pub call_instructions: u64,
+    pub address_instructions: u64,
     pub allocations: u64,
     pub memory_reads: u64,
     pub memory_writes: u64,
@@ -62,12 +68,18 @@ pub(crate) struct TraceState {
     pub current_function: Option<FunctionId>,
     pub outcome: TraceOutcome,
     pub executed_instruction_count: u64,
+    pub branch_count: u64,
+    pub call_instruction_count: u64,
+    pub address_instruction_count: u64,
     pub memory_read_count: u64,
     pub memory_write_count: u64,
     pub return_count: u64,
     pub trap_count: u64,
     pub function_calls: BTreeMap<FunctionId, u64>,
     pub function_instruction_counts: BTreeMap<FunctionId, u64>,
+    pub function_branch_counts: BTreeMap<FunctionId, u64>,
+    pub function_call_instruction_counts: BTreeMap<FunctionId, u64>,
+    pub function_address_instruction_counts: BTreeMap<FunctionId, u64>,
     pub function_allocations: BTreeMap<FunctionId, u64>,
     pub function_memory_reads: BTreeMap<FunctionId, u64>,
     pub function_memory_writes: BTreeMap<FunctionId, u64>,
@@ -85,12 +97,18 @@ impl Default for TraceState {
             current_function: None,
             outcome: TraceOutcome::NotRun,
             executed_instruction_count: 0,
+            branch_count: 0,
+            call_instruction_count: 0,
+            address_instruction_count: 0,
             memory_read_count: 0,
             memory_write_count: 0,
             return_count: 0,
             trap_count: 0,
             function_calls: BTreeMap::new(),
             function_instruction_counts: BTreeMap::new(),
+            function_branch_counts: BTreeMap::new(),
+            function_call_instruction_counts: BTreeMap::new(),
+            function_address_instruction_counts: BTreeMap::new(),
             function_allocations: BTreeMap::new(),
             function_memory_reads: BTreeMap::new(),
             function_memory_writes: BTreeMap::new(),
@@ -120,6 +138,27 @@ impl TraceState {
     pub fn record_instruction(&mut self, function: FunctionId) {
         *self
             .function_instruction_counts
+            .entry(function)
+            .or_default() += 1;
+    }
+
+    pub fn record_branch(&mut self, function: FunctionId) {
+        self.branch_count += 1;
+        *self.function_branch_counts.entry(function).or_default() += 1;
+    }
+
+    pub fn record_call_instruction(&mut self, function: FunctionId) {
+        self.call_instruction_count += 1;
+        *self
+            .function_call_instruction_counts
+            .entry(function)
+            .or_default() += 1;
+    }
+
+    pub fn record_address_instruction(&mut self, function: FunctionId) {
+        self.address_instruction_count += 1;
+        *self
+            .function_address_instruction_counts
             .entry(function)
             .or_default() += 1;
     }

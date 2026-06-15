@@ -116,6 +116,24 @@ impl Runner {
                             .get(function)
                             .copied()
                             .unwrap_or(0),
+                        branches: self
+                            .trace
+                            .function_branch_counts
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
+                        call_instructions: self
+                            .trace
+                            .function_call_instruction_counts
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
+                        address_instructions: self
+                            .trace
+                            .function_address_instruction_counts
+                            .get(function)
+                            .copied()
+                            .unwrap_or(0),
                         allocations: self
                             .trace
                             .function_allocations
@@ -168,6 +186,9 @@ impl Runner {
             entry_function: self.trace.entry_function.unwrap_or(FunctionId(0)),
             outcome: self.trace.outcome.clone(),
             executed_instruction_count: self.trace.executed_instruction_count,
+            branch_count: self.trace.branch_count,
+            call_instruction_count: self.trace.call_instruction_count,
+            address_instruction_count: self.trace.address_instruction_count,
             memory_read_count: self.trace.memory_read_count,
             memory_write_count: self.trace.memory_write_count,
             return_count: self.trace.return_count,
@@ -214,6 +235,14 @@ impl Runner {
 
             self.trace.executed_instruction_count += 1;
             self.trace.record_instruction(frame.function);
+            match insn.opcode {
+                Opcode::Branch | Opcode::BranchIf => self.trace.record_branch(frame.function),
+                Opcode::Call => self.trace.record_call_instruction(frame.function),
+                Opcode::AddrAdd | Opcode::DataAddr => {
+                    self.trace.record_address_instruction(frame.function)
+                }
+                _ => {}
+            }
             match insn.opcode {
                 Opcode::ConstI32 => self.exec_const_i32(&mut stack, &insn)?,
                 Opcode::ConstU32 => self.exec_const_u32(&mut stack, &insn)?,
