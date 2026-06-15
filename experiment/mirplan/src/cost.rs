@@ -71,11 +71,22 @@ fn summarize_function_cost(function: &LoweredFunction) -> FunctionCostSummary {
     let mut block_freqs = std::collections::HashMap::new();
     
     if !bounded {
-        if let Some((header_ix, body_ix, trip_count)) = try_prove_counted_loop(function) {
+        if let Some(loops) = try_prove_all_counted_loops(function) {
             bounded = true;
             bound_kind = "cyclic-counted-loop";
-            block_freqs.insert(header_ix, trip_count + 1);
-            block_freqs.insert(body_ix, trip_count);
+            for block in &function.blocks {
+                let mut freq = 1u64;
+                for &(header_ix, latch_ix, trip_count) in &loops {
+                    if block.label.ix.0 >= header_ix.0 && block.label.ix.0 <= latch_ix.0 {
+                        if block.label.ix == header_ix {
+                            freq *= trip_count + 1;
+                        } else {
+                            freq *= trip_count;
+                        }
+                    }
+                }
+                block_freqs.insert(block.label.ix, freq);
+            }
         }
     }
     
@@ -109,7 +120,7 @@ fn summarize_function_cost(function: &LoweredFunction) -> FunctionCostSummary {
     }
 }
 
-fn try_prove_counted_loop(function: &LoweredFunction) -> Option<(BlockIx, BlockIx, u64)> {
+fn try_prove_all_counted_loops(function: &LoweredFunction) -> Option<Vec<(BlockIx, BlockIx, u64)>> {
     let mut backedges = Vec::new();
     for block in &function.blocks {
         for succ in &block.successors {
@@ -119,11 +130,22 @@ fn try_prove_counted_loop(function: &LoweredFunction) -> Option<(BlockIx, BlockI
         }
     }
     
-    if backedges.len() != 1 {
-        return None;
+    let mut loops = Vec::new();
+    for &(latch_ix, header_ix) in &backedges {
+        if let Some(trip_count) = try_prove_counted_loop_for_backedge(function, latch_ix, header_ix) {
+            loops.push((header_ix, latch_ix, trip_count));
+        } else {
+            return None;
+        }
     }
-    
-    let (latch_ix, header_ix) = backedges[0];
+    Some(loops)
+}
+
+fn try_prove_counted_loop_for_backedge(
+    function: &LoweredFunction,
+    latch_ix: BlockIx,
+    header_ix: BlockIx,
+) -> Option<u64> {
     let header = function.blocks.iter().find(|b| b.label.ix == header_ix)?;
     let latch = function.blocks.iter().find(|b| b.label.ix == latch_ix)?;
     
@@ -197,7 +219,7 @@ fn try_prove_counted_loop(function: &LoweredFunction) -> Option<(BlockIx, BlockI
         0
     };
     
-    Some((header_ix, body_ix, trip_count))
+    Some(trip_count)
 }
 
 fn function_cfg_is_acyclic(function: &LoweredFunction) -> bool {

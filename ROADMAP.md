@@ -38,6 +38,8 @@ Floating-point support includes `f32` and `f64` constants, arithmetic, compariso
 
 Work has also begun on expanding the functional subset with **struct/aggregate types** and interoperability via **Host C ABI and Varargs**. Aggregate types have been introduced to `mircap` and opcodes for `va_start`/`va_arg`/`va_end` along with variadic function properties have been integrated into the schema.
 
+Currently actively expanding **Loop-bound Inference & Cost Analysis** in `mirplan` to handle nested loops and more robust symbolic bounds, paving the way for predictable execution contracts.
+
 Unsupported upstream MIR features are rejected or documented explicitly.
 
 ## Phase 2: MIR-F1 Analysis, Planning, And Backends
