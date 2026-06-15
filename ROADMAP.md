@@ -175,8 +175,7 @@ stable:
 - fantasy-computer target work;
 - lazy basic-block versioning;
 - runtime code replacement or deoptimization.
-- advanced reflection, metaprogramming, symbolic complexity analysis, and
-  empirical complexity classification.
+- advanced reflection, metaprogramming, and symbolic complexity analysis.
 
 ## Quality Gates
 
