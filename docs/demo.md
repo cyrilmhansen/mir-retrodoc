@@ -92,6 +92,10 @@ Trap: 13 OutOfBoundsLoad
 
 The script also prints the trap fixture contents before running it.
 
+Then, the demo generates RISC-V 32-bit assembly using the MIR-F1 candidate RV32I backend, showing the translation of MIR-F0 to native assembly.
+
+Finally, the demo evaluates empirical complexity by running `mirtool growth`. It generates multiple MIR-F0 fixtures at different input sizes, runs them, and classifies their observed complexity growth (e.g., constant, linear).
+
 ## Narrative
 
 The demo shows the current project boundary:

@@ -134,8 +134,9 @@ Complexity analysis:
   provide exact or upper-bound checks, while cyclic CFGs remain observation-only
   until loop-bound inference exists;
 - classify empirical growth by running generated fixture families over multiple
-  input sizes, then fitting simple families such as constant, linear,
-  log-linear, quadratic, and exponential;
+  input sizes. `mirtool growth` now generates fixtures (arithmetic, branch-heavy,
+  memory loop, direct calls) and classifies empirical growth as constant, linear,
+  or unknown;
 - always report confidence and limits. Complexity claims should say whether
   they are proven from IR structure, inferred from bounded symbolic analysis, or
   measured empirically.
@@ -145,19 +146,18 @@ Complexity analysis:
 The demo now has a coherent story from validation to interpretation, static
 effect analysis, trace-backed call-edge checking, symbolic cost summaries,
 trace-backed cost checks, machine-readable JSON reports, lowering, C
-differential checks, Cap'n Proto serialization, float arithmetic, traps, and
-RV32I output. The best next demo-facing step is to generate small families of
-fixtures over increasing input sizes and compare observed growth against the
-symbolic summaries:
+differential checks, Cap'n Proto serialization, float arithmetic, traps, RV32I
+output, and empirical complexity classification (`mirtool growth`).
 
-- add a generated fixture family for straight-line, branch-heavy, memory-heavy,
-  and loop-based examples;
-- add an empirical growth report that runs `trace-cost` over those generated
-  examples and classifies the observed trend as constant, linear, or unknown;
+The best next strategic steps to deepen the analysis and backend coverage are:
+
 - keep cyclic CFGs conservative until loop-bound inference exists, then add
-  narrow proof rules for simple counted loops;
+  narrow proof rules for simple counted loops to upgrade cyclic CFGs from
+  unknown to symbolic cost bounds;
 - keep float expansion deliberate by specifying comparisons, conversions, and
-  the RV32FD versus soft-float backend decision separately.
+  the RV32FD versus soft-float backend decision separately;
+- begin evaluating host C ABI, varargs, or aggregate lowering to expand the
+  functional subset.
 
 This keeps the public demo concrete while moving toward the F2 reflection and
 runtime-intelligence vision.

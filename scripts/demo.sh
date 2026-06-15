@@ -321,6 +321,11 @@ printf '%s\n' "$ cat $TMP_DIR/demo_i64.s"
 cat "$TMP_DIR/demo_i64.s"
 pause
 
+section "Step 13: Empirical Growth Classification"
+explain "mirtool growth generates MIR-F0 fixtures at multiple sizes, executes them, and classifies their empirical runtime complexity (e.g., constant, linear)."
+run cargo run --quiet --manifest-path "$MIRTOOL_MANIFEST" -- growth
+pause
+
 section "Completed work & current status"
 explain "The MIR-F1 experimental pipeline has successfully achieved:"
 printf '%s\n' "- full workspace-wide support for 64-bit integers (i64) in mircap, mirsem, mirc0, mirrv32, mirjit, and mirtool"
