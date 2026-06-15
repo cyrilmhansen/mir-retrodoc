@@ -21,6 +21,8 @@ The long-term project plan lives in `ROADMAP.md`.
 - `mirtool analyze`, `mirtool trace-check`, `mirtool plan`, `mirtool lower`,
   and `mirtool diff-all` expose static analysis, trace-backed, lowered, and
   differential workflows through the CLI.
+- `mirtool analyze --json` and `mirtool trace-check --json` provide the first
+  machine-readable reflection reports.
 - `i64` operations and byte memory operations are implemented across the
   interpreter and supported backend paths.
 - `f32` and `f64` constants and arithmetic are implemented in `mircap`,
@@ -41,9 +43,9 @@ The long-term project plan lives in `ROADMAP.md`.
 - F0 is the frozen validated baseline subset.
 - F1 now includes `mirspace`, `mirplan`, lowered C, optimization, RV32I, JIT
   demo execution, and differential tooling.
-- The next recommended demo-facing feature is machine-readable JSON output for
-  static and trace-backed summaries, followed by deliberate float comparison
-  and conversion specs plus an RV32FD versus soft-float backend decision.
+- The next recommended demo-facing feature is observed call-edge tracing and a
+  first symbolic cost summary, followed by deliberate float comparison and
+  conversion specs plus an RV32FD versus soft-float backend decision.
 
 ## Validation Commands
 

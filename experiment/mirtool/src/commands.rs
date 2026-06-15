@@ -5,6 +5,7 @@ use mircap::Opcode;
 use mirplan::{DataSegmentPlan, LoweredInstruction, LoweredOperand, LoweredProgram};
 use mirsem::runner::Runner;
 use mirsem::trap::ExecutionTrap;
+use serde_json::{json, Value as JsonValue};
 use std::collections::BTreeMap;
 use std::hint::black_box;
 use std::path::Path;
@@ -148,11 +149,19 @@ pub fn cmd_plan(input_path: &str, format_opt: Option<&str>) -> Result<(), CliErr
     Ok(())
 }
 
-pub fn cmd_analyze(input_path: &str, format_opt: Option<&str>) -> Result<(), CliError> {
+pub fn cmd_analyze(
+    input_path: &str,
+    format_opt: Option<&str>,
+    emit_json: bool,
+) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
     let space = mirspace::ProgramSpace::from_module_image(&image)
         .map_err(|err| CliError::Generic(format!("Program space construction failed: {err}")))?;
-    print!("{}", format_effect_summaries(&space));
+    if emit_json {
+        println!("{}", format_effect_summaries_json(&space));
+    } else {
+        print!("{}", format_effect_summaries(&space));
+    }
     Ok(())
 }
 
@@ -160,6 +169,7 @@ pub fn cmd_trace_check(
     input_path: &str,
     format_opt: Option<&str>,
     entry_name: &str,
+    emit_json: bool,
 ) -> Result<(), CliError> {
     let image = load_image(input_path, format_opt)?;
     let space = mirspace::ProgramSpace::from_module_image(&image)
@@ -168,10 +178,97 @@ pub fn cmd_trace_check(
     match runner.run_entry_by_name(entry_name, &[]) {
         Ok(_) | Err(mirsem::RunError::Trap(_)) => {
             let snapshot = runner.trace_snapshot();
-            print!("{}", format_trace_check(&space, &snapshot));
+            if emit_json {
+                println!("{}", format_trace_check_json(&space, &snapshot));
+            } else {
+                print!("{}", format_trace_check(&space, &snapshot));
+            }
             Ok(())
         }
         Err(err) => Err(CliError::Run(err)),
+    }
+}
+
+fn format_trace_check_json(
+    space: &mirspace::ProgramSpace,
+    snapshot: &mirsem::TraceSnapshot,
+) -> String {
+    let trace_by_function = snapshot
+        .functions
+        .iter()
+        .map(|trace| (trace.function, trace))
+        .collect::<BTreeMap<_, _>>();
+    let functions = space
+        .function_effect_summaries()
+        .into_iter()
+        .map(|summary| {
+            let function = &space.functions[summary.function.0];
+            let trace = trace_by_function.get(&function.id);
+            let observed_calls = trace.map(|trace| trace.calls).unwrap_or(0);
+            let observed_instructions = trace.map(|trace| trace.executed_instructions).unwrap_or(0);
+            let observed_allocations = trace.map(|trace| trace.allocations).unwrap_or(0);
+            let observed_reads = trace.map(|trace| trace.memory_reads).unwrap_or(0);
+            let observed_writes = trace.map(|trace| trace.memory_writes).unwrap_or(0);
+            let observed_returns = trace.map(|trace| trace.returns).unwrap_or(0);
+            let observed_traps = trace.map(|trace| trace.traps).unwrap_or(0);
+            json!({
+                "index": summary.function.0,
+                "id": function.id.0,
+                "name": function_name(space, summary.function),
+                "observed_calls": observed_calls,
+                "observed_instructions": observed_instructions,
+                "effects": {
+                    "allocates": effect_check_json(summary.allocates, observed_allocations),
+                    "reads_memory": effect_check_json(summary.reads_memory, observed_reads),
+                    "writes_memory": effect_check_json(summary.writes_memory, observed_writes),
+                    "may_trap": effect_check_json(summary.may_trap, observed_traps),
+                    "guaranteed_terminates_trivially": {
+                        "static": summary.guaranteed_terminates_trivially,
+                        "observed_returns": observed_returns
+                    }
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "kind": "trace-check",
+        "module": {
+            "name": space.name
+        },
+        "outcome": trace_outcome_json(&snapshot.outcome),
+        "observed_totals": {
+            "executed_instructions": snapshot.executed_instruction_count,
+            "allocations": snapshot.allocation_count,
+            "memory_reads": snapshot.memory_read_count,
+            "memory_writes": snapshot.memory_write_count,
+            "returns": snapshot.return_count,
+            "traps": snapshot.trap_count
+        },
+        "functions": functions
+    })
+    .to_string()
+}
+
+fn effect_check_json(static_may: bool, observed_count: u64) -> JsonValue {
+    json!({
+        "static": static_may,
+        "observed": observed_count,
+        "status": effect_status(static_may, observed_count > 0)
+    })
+}
+
+fn trace_outcome_json(outcome: &mirsem::trace::TraceOutcome) -> JsonValue {
+    match outcome {
+        mirsem::trace::TraceOutcome::NotRun => json!({ "kind": "not-run" }),
+        mirsem::trace::TraceOutcome::Returned(_) => json!({ "kind": "returned" }),
+        mirsem::trace::TraceOutcome::Trapped(trap) => {
+            let (code, name) = trap_info(trap);
+            json!({
+                "kind": "trapped",
+                "code": code,
+                "name": name
+            })
+        }
     }
 }
 
@@ -320,6 +417,49 @@ fn format_effect_summaries(space: &mirspace::ProgramSpace) -> String {
         ));
     }
     out
+}
+
+fn format_effect_summaries_json(space: &mirspace::ProgramSpace) -> String {
+    let functions = space
+        .function_effect_summaries()
+        .into_iter()
+        .map(|summary| {
+            let function = &space.functions[summary.function.0];
+            let calls = summary
+                .calls
+                .iter()
+                .map(|callee| {
+                    let callee_rec = &space.functions[callee.0];
+                    json!({
+                        "index": callee.0,
+                        "id": callee_rec.id.0,
+                        "name": function_name(space, *callee)
+                    })
+                })
+                .collect::<Vec<_>>();
+            json!({
+                "index": summary.function.0,
+                "id": function.id.0,
+                "name": function_name(space, summary.function),
+                "allocates": summary.allocates,
+                "reads_memory": summary.reads_memory,
+                "writes_memory": summary.writes_memory,
+                "may_trap": summary.may_trap,
+                "acyclic_cfg": summary.acyclic_cfg,
+                "guaranteed_terminates_trivially": summary.guaranteed_terminates_trivially,
+                "pure_candidate": summary.pure_candidate,
+                "calls": calls
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "kind": "analyze",
+        "module": {
+            "name": space.name
+        },
+        "functions": functions
+    })
+    .to_string()
 }
 
 fn function_name(space: &mirspace::ProgramSpace, function: mirspace::FunctionIx) -> &str {

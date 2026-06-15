@@ -88,16 +88,18 @@ Outputs the execution results in scriptable format (e.g. `Result: i32 42`, `Resu
 ### `analyze`
 Prints conservative static per-function effect summaries.
 ```bash
-mirtool analyze <input_file> [--format text|binary]
+mirtool analyze <input_file> [--format text|binary] [--json]
 ```
 Reports allocation, memory reads/writes, trap possibility, direct calls, CFG acyclicity, trivial termination, and pure-candidate status. These are structural summaries for inspection and tests, not full interprocedural proofs.
 
 ### `trace-check`
 Runs the entry function with `mirsem` and compares observed trace counters with static effect summaries.
 ```bash
-mirtool trace-check <input_file> [--format text|binary] [--entry <name>]
+mirtool trace-check <input_file> [--format text|binary] [--entry <name>] [--json]
 ```
 Reports the runtime outcome, observed instruction/effect totals, and per-function statuses. `proven-absent` means the static summary ruled out an effect and the run did not observe it; `observed` means a statically possible effect happened; `conservative` means the static summary allowed an effect that this run did not exercise; `mismatch` would indicate a bug in the static summary or trace accounting.
+
+With `--json`, both commands emit machine-readable reports with `kind`, `module`, and `functions` fields. `trace-check --json` also includes `outcome` and `observed_totals`.
 
 ### `plan`
 Prints the deterministic MIR-F1 compile-plan text for a module image.

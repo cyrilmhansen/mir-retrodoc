@@ -225,6 +225,21 @@ fn test_analyze_valid_loop() {
 }
 
 #[test]
+fn test_analyze_json_valid_direct_call() {
+    let path = fixture_path("valid_direct_call.mircap.txt");
+    let output = run_mirtool(&["analyze", &path, "--json"]);
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid analyze JSON");
+    assert_eq!(json["kind"], "analyze");
+    assert_eq!(json["module"]["name"], "direct_call");
+    assert_eq!(json["functions"][0]["name"], "main");
+    assert_eq!(json["functions"][0]["pure_candidate"], false);
+    assert_eq!(json["functions"][0]["calls"][0]["name"], "callee");
+    assert_eq!(json["functions"][0]["calls"][0]["id"], 2);
+}
+
+#[test]
 fn test_trace_check_valid_memory_effects() {
     let path = fixture_path("valid_alloc_store_load_u32.mircap.txt");
     let output = run_mirtool(&["trace-check", &path]);
@@ -236,6 +251,29 @@ fn test_trace_check_valid_memory_effects() {
     assert!(stdout.contains("reads_memory: static=true observed=1 status=observed"));
     assert!(stdout.contains("writes_memory: static=true observed=1 status=observed"));
     assert!(stdout.contains("may_trap: static=true observed=0 status=conservative"));
+}
+
+#[test]
+fn test_trace_check_json_valid_memory_effects() {
+    let path = fixture_path("valid_alloc_store_load_u32.mircap.txt");
+    let output = run_mirtool(&["trace-check", &path, "--json"]);
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid trace-check JSON");
+    assert_eq!(json["kind"], "trace-check");
+    assert_eq!(json["module"]["name"], "alloc_store_load_u32");
+    assert_eq!(json["outcome"]["kind"], "returned");
+    assert_eq!(json["observed_totals"]["allocations"], 1);
+    assert_eq!(json["observed_totals"]["memory_reads"], 1);
+    assert_eq!(json["observed_totals"]["memory_writes"], 1);
+    assert_eq!(
+        json["functions"][0]["effects"]["allocates"]["status"],
+        "observed"
+    );
+    assert_eq!(
+        json["functions"][0]["effects"]["may_trap"]["status"],
+        "conservative"
+    );
 }
 
 #[test]

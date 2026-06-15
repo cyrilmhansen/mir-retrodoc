@@ -13,6 +13,7 @@ struct Args {
     keep_temp: bool,
     iterations: u32,
     optimize: bool,
+    json: bool,
 }
 
 fn show_help() -> String {
@@ -65,6 +66,9 @@ fn show_help() -> String {
     s.push_str(
         "  --optimize, -O                            Enable optimization passes on the lowered plan.\n",
     );
+    s.push_str(
+        "  --json                                    Emit JSON for supported report commands.\n",
+    );
     s
 }
 
@@ -83,6 +87,7 @@ fn parse_args() -> Result<Args, String> {
     let mut keep_temp = false;
     let mut iterations = 1000;
     let mut optimize = false;
+    let mut json = false;
 
     let mut positional = Vec::new();
 
@@ -92,6 +97,7 @@ fn parse_args() -> Result<Args, String> {
             "--force" => force = true,
             "--keep-temp" => keep_temp = true,
             "--optimize" | "-O" => optimize = true,
+            "--json" => json = true,
             "--iterations" => {
                 let val = args_iter
                     .next()
@@ -195,6 +201,7 @@ fn parse_args() -> Result<Args, String> {
         keep_temp,
         iterations,
         optimize,
+        json,
     })
 }
 
@@ -214,8 +221,10 @@ fn main() {
         "encode" => commands::cmd_encode(&args.input, args.output.as_ref().unwrap(), args.force),
         "decode" | "dump" => commands::cmd_decode(&args.input, args.format.as_deref()),
         "run" => commands::cmd_run(&args.input, args.format.as_deref(), entry_name, args.trace),
-        "analyze" => commands::cmd_analyze(&args.input, args.format.as_deref()),
-        "trace-check" => commands::cmd_trace_check(&args.input, args.format.as_deref(), entry_name),
+        "analyze" => commands::cmd_analyze(&args.input, args.format.as_deref(), args.json),
+        "trace-check" => {
+            commands::cmd_trace_check(&args.input, args.format.as_deref(), entry_name, args.json)
+        }
         "plan" => commands::cmd_plan(&args.input, args.format.as_deref()),
         "lower" => commands::cmd_lower(&args.input, args.format.as_deref(), args.optimize),
         "bench-load" => {

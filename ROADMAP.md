@@ -60,6 +60,8 @@ Status:
   elimination on lowered plans;
 - `mirtool analyze`, `mirtool trace-check`, `mirtool plan`, `mirtool lower`,
   and `mirtool diff-all` expose inspection and differential workflows;
+- `mirtool analyze --json` and `mirtool trace-check --json` expose the first
+  machine-readable reflection contract for tests, demos, and later tooling;
 - `mirrv32` emits RV32I assembly for the supported integer/address/memory
   subset, including `i64` lowering through register-pair style codegen;
 - `mirjit` demonstrates dynamic in-process execution through generated RV32I
@@ -76,8 +78,8 @@ program behavior inspectable and partially provable before attempting aggressive
 runtime replacement or speculative optimization.
 
 Status: first static and trace-backed slice started through `mirspace` effect
-summaries, `mirsem` effect counters, `mirtool analyze`, and `mirtool
-trace-check`; the broader conceptual starting point remains
+summaries, `mirsem` effect counters, `mirtool analyze`, `mirtool trace-check`,
+and JSON output for both commands. The broader conceptual starting point remains
 `docs/design-perspectives/02-runtime-introspection-and-tracing.md`.
 
 Target capabilities:
@@ -95,6 +97,8 @@ Target capabilities:
   guaranteed termination for straight-line or statically bounded code;
 - export machine-readable reflection data through `mirtool`, suitable for
   tests, demos, and later IDE/runtime tooling;
+- keep JSON reflection output stable enough for scripts while reserving the
+  human-readable text output for demos and quick inspection;
 - keep metaprogramming explicit and constrained: generated or transformed
   modules must pass the same validation, pretty-printing, binary roundtrip, and
   differential checks as hand-written fixtures.
@@ -126,13 +130,15 @@ Complexity analysis:
 ## Current Recommended Next Step
 
 The demo now has a coherent story from validation to interpretation, static
-effect analysis, trace-backed checking, lowering, C differential checks, Cap'n
-Proto serialization, float arithmetic, traps, and RV32I output. The best next
-demo-facing step is to make the trace comparison machine-readable and broader:
+effect analysis, trace-backed checking, machine-readable JSON reports,
+lowering, C differential checks, Cap'n Proto serialization, float arithmetic,
+traps, and RV32I output. The best next demo-facing step is to broaden the
+reflection data beyond per-function totals:
 
-- add JSON output for `mirtool analyze` and `mirtool trace-check`;
 - compare direct static call edges with observed caller/callee edges, not only
   function entry counts;
+- add a first symbolic cost summary over straight-line and acyclic lowered
+  plans;
 - keep float expansion deliberate by specifying comparisons, conversions, and
   the RV32FD versus soft-float backend decision separately.
 

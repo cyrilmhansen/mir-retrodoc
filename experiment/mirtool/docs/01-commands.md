@@ -6,6 +6,7 @@ This document details the inputs, options, and stable outputs of all `mirtool` c
 - `--format <text|binary>`: Override format detection (default: `.mircap.txt` -> text, `.mircap` -> binary).
 - `--entry <name>`: Define the function to call as the pipeline entry point (default: `main`).
 - `--trace`: Show interpreter execution metrics (instructions executed, maximum call depth, allocation profiles) after execution.
+- `--json`: Emit machine-readable JSON for supported report commands.
 - `--force`: Force overwrite of existing files during encoding.
 - `--keep-temp`: Keep transpiled `.c` and compiled binaries generated during differential testing.
 
@@ -55,6 +56,7 @@ Prints conservative static per-function effect summaries.
   - `guaranteed_terminates_trivially: <true|false>`
   - `pure_candidate: <true|false>`
   - `calls: -` or `calls: f<index>#<id> <name>[, ...]`
+* **JSON Output**: `--json` emits `kind`, `module`, and `functions`, with each function carrying the same static effect fields and structured direct-call targets.
 * **Scope**: These summaries are structural and conservative. They are intended for inspection, tests, demos, and the first reflection/runtime-intelligence slice, not full interprocedural proof.
 
 ## 6. `trace-check`
@@ -73,6 +75,7 @@ Runs the target entry function with `mirsem` and compares observed trace counter
   - `traps: <n>`
   - per-function observed call/instruction counts
   - per-effect `static=<true|false> observed=<n> status=<status>` lines
+* **JSON Output**: `--json` emits `kind`, `module`, `outcome`, `observed_totals`, and `functions`, with per-effect `static`, `observed`, and `status` fields.
 * **Statuses**:
   - `proven-absent`: static analysis ruled out an effect and this run did not observe it.
   - `observed`: static analysis allowed an effect and this run observed it.
