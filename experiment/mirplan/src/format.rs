@@ -356,7 +356,7 @@ fn format_lowered_kind_name(kind: &LoweredInstructionKind) -> &'static str {
 
 fn format_lowered_kind_detail(kind: &LoweredInstructionKind) -> String {
     match kind {
-        LoweredInstructionKind::Branch { targets } => {
+        LoweredInstructionKind::Branch { targets, .. } => {
             format!(" targets=[{}]", format_lowered_targets(targets))
         }
         LoweredInstructionKind::Call { callee } => {

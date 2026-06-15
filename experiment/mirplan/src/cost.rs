@@ -66,10 +66,14 @@ pub fn summarize_cost(program: &LoweredProgram) -> ProgramCostSummary {
 
 fn summarize_function_cost(function: &LoweredFunction) -> FunctionCostSummary {
     let mut bounded = function_cfg_is_acyclic(function);
-    let mut bound_kind = if bounded { "acyclic-structural" } else { "cyclic-unknown" };
-    
+    let mut bound_kind = if bounded {
+        "acyclic-structural"
+    } else {
+        "cyclic-unknown"
+    };
+
     let mut block_freqs = std::collections::HashMap::new();
-    
+
     if !bounded {
         if let Some(loops) = try_prove_all_counted_loops(function) {
             bounded = true;
@@ -89,7 +93,7 @@ fn summarize_function_cost(function: &LoweredFunction) -> FunctionCostSummary {
             }
         }
     }
-    
+
     let mut counts = CostCounts::default();
     for block in &function.blocks {
         let freq = *block_freqs.get(&block.label.ix).unwrap_or(&1);
@@ -129,10 +133,11 @@ fn try_prove_all_counted_loops(function: &LoweredFunction) -> Option<Vec<(BlockI
             }
         }
     }
-    
+
     let mut loops = Vec::new();
     for &(latch_ix, header_ix) in &backedges {
-        if let Some(trip_count) = try_prove_counted_loop_for_backedge(function, latch_ix, header_ix) {
+        if let Some(trip_count) = try_prove_counted_loop_for_backedge(function, latch_ix, header_ix)
+        {
             loops.push((header_ix, latch_ix, trip_count));
         } else {
             return None;
@@ -148,23 +153,25 @@ fn try_prove_counted_loop_for_backedge(
 ) -> Option<u64> {
     let header = function.blocks.iter().find(|b| b.label.ix == header_ix)?;
     let latch = function.blocks.iter().find(|b| b.label.ix == latch_ix)?;
-    
-    if header.successors.len() != 2 { 
-        return None; 
+
+    if header.successors.len() != 2 {
+        return None;
     }
-    
+
     let branch_insn = header.instructions.last()?;
     let (cond_val, true_target, false_target) = match &branch_insn.kind {
-        crate::LoweredInstructionKind::Branch { targets } if targets.len() == 2 => {
+        crate::LoweredInstructionKind::Branch { targets, .. } if targets.len() == 2 => {
             let cond_val = branch_insn.reads.get(0)?;
             (cond_val, targets[0].block.ix, targets[1].block.ix)
         }
-        _ => { return None; },
+        _ => {
+            return None;
+        }
     };
-    
+
     let true_in_loop = true_target.0 >= header_ix.0 && true_target.0 <= latch_ix.0;
     let false_in_loop = false_target.0 >= header_ix.0 && false_target.0 <= latch_ix.0;
-    
+
     let body_ix = if true_in_loop && !false_in_loop {
         true_target
     } else if false_in_loop && !true_in_loop {
@@ -172,25 +179,39 @@ fn try_prove_counted_loop_for_backedge(
     } else {
         return None;
     };
-    
-    let cond_insn = match header.instructions.iter().find(|i| i.writes.contains(cond_val)) {
+
+    let cond_insn = match header
+        .instructions
+        .iter()
+        .find(|i| i.writes.contains(cond_val))
+    {
         Some(i) => i,
-        None => { return None; }
+        None => {
+            return None;
+        }
     };
-    if cond_insn.reads.len() != 2 { return None; }
+    if cond_insn.reads.len() != 2 {
+        return None;
+    }
     let counter_val = &cond_insn.reads[0];
     let limit_val = &cond_insn.reads[1];
-    
+
     let mut counter_init = None;
     let mut limit_init = None;
     for b in &function.blocks {
-        if b.label.ix == header_ix || b.label.ix == body_ix { continue; }
+        if b.label.ix == header_ix || b.label.ix == body_ix {
+            continue;
+        }
         for i in &b.instructions {
-            if i.writes.contains(counter_val) { counter_init = Some(i); }
-            if i.writes.contains(limit_val) { limit_init = Some(i); }
+            if i.writes.contains(counter_val) {
+                counter_init = Some(i);
+            }
+            if i.writes.contains(limit_val) {
+                limit_init = Some(i);
+            }
         }
     }
-    
+
     fn extract_const_u64(insn: &crate::lower::LoweredInstruction) -> Option<u64> {
         for op in &insn.operands {
             match op {
@@ -202,13 +223,15 @@ fn try_prove_counted_loop_for_backedge(
         }
         None
     }
-    
+
     let start_val = counter_init.and_then(extract_const_u64).unwrap_or(0);
     let limit = match limit_init.and_then(extract_const_u64) {
         Some(v) => v,
-        None => { return None; }
+        None => {
+            return None;
+        }
     };
-    
+
     let mut increment_insn = None;
     for i in &latch.instructions {
         if i.writes.contains(counter_val) {
@@ -217,31 +240,41 @@ fn try_prove_counted_loop_for_backedge(
     }
     let increment_insn = match increment_insn {
         Some(i) => i,
-        None => { return None; }
+        None => {
+            return None;
+        }
     };
-    
+
     let step_val = match increment_insn.reads.iter().find(|&v| v != counter_val) {
         Some(v) => v,
-        None => { return None; }
+        None => {
+            return None;
+        }
     };
-    
+
     let mut step_init = None;
     for b in &function.blocks {
-        if b.label.ix == header_ix || b.label.ix == body_ix { continue; }
+        if b.label.ix == header_ix || b.label.ix == body_ix {
+            continue;
+        }
         for i in &b.instructions {
-            if i.writes.contains(step_val) { step_init = Some(i); }
+            if i.writes.contains(step_val) {
+                step_init = Some(i);
+            }
         }
     }
     let step = step_init.and_then(extract_const_u64).unwrap_or(1);
-    
-    if step == 0 { return None; }
-    
+
+    if step == 0 {
+        return None;
+    }
+
     let trip_count = if start_val < limit {
         (limit - start_val + step - 1) / step
     } else {
         0
     };
-    
+
     Some(trip_count)
 }
 

@@ -18,6 +18,12 @@ fn optimize_function(func: &mut LoweredFunction) {
 
     // Run dead code elimination pass
     dead_code_elimination_pass(func);
+
+    // Annotate static branch weights
+    annotate_static_branch_weights(func);
+
+    // Reorder blocks to optimize hot paths
+    reorder_blocks_for_hot_path(func);
 }
 
 fn constant_folding_pass(func: &mut LoweredFunction) {
@@ -144,6 +150,7 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                             kind: EdgeKind::Unconditional,
                             block: target_lbl.clone(),
                         }],
+                        weights: None,
                     };
 
                     folded_branch = Some(target_lbl);
@@ -163,6 +170,7 @@ fn constant_folding_pass(func: &mut LoweredFunction) {
                             kind: EdgeKind::Unconditional,
                             block: target_lbl.clone(),
                         }],
+                        weights: None,
                     };
 
                     folded_branch = Some(target_lbl);
@@ -287,4 +295,116 @@ fn has_side_effects(opcode: Opcode) -> bool {
             | Opcode::NeI64
             | Opcode::LtI64
     )
+}
+
+fn annotate_static_branch_weights(func: &mut LoweredFunction) {
+    let mut trap_blocks = HashSet::new();
+    for block in &func.blocks {
+        if block.instructions.iter().any(|i| i.opcode == Opcode::Trap) {
+            trap_blocks.insert(block.label.ix);
+        }
+    }
+
+    for block in &mut func.blocks {
+        let block_ix = block.label.ix;
+        for insn in &mut block.instructions {
+            if let LoweredInstructionKind::Branch { targets, weights } = &mut insn.kind {
+                if targets.len() == 2 {
+                    let mut target_weights = vec![50, 50];
+
+                    let target_0_ix = targets[0].block.ix;
+                    let target_1_ix = targets[1].block.ix;
+
+                    let is_backedge_0 = target_0_ix.0 <= block_ix.0;
+                    let is_backedge_1 = target_1_ix.0 <= block_ix.0;
+
+                    if is_backedge_0 && !is_backedge_1 {
+                        target_weights = vec![90, 10];
+                    } else if is_backedge_1 && !is_backedge_0 {
+                        target_weights = vec![10, 90];
+                    }
+
+                    let is_trap_0 = trap_blocks.contains(&target_0_ix);
+                    let is_trap_1 = trap_blocks.contains(&target_1_ix);
+
+                    if is_trap_0 && !is_trap_1 {
+                        target_weights = vec![1, 99];
+                    } else if is_trap_1 && !is_trap_0 {
+                        target_weights = vec![99, 1];
+                    }
+
+                    *weights = Some(target_weights);
+                }
+            }
+        }
+    }
+}
+
+fn reorder_blocks_for_hot_path(func: &mut LoweredFunction) {
+    if func.blocks.is_empty() {
+        return;
+    }
+    let mut ordered = Vec::new();
+    let mut visited = HashSet::new();
+
+    let all_blocks = std::mem::take(&mut func.blocks);
+    let mut block_map: HashMap<mirspace::BlockIx, crate::lower::LoweredBlock> =
+        all_blocks.into_iter().map(|b| (b.label.ix, b)).collect();
+
+    let mut roots = vec![func.entry.ix];
+    while let Some(root) = roots.pop() {
+        let mut curr = Some(root);
+        while let Some(ix) = curr {
+            if !visited.insert(ix) {
+                break;
+            }
+            let block = block_map.remove(&ix).unwrap();
+
+            let mut hottest_succ = None;
+            let mut max_weight = 0;
+
+            if let Some(branch_insn) = block.instructions.last() {
+                if let LoweredInstructionKind::Branch { targets, weights } = &branch_insn.kind {
+                    if let Some(w) = weights {
+                        for (i, target) in targets.iter().enumerate() {
+                            let target_ix = target.block.ix;
+                            if !visited.contains(&target_ix) {
+                                if w[i] >= max_weight {
+                                    max_weight = w[i];
+                                    hottest_succ = Some(target_ix);
+                                }
+                            }
+                        }
+                    } else {
+                        for target in targets {
+                            let target_ix = target.block.ix;
+                            if !visited.contains(&target_ix) {
+                                hottest_succ = Some(target_ix);
+                                break;
+                            }
+                        }
+                    }
+
+                    for target in targets {
+                        if !visited.contains(&target.block.ix)
+                            && Some(target.block.ix) != hottest_succ
+                        {
+                            roots.push(target.block.ix);
+                        }
+                    }
+                }
+            }
+
+            ordered.push(block);
+            curr = hottest_succ;
+        }
+    }
+
+    let mut remaining: Vec<_> = block_map.into_iter().collect();
+    remaining.sort_by_key(|(ix, _)| ix.0);
+    for (_, block) in remaining {
+        ordered.push(block);
+    }
+
+    func.blocks = ordered;
 }

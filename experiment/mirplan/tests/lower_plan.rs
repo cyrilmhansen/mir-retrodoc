@@ -35,7 +35,7 @@ fn lowers_branch_targets_and_value_reads() {
     );
     assert!(branch.writes.is_empty());
 
-    let LoweredInstructionKind::Branch { targets } = &branch.kind else {
+    let LoweredInstructionKind::Branch { targets, .. } = &branch.kind else {
         panic!("expected lowered branch");
     };
     assert_eq!(targets.len(), 2);

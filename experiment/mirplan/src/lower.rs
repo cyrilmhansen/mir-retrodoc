@@ -41,11 +41,18 @@ pub struct LoweredInstruction {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LoweredInstructionKind {
     Value,
-    Branch { targets: Vec<LoweredBranchTarget> },
-    Call { callee: LoweredFunctionRef },
+    Branch {
+        targets: Vec<LoweredBranchTarget>,
+        weights: Option<Vec<u64>>,
+    },
+    Call {
+        callee: LoweredFunctionRef,
+    },
     Return,
     Trap,
-    Memory { op: LoweredMemoryOp },
+    Memory {
+        op: LoweredMemoryOp,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -166,6 +173,7 @@ fn lower_instruction_kind(instruction: &crate::InstructionPlan) -> LoweredInstru
     match instruction.opcode {
         Opcode::Branch | Opcode::BranchIf => LoweredInstructionKind::Branch {
             targets: branch_targets_from_operands(&instruction.operands),
+            weights: None,
         },
         Opcode::Call => LoweredInstructionKind::Call {
             callee: callee_from_operands(&instruction.operands),
