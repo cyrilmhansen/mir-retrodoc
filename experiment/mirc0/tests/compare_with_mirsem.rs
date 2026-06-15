@@ -474,3 +474,21 @@ fn diff_float_arithmetic() {
         ExecutionProfile::default(),
     );
 }
+
+#[test]
+fn diff_float_cmp() {
+    run_differential(
+        "float_cmp",
+        include_str!("../../mircap/tests/fixtures/valid_float_cmp.mircap.txt"),
+        ExecutionProfile::default(),
+    );
+}
+
+#[test]
+fn diff_float_convert() {
+    run_differential(
+        "float_convert",
+        include_str!("../../mircap/tests/fixtures/valid_float_convert.mircap.txt"),
+        ExecutionProfile::default(),
+    );
+}

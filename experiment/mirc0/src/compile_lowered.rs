@@ -461,17 +461,26 @@ fn emit_lowered_instruction(
         | Opcode::LtF64
         | Opcode::LeF64
         | Opcode::GtF64
-        | Opcode::GeF64
-        | Opcode::I32ToF32
-        | Opcode::F32ToI32
-        | Opcode::I32ToF64
-        | Opcode::F64ToI32
-        | Opcode::F32ToF64
-        | Opcode::F64ToF32
-        | Opcode::UnsupportedIndirectCall => {
+        | Opcode::GeF64 => emit_compare(instruction, false),
+        Opcode::I32ToF32 => emit_convert(instruction, "float"),
+        Opcode::F32ToI32 => emit_convert(instruction, "int32_t"),
+        Opcode::I32ToF64 => emit_convert(instruction, "double"),
+        Opcode::F64ToI32 => emit_convert(instruction, "int32_t"),
+        Opcode::F32ToF64 => emit_convert(instruction, "double"),
+        Opcode::F64ToF32 => emit_convert(instruction, "float"),
+        Opcode::UnsupportedIndirectCall => {
             Err(CompileError::UnsupportedOpcode(instruction.opcode))
         }
     }
+}
+
+fn emit_convert(
+    instruction: &LoweredInstruction,
+    c_type: &str,
+) -> Result<String, CompileError> {
+    let dest = one_write(instruction)?;
+    let src = emit_operand(one_operand(instruction, 0)?);
+    Ok(format!("v{} = ({}){};", dest.id.0, c_type, src))
 }
 
 fn emit_compare(instruction: &LoweredInstruction, _signed: bool) -> Result<String, CompileError> {
@@ -555,12 +564,12 @@ fn arithmetic_symbol(opcode: Opcode) -> Result<&'static str, CompileError> {
 
 fn compare_symbol(opcode: Opcode) -> Result<&'static str, CompileError> {
     match opcode {
-        Opcode::EqI32 | Opcode::EqU32 | Opcode::EqI64 => Ok("=="),
-        Opcode::NeI32 | Opcode::NeU32 | Opcode::NeI64 => Ok("!="),
-        Opcode::LtI32 | Opcode::LtU32 | Opcode::LtI64 => Ok("<"),
-        Opcode::LeU32 => Ok("<="),
-        Opcode::GtU32 => Ok(">"),
-        Opcode::GeU32 => Ok(">="),
+        Opcode::EqI32 | Opcode::EqU32 | Opcode::EqI64 | Opcode::EqF32 | Opcode::EqF64 => Ok("=="),
+        Opcode::NeI32 | Opcode::NeU32 | Opcode::NeI64 | Opcode::NeF32 | Opcode::NeF64 => Ok("!="),
+        Opcode::LtI32 | Opcode::LtU32 | Opcode::LtI64 | Opcode::LtF32 | Opcode::LtF64 => Ok("<"),
+        Opcode::LeU32 | Opcode::LeF32 | Opcode::LeF64 => Ok("<="),
+        Opcode::GtU32 | Opcode::GtF32 | Opcode::GtF64 => Ok(">"),
+        Opcode::GeU32 | Opcode::GeF32 | Opcode::GeF64 => Ok(">="),
         _ => Err(CompileError::UnsupportedOpcode(opcode)),
     }
 }

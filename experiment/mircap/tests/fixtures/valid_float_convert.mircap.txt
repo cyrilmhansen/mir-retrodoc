@@ -1,0 +1,12 @@
+mircap mircap
+version 0
+module 1 float_convert
+type 1 f32
+type 2 i32
+symbol 1 main function
+function 1 1 - 2 3 0 1,2,2
+func_block 1 1
+block 1 1 1 2 3
+insn 1 const_f32 r:0 f32:3.14
+insn 2 f32_to_i32 r:1 v:0
+insn 3 ret v:1

@@ -34,9 +34,7 @@ Status:
 
 The currently implemented language surface includes integer, address, memory,
 control-flow, direct-call, return, trap, `i64`, and byte-memory operations.
-Floating-point support has started: `f32` and `f64` constants and arithmetic are
-validated and executable in `mirsem`, but are not yet emitted by the C, RV32, or
-JIT backends.
+Floating-point support includes `f32` and `f64` constants, arithmetic, comparisons, and conversions. These are validated and executable in `mirsem`, transpiled by `mirc0`, and emitted by `mirrv32` using the RV32FD extension.
 
 Unsupported upstream MIR features are rejected or documented explicitly.
 
@@ -151,9 +149,9 @@ output, and empirical complexity classification (`mirtool growth`).
 
 The best next strategic steps to deepen the analysis and backend coverage are:
 
-- expand floating-point support deliberately by specifying comparisons,
+- ~~expand floating-point support deliberately by specifying comparisons,
   conversions, and deciding between an RV32FD or soft-float backend
-  implementation;
+  implementation~~ (Done);
 - begin evaluating host C ABI, varargs, or aggregate lowering to expand the
   functional subset.
 
@@ -167,9 +165,6 @@ stable:
 
 - host C ABI and varargs;
 - aggregate lowering;
-- float comparisons and integer/float conversions;
-- float RV32/JIT coverage beyond constants and arithmetic;
-- RV32FD hardware floating-point or soft-float helper design;
 - fantasy-computer target work;
 - lazy basic-block versioning;
 - runtime code replacement or deoptimization.

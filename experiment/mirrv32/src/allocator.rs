@@ -119,10 +119,13 @@ impl StackFrame {
             }
         }
 
-        // Collect and sort intervals by start time, filtering out i64 values
+        // Collect and sort intervals by start time, filtering out i64/f64 values
         let mut intervals: Vec<(ValueId, usize, usize)> = start_idx
             .keys()
-            .filter(|&&id| val_types.get(&id) != Some(&mircap::TypeKind::I64))
+            .filter(|&&id| {
+                let ty = val_types.get(&id);
+                ty != Some(&mircap::TypeKind::I64) && ty != Some(&mircap::TypeKind::F64)
+            })
             .map(|&id| {
                 let start = *start_idx.get(&id).unwrap();
                 let end = *end_idx.get(&id).unwrap_or(&start);
@@ -134,7 +137,8 @@ impl StackFrame {
         let mut registers = HashMap::new();
         let mut spilled_vars = Vec::new();
         for &id in start_idx.keys() {
-            if val_types.get(&id) == Some(&mircap::TypeKind::I64) {
+            let ty = val_types.get(&id);
+            if ty == Some(&mircap::TypeKind::I64) || ty == Some(&mircap::TypeKind::F64) {
                 spilled_vars.push(id);
             }
         }
@@ -198,8 +202,9 @@ impl StackFrame {
         // Allocate slots for spilled variables
         let mut slots = HashMap::new();
         for val_id in spilled_vars {
-            let is_i64 = val_types.get(&val_id) == Some(&mircap::TypeKind::I64);
-            if is_i64 {
+            let is_i64_or_f64 = val_types.get(&val_id) == Some(&mircap::TypeKind::I64)
+                || val_types.get(&val_id) == Some(&mircap::TypeKind::F64);
+            if is_i64_or_f64 {
                 offset -= 8;
                 slots.insert(val_id, offset);
             } else {
@@ -211,8 +216,8 @@ impl StackFrame {
         // Ensure parameters that were spilled (or not allocated) also have slots.
         for param in &function.params {
             if !registers.contains_key(&param.id) && !slots.contains_key(&param.id) {
-                let is_i64 = param.type_kind == mircap::TypeKind::I64;
-                if is_i64 {
+                let is_i64_or_f64 = param.type_kind == mircap::TypeKind::I64 || param.type_kind == mircap::TypeKind::F64;
+                if is_i64_or_f64 {
                     offset -= 8;
                     slots.insert(param.id, offset);
                 } else {

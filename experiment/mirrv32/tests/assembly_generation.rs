@@ -19,7 +19,7 @@ fn test_assembly_generation_const_return() {
     println!("Generated RV32I Assembly:\n{}", asm);
 
     // Verify metadata directives
-    assert!(asm.contains(".attribute arch, \"rv32im\""));
+    assert!(asm.contains(".attribute arch, \"rv32imafd\""));
     assert!(asm.contains(".section .text"));
 
     // Verify function global declaration & symbol

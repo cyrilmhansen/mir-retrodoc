@@ -145,8 +145,8 @@ heap_buffer:
 
     let mut compile_cmd = Command::new("riscv64-linux-gnu-gcc");
     compile_cmd
-        .arg("-mabi=ilp32")
-        .arg("-march=rv32im")
+        .arg("-mabi=ilp32d")
+        .arg("-march=rv32imafd")
         .arg("-static")
         .arg("-nostdlib")
         .arg("-o")
@@ -273,4 +273,57 @@ fn test_rv32i_i64() {
 
     let code_opt = execute_rv32i(I64_FIXTURE, "i64_opt", true);
     assert_eq!(code_opt, 42);
+}
+
+#[test]
+fn test_rv32i_float_arithmetic() {
+    if !check_tools() { return; }
+    let code = execute_rv32i(
+        include_str!("../../mircap/tests/fixtures/valid_float_arithmetic.mircap.txt"),
+        "float_arithmetic_opt",
+        true,
+    );
+    assert_eq!(code, 0); 
+    let code_unopt = execute_rv32i(
+        include_str!("../../mircap/tests/fixtures/valid_float_arithmetic.mircap.txt"),
+        "float_arithmetic_unopt",
+        false,
+    );
+    assert_eq!(code_unopt, 0);
+}
+
+#[test]
+fn test_rv32i_float_cmp() {
+    if !check_tools() { return; }
+    let code = execute_rv32i(
+        include_str!("../../mircap/tests/fixtures/valid_float_cmp.mircap.txt"),
+        "float_cmp_opt",
+        true,
+    );
+    assert_eq!(code, 1);
+
+    let code_unopt = execute_rv32i(
+        include_str!("../../mircap/tests/fixtures/valid_float_cmp.mircap.txt"),
+        "float_cmp_unopt",
+        false,
+    );
+    assert_eq!(code_unopt, 1);
+}
+
+#[test]
+fn test_rv32i_float_convert() {
+    if !check_tools() { return; }
+    let code = execute_rv32i(
+        include_str!("../../mircap/tests/fixtures/valid_float_convert.mircap.txt"),
+        "float_convert_opt",
+        true,
+    );
+    assert_eq!(code, 3);
+
+    let code_unopt = execute_rv32i(
+        include_str!("../../mircap/tests/fixtures/valid_float_convert.mircap.txt"),
+        "float_convert_unopt",
+        false,
+    );
+    assert_eq!(code_unopt, 3);
 }

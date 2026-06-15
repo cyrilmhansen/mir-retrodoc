@@ -520,27 +520,60 @@ impl Validator<'_> {
             | Opcode::LtF32
             | Opcode::LeF32
             | Opcode::GtF32
-            | Opcode::GeF32
-            | Opcode::EqF64
+            | Opcode::GeF32 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 2);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::I32);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::F32);
+                self.expect_operand_type(current_function, insn, functions, 1, TypeKind::F32);
+            }
+            Opcode::EqF64
             | Opcode::NeF64
             | Opcode::LtF64
             | Opcode::LeF64
             | Opcode::GtF64
-            | Opcode::GeF64
-            | Opcode::I32ToF32
-            | Opcode::F32ToI32
-            | Opcode::I32ToF64
-            | Opcode::F64ToI32
-            | Opcode::F32ToF64
-            | Opcode::F64ToF32 => {
-                self.error(
-                    ErrorKind::UnsupportedFeature,
-                    EntityRef::Instruction(insn.id),
-                    format!(
-                        "reserved MIR-F0 float opcode is not executable yet: {:?}",
-                        insn.opcode
-                    ),
-                );
+            | Opcode::GeF64 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 2);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::I32);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::F64);
+                self.expect_operand_type(current_function, insn, functions, 1, TypeKind::F64);
+            }
+            Opcode::I32ToF32 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::F32);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::I32);
+            }
+            Opcode::F32ToI32 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::I32);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::F32);
+            }
+            Opcode::I32ToF64 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::F64);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::I32);
+            }
+            Opcode::F64ToI32 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::I32);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::F64);
+            }
+            Opcode::F32ToF64 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::F64);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::F32);
+            }
+            Opcode::F64ToF32 => {
+                self.expect_results(insn, 1);
+                self.expect_operands(insn, 1);
+                self.expect_result_type(current_function, insn, functions, 0, TypeKind::F32);
+                self.expect_operand_type(current_function, insn, functions, 0, TypeKind::F64);
             }
             Opcode::UnsupportedIndirectCall => {}
         }

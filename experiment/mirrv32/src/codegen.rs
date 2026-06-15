@@ -45,7 +45,7 @@ impl mirplan::Backend for Riscv32Backend {
     fn compile(&self, program: &LoweredProgram) -> Result<Self::Output, Self::Error> {
         let mut asm = String::new();
 
-        writeln!(&mut asm, ".attribute arch, \"rv32im\"")?;
+        writeln!(&mut asm, ".attribute arch, \"rv32imafd\"")?;
         writeln!(&mut asm, ".section .text")?;
 
         // 1. Forward declaration globals
@@ -851,39 +851,273 @@ fn emit_instruction(
                 commit_dest(asm, dest, d_reg, frame)?;
             }
         }
-        Opcode::ConstF32
-        | Opcode::ConstF64
-        | Opcode::AddF32
-        | Opcode::SubF32
-        | Opcode::MulF32
-        | Opcode::DivF32
-        | Opcode::NegF32
-        | Opcode::EqF32
-        | Opcode::NeF32
-        | Opcode::LtF32
-        | Opcode::LeF32
-        | Opcode::GtF32
-        | Opcode::GeF32
-        | Opcode::AddF64
-        | Opcode::SubF64
-        | Opcode::MulF64
-        | Opcode::DivF64
-        | Opcode::NegF64
-        | Opcode::EqF64
-        | Opcode::NeF64
-        | Opcode::LtF64
-        | Opcode::LeF64
-        | Opcode::GtF64
-        | Opcode::GeF64
-        | Opcode::I32ToF32
-        | Opcode::F32ToI32
-        | Opcode::I32ToF64
-        | Opcode::F64ToI32
-        | Opcode::F32ToF64
-        | Opcode::F64ToF32
-        | Opcode::UnsupportedIndirectCall => {
+        Opcode::ConstF32 => {
+            let dest = one_write(insn)?;
+            let bits = match insn.operands.first().unwrap() {
+                LoweredOperand::ImmF32(val) => *val,
+                _ => return Err(CodegenError::Generic("Expected ImmF32".to_string())),
+            };
+            writeln!(asm, "    li t0, {}", bits as i32)?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::ConstF64 => {
+            let dest = one_write(insn)?;
+            let offset = frame.offset_of(dest.id);
+            let bits = match insn.operands.first().unwrap() {
+                LoweredOperand::ImmF64(val) => *val,
+                _ => return Err(CodegenError::Generic("Expected ImmF64".to_string())),
+            };
+            let low = (bits & 0xFFFFFFFF) as u32;
+            let high = ((bits >> 32) & 0xFFFFFFFF) as u32;
+            writeln!(asm, "    li t0, {}", low as i32)?;
+            writeln!(asm, "    sw t0, {}(s0)", offset)?;
+            writeln!(asm, "    li t0, {}", high as i32)?;
+            writeln!(asm, "    sw t0, {}(s0)", offset + 4)?;
+        }
+        Opcode::AddF32 | Opcode::SubF32 | Opcode::MulF32 | Opcode::DivF32 => {
+            let dest = one_write(insn)?;
+            resolve_f32_operand(asm, &insn.operands[0], "ft0", frame)?;
+            resolve_f32_operand(asm, &insn.operands[1], "ft1", frame)?;
+            let op_str = match insn.opcode {
+                Opcode::AddF32 => "fadd.s",
+                Opcode::SubF32 => "fsub.s",
+                Opcode::MulF32 => "fmul.s",
+                Opcode::DivF32 => "fdiv.s",
+                _ => unreachable!(),
+            };
+            writeln!(asm, "    {} ft2, ft0, ft1", op_str)?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsw ft2, {}(s0)", offset)?;
+        }
+        Opcode::AddF64 | Opcode::SubF64 | Opcode::MulF64 | Opcode::DivF64 => {
+            let dest = one_write(insn)?;
+            resolve_f64_operand(asm, &insn.operands[0], "ft0", frame)?;
+            resolve_f64_operand(asm, &insn.operands[1], "ft1", frame)?;
+            let op_str = match insn.opcode {
+                Opcode::AddF64 => "fadd.d",
+                Opcode::SubF64 => "fsub.d",
+                Opcode::MulF64 => "fmul.d",
+                Opcode::DivF64 => "fdiv.d",
+                _ => unreachable!(),
+            };
+            writeln!(asm, "    {} ft2, ft0, ft1", op_str)?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsd ft2, {}(s0)", offset)?;
+        }
+        Opcode::NegF32 => {
+            let dest = one_write(insn)?;
+            resolve_f32_operand(asm, &insn.operands[0], "ft0", frame)?;
+            writeln!(asm, "    fneg.s ft1, ft0")?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsw ft1, {}(s0)", offset)?;
+        }
+        Opcode::NegF64 => {
+            let dest = one_write(insn)?;
+            resolve_f64_operand(asm, &insn.operands[0], "ft0", frame)?;
+            writeln!(asm, "    fneg.d ft1, ft0")?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsd ft1, {}(s0)", offset)?;
+        }
+        Opcode::EqF32 | Opcode::LtF32 | Opcode::LeF32 => {
+            let dest = one_write(insn)?;
+            resolve_f32_operand(asm, &insn.operands[0], "ft0", frame)?;
+            resolve_f32_operand(asm, &insn.operands[1], "ft1", frame)?;
+            let (op_str, reg1, reg2) = match insn.opcode {
+                Opcode::EqF32 => ("feq.s", "ft0", "ft1"),
+                Opcode::LtF32 => ("flt.s", "ft0", "ft1"),
+                Opcode::LeF32 => ("fle.s", "ft0", "ft1"),
+                _ => unreachable!(),
+            };
+            writeln!(asm, "    {} t0, {}, {}", op_str, reg1, reg2)?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::NeF32 | Opcode::GtF32 | Opcode::GeF32 => {
+            let dest = one_write(insn)?;
+            resolve_f32_operand(asm, &insn.operands[0], "ft0", frame)?;
+            resolve_f32_operand(asm, &insn.operands[1], "ft1", frame)?;
+            match insn.opcode {
+                Opcode::NeF32 => {
+                    writeln!(asm, "    feq.s t0, ft0, ft1")?;
+                    writeln!(asm, "    seqz t0, t0")?;
+                }
+                Opcode::GtF32 => {
+                    writeln!(asm, "    flt.s t0, ft1, ft0")?;
+                }
+                Opcode::GeF32 => {
+                    writeln!(asm, "    fle.s t0, ft1, ft0")?;
+                }
+                _ => unreachable!(),
+            };
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::EqF64 | Opcode::LtF64 | Opcode::LeF64 => {
+            let dest = one_write(insn)?;
+            resolve_f64_operand(asm, &insn.operands[0], "ft0", frame)?;
+            resolve_f64_operand(asm, &insn.operands[1], "ft1", frame)?;
+            let (op_str, reg1, reg2) = match insn.opcode {
+                Opcode::EqF64 => ("feq.d", "ft0", "ft1"),
+                Opcode::LtF64 => ("flt.d", "ft0", "ft1"),
+                Opcode::LeF64 => ("fle.d", "ft0", "ft1"),
+                _ => unreachable!(),
+            };
+            writeln!(asm, "    {} t0, {}, {}", op_str, reg1, reg2)?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::NeF64 | Opcode::GtF64 | Opcode::GeF64 => {
+            let dest = one_write(insn)?;
+            resolve_f64_operand(asm, &insn.operands[0], "ft0", frame)?;
+            resolve_f64_operand(asm, &insn.operands[1], "ft1", frame)?;
+            match insn.opcode {
+                Opcode::NeF64 => {
+                    writeln!(asm, "    feq.d t0, ft0, ft1")?;
+                    writeln!(asm, "    seqz t0, t0")?;
+                }
+                Opcode::GtF64 => {
+                    writeln!(asm, "    flt.d t0, ft1, ft0")?;
+                }
+                Opcode::GeF64 => {
+                    writeln!(asm, "    fle.d t0, ft1, ft0")?;
+                }
+                _ => unreachable!(),
+            };
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::I32ToF32 => {
+            let dest = one_write(insn)?;
+            let s_reg = resolve_operand(asm, &insn.operands[0], "t0", frame)?;
+            writeln!(asm, "    fcvt.s.w ft0, {}", s_reg)?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsw ft0, {}(s0)", offset)?;
+        }
+        Opcode::F32ToI32 => {
+            let dest = one_write(insn)?;
+            resolve_f32_operand(asm, &insn.operands[0], "ft0", frame)?;
+            writeln!(asm, "    fcvt.w.s t0, ft0, rtz")?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::I32ToF64 => {
+            let dest = one_write(insn)?;
+            let s_reg = resolve_operand(asm, &insn.operands[0], "t0", frame)?;
+            writeln!(asm, "    fcvt.d.w ft0, {}", s_reg)?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsd ft0, {}(s0)", offset)?;
+        }
+        Opcode::F64ToI32 => {
+            let dest = one_write(insn)?;
+            resolve_f64_operand(asm, &insn.operands[0], "ft0", frame)?;
+            writeln!(asm, "    fcvt.w.d t0, ft0, rtz")?;
+            let (d_reg, spill) = resolve_dest(dest, "t1", frame);
+            if d_reg != "t0" {
+                writeln!(asm, "    mv {}, t0", d_reg)?;
+            }
+            if spill {
+                commit_dest(asm, dest, d_reg, frame)?;
+            }
+        }
+        Opcode::F32ToF64 => {
+            let dest = one_write(insn)?;
+            resolve_f32_operand(asm, &insn.operands[0], "ft0", frame)?;
+            writeln!(asm, "    fcvt.d.s ft1, ft0")?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsd ft1, {}(s0)", offset)?;
+        }
+        Opcode::F64ToF32 => {
+            let dest = one_write(insn)?;
+            resolve_f64_operand(asm, &insn.operands[0], "ft0", frame)?;
+            writeln!(asm, "    fcvt.s.d ft1, ft0")?;
+            let offset = frame.offset_of(dest.id);
+            writeln!(asm, "    fsw ft1, {}(s0)", offset)?;
+        }
+        Opcode::UnsupportedIndirectCall => {
             return Err(CodegenError::UnsupportedOpcode(insn.opcode))
         }
+    }
+    Ok(())
+}
+
+fn resolve_f32_operand(
+    asm: &mut String,
+    op: &LoweredOperand,
+    freg: &str,
+    frame: &StackFrame,
+) -> Result<(), CodegenError> {
+    match op {
+        LoweredOperand::Value(val) => {
+            if let Some(reg) = frame.registers.get(&val.id) {
+                writeln!(asm, "    fmv.w.x {}, {}", freg, reg.name())?;
+            } else {
+                let offset = frame.offset_of(val.id);
+                writeln!(asm, "    flw {}, {}(s0)", freg, offset)?;
+            }
+        }
+        LoweredOperand::ImmF32(bits) => {
+            writeln!(asm, "    li t0, {}", *bits as i32)?;
+            writeln!(asm, "    fmv.w.x {}, t0", freg)?;
+        }
+        _ => return Err(CodegenError::Generic("Expected F32 operand".to_string())),
+    }
+    Ok(())
+}
+
+fn resolve_f64_operand(
+    asm: &mut String,
+    op: &LoweredOperand,
+    freg: &str,
+    frame: &StackFrame,
+) -> Result<(), CodegenError> {
+    match op {
+        LoweredOperand::Value(val) => {
+            let offset = frame.offset_of(val.id);
+            writeln!(asm, "    fld {}, {}(s0)", freg, offset)?;
+        }
+        LoweredOperand::ImmF64(bits) => {
+            let low = (*bits & 0xFFFFFFFF) as u32;
+            let high = ((*bits >> 32) & 0xFFFFFFFF) as u32;
+            writeln!(asm, "    li t0, {}", low as i32)?;
+            writeln!(asm, "    li t1, {}", high as i32)?;
+            writeln!(asm, "    addi sp, sp, -8")?;
+            writeln!(asm, "    sw t0, 0(sp)")?;
+            writeln!(asm, "    sw t1, 4(sp)")?;
+            writeln!(asm, "    fld {}, 0(sp)", freg)?;
+            writeln!(asm, "    addi sp, sp, 8")?;
+        }
+        _ => return Err(CodegenError::Generic("Expected F64 operand".to_string())),
     }
     Ok(())
 }
